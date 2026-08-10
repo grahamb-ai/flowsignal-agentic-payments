@@ -85,3 +85,60 @@ The executor and protected-state evidence establish whether that determination a
 ## Status
 
 **DEFINED — NOT YET EXECUTED**
+---
+
+## Initial Execution Result
+
+**Classification: FAIL**
+
+The first executable AT-003 test was run against the preserved `v0.9-baseline`.
+
+### Test Executed
+
+`test_at003_execution_without_authority_determination`
+
+### Observed Result
+
+The simulated protected payment executed successfully without a Runtime Authority determination being supplied to the executor.
+
+Observed protected state:
+
+- `executed = True`
+- `amount = 25000.00`
+- `beneficiary = supplier-001`
+
+The test therefore failed the required invariant:
+
+`NO VALID CURRENT ALLOW -> NO EXECUTION`
+
+### Finding
+
+The result demonstrates that the v0.9 reference implementation does not establish the Runtime Authority determination as a necessary execution dependency.
+
+The implementation demonstrates that an authority determination can be formed and evidenced. AT-003 shows that this does not, by itself, prove that the protected financial consequence cannot occur independently of that determination.
+
+This is classified as an **executor-binding control-boundary gap** in the reference implementation.
+
+It does not demonstrate a vulnerability in external payment infrastructure or any production financial system.
+
+### Evidence
+
+Executable test:
+
+`harness/tests/test_at003_executor_binding.py`
+
+Observed pytest outcome:
+
+**FAIL**
+
+Failure reason:
+
+`AT-003 FAILURE: protected financial consequence occurred without a valid current ALLOW determination.`
+
+This failing result is intentionally preserved before any v0.10 enforcement changes are introduced.
+
+### Next Test Obligation
+
+The next implementation step is to introduce an execution path in which the protected financial consequence requires successful consumption of a valid, current Runtime Authority determination.
+
+AT-003 will then be rerun to determine whether executor binding has actually been established.
