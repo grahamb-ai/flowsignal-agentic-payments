@@ -142,3 +142,4 @@ This failing result is intentionally preserved before any v0.10 enforcement chan
 The next implementation step is to introduce an execution path in which the protected financial consequence requires successful consumption of a valid, current Runtime Authority determination.
 
 AT-003 will then be rerun to determine whether executor binding has actually been established.
+<img width="1606" height="884" alt="image" src="https://github.com/user-attachments/assets/2ca8ea03-9d34-42f5-b4b8-426cd1b52125" />
