@@ -1,4 +1,4 @@
-# FlowSignal Agentic Payments Visual Harness — v0.8
+# FlowSignal Agentic Payments Visual Harness — v0.9
 
 This release adds a dedicated live dashboard over the six FS-AN-004 canonical scenarios.
 
