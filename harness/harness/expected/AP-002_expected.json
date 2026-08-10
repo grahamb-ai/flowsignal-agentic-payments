@@ -1,0 +1,22 @@
+{
+  "scenario_id": "AP-002",
+  "decision": "ESCALATE",
+  "reason_code": "ADDITIONAL_AUTHORITY_OR_EVIDENCE_REQUIRED",
+  "execution_status": "WITHHELD",
+  "failed_check": "amount_within_limit",
+  "failure_outcome": "ESCALATE",
+  "unchanged_conditions": [
+    "actor_authenticated",
+    "kya_verified",
+    "mandate_active",
+    "mandate_not_expired",
+    "action_permitted",
+    "currency_permitted",
+    "source_account_permitted",
+    "counterparty_approved",
+    "account_active",
+    "risk_state_permits_execution",
+    "screening_clear",
+    "screening_fresh"
+  ]
+}

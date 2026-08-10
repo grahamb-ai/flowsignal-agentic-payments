@@ -1,0 +1,16 @@
+# Agentic Payments Runtime Policy v0.1
+#
+# Canonical test policy for AP-001.
+# This file is intentionally human-readable. The current MVP extractor does not
+# yet understand every statement below; the next harness increment will map
+# these conditions into deterministic runtime checks.
+
+Authorized roles for payment.release: treasury_agent, finance_director, cfo.
+The treasury_agent may approve payment.release up to 1,000,000 GBP.
+payment.release requires sanctions_screening.
+payment.release source account must be TREASURY-001.
+payment.release beneficiary must be an approved supplier.
+payment.release requires an active mandate.
+payment.release requires authenticated actor status.
+payment.release requires verified KYA status.
+payment.release requires current screening evidence.

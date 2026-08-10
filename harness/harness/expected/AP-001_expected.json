@@ -1,0 +1,21 @@
+{
+  "scenario_id": "AP-001",
+  "decision": "ALLOW",
+  "reason_code": "AUTHORITY_ESTABLISHED",
+  "execution_status": "PERMITTED",
+  "checks": [
+    "actor_authenticated",
+    "kya_verified",
+    "mandate_active",
+    "mandate_not_expired",
+    "action_permitted",
+    "amount_within_limit",
+    "currency_permitted",
+    "source_account_permitted",
+    "counterparty_approved",
+    "account_active",
+    "risk_state_permits_execution",
+    "screening_clear",
+    "screening_fresh"
+  ]
+}

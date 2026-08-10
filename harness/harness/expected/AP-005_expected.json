@@ -1,0 +1,8 @@
+{
+  "scenario_id": "AP-005",
+  "decision": "REFUSE",
+  "reason_code": "AUTHORITY_NOT_ESTABLISHED",
+  "execution_status": "PREVENTED",
+  "failed_check": "mandate_not_expired",
+  "principle": "A known and authenticated agent does not retain execution authority after the delegated mandate on which that authority depends has expired."
+}

@@ -1,0 +1,31 @@
+{
+  "scenario_id": "AP-006",
+  "title": "Execution action differs from authorised action",
+  "purpose": "Demonstrate that an ALLOW determination is bound to the exact action evaluated by Runtime Authority and cannot be reused to execute a materially different payment.",
+  "authority_source_scenario": "AP-001",
+  "authorised_action": {
+    "amount": 750000,
+    "currency": "GBP",
+    "source_account": "TREASURY-001",
+    "beneficiary": "SUPPLIER-X",
+    "purpose": "Invoice 78431"
+  },
+  "execution_attempt": {
+    "action": "payment.release",
+    "target": "TREASURY_PAYMENT_GATEWAY",
+    "actor_id": "agent-treasury-01",
+    "principal_id": "institution-001",
+    "mandate_id": "MANDATE-TREASURY-001",
+    "amount": 750000,
+    "currency": "GBP",
+    "source_account": "TREASURY-001",
+    "beneficiary": "SUPPLIER-Y",
+    "purpose": "Invoice 78431",
+    "attempted_at": "2026-08-10T09:15:30Z"
+  },
+  "expected": {
+    "gateway_status": "BLOCKED",
+    "reason_code": "ACTION_BINDING_MISMATCH",
+    "financial_consequence": "NO EXECUTION"
+  }
+}

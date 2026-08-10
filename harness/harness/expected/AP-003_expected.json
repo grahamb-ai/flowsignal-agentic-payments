@@ -1,0 +1,8 @@
+{
+  "scenario_id": "AP-003",
+  "decision": "REFUSE",
+  "reason_code": "AUTHORITY_NOT_ESTABLISHED",
+  "execution_status": "PREVENTED",
+  "failed_check": "counterparty_approved",
+  "temporal_proposition": "Earlier approval remains genuine, but current counterparty evidence at the execution bind point no longer satisfies the authority conditions."
+}

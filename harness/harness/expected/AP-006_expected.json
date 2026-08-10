@@ -1,0 +1,9 @@
+{
+  "scenario_id": "AP-006",
+  "runtime_authority_decision": "ALLOW",
+  "authorised_beneficiary": "SUPPLIER-X",
+  "attempted_beneficiary": "SUPPLIER-Y",
+  "gateway_status": "BLOCKED",
+  "gateway_reason_code": "ACTION_BINDING_MISMATCH",
+  "principle": "Authority Request A -> ALLOW A -> Execution A. An ALLOW for Action A cannot authorise Execution B."
+}
