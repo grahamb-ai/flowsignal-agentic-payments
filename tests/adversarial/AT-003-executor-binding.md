@@ -139,7 +139,21 @@ This failing result is intentionally preserved before any v0.10 enforcement chan
 
 ### Next Test Obligation
 
-The next implementation step is to introduce an execution path in which the protected financial consequence requires successful consumption of a valid, current Runtime Authority determination.
+The v0.9 baseline already provides an execution gateway that validates a Runtime Authority determination before permitting execution on the declared gateway path.
 
-AT-003 will then be rerun to determine whether executor binding has actually been established.
+AP-006 demonstrates that this gateway blocks an attempted financial action where the execution binding differs from the action authorised by the Runtime Authority determination.
+
+AT-003 establishes a different obligation.
+
+The next implementation step is to determine whether the protected financial consequence can be made unreachable except through an execution path that successfully consumes the applicable Runtime Authority determination.
+
+The required property is therefore not merely:
+
+> The execution gateway validates authority.
+
+It is:
+
+> Every route capable of producing the protected financial consequence is bound to that enforcement dependency.
+
+AT-003 will then be rerun against that strengthened execution boundary.
 <img width="1606" height="884" alt="image" src="https://github.com/user-attachments/assets/2ca8ea03-9d34-42f5-b4b8-426cd1b52125" />
