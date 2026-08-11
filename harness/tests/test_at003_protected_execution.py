@@ -1,6 +1,6 @@
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-
+from pathlib import Path
 from harness.runner import load_scenario
 from app.engines.financial_runtime import evaluate_financial
 from app.engines.execution_gateway import (
@@ -10,7 +10,7 @@ from app.engines.execution_gateway import (
 )
 
 
-SCENARIO = "harness/scenarios/AP-001_allow.json"
+SCENARIO = Path("harness/scenarios/AP-001_allow.json")
 
 
 def _make_attempt(request, *, beneficiary=None, attempted_at=None):
