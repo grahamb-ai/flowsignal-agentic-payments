@@ -121,7 +121,7 @@ def execute_protected_payment(
     A BLOCKED gateway result must leave protected state unchanged.
     """
 
-    gateway_result = validate_execution(receipt, attempt)
+gateway_result = validate_execution(receipt, attempt)
 
 
 if gateway_result.status != "PERMITTED":
