@@ -121,16 +121,16 @@ def execute_protected_payment(
     A BLOCKED gateway result must leave protected state unchanged.
     """
 
-gateway_result = validate_execution(receipt, attempt)
+    gateway_result = validate_execution(receipt, attempt)
 
-if gateway_result.status != "PERMITTED":
-return gateway_result, state
+    if gateway_result.status != "PERMITTED":
+        return gateway_result, state
 
-new_state = ProtectedPaymentState(
-    executed=True,
-    amount=attempt.amount,
-    beneficiary=attempt.beneficiary,
-    authority_receipt_id=receipt.id,
-)
+    new_state = ProtectedPaymentState(
+        executed=True,
+        amount=attempt.amount,
+        beneficiary=attempt.beneficiary,
+        authority_receipt_id=receipt.id,
+    )
 
-return gateway_result, new_state
+    return gateway_result, new_state
