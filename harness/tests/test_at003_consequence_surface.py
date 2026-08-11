@@ -48,15 +48,14 @@ def test_at003_3_alternative_path_cannot_produce_protected_consequence():
 
     protected_state = ProtectedPaymentState()
 
- with pytest.raises(FrozenInstanceError):
-    alternative_payment_path(
-        protected_state,
-        amount=25000.00,
-        beneficiary="supplier-001",
-    )
+    with pytest.raises(FrozenInstanceError):
+        alternative_payment_path(
+            protected_state,
+            amount=25000.00,
+            beneficiary="supplier-001",
+        )
 
-assert protected_state.executed is False
-assert protected_state.amount == 0.0
-assert protected_state.beneficiary == ""
-assert protected_state.authority_receipt_id == ""
-       
+    assert protected_state.executed is False
+    assert protected_state.amount == 0.0
+    assert protected_state.beneficiary == ""
+    assert protected_state.authority_receipt_id == ""
