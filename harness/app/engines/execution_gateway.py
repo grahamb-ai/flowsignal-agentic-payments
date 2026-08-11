@@ -123,7 +123,6 @@ def execute_protected_payment(
 
 gateway_result = validate_execution(receipt, attempt)
 
-
 if gateway_result.status != "PERMITTED":
     return gateway_result, state
 
