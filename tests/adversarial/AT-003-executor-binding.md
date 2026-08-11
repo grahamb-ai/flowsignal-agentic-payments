@@ -206,4 +206,15 @@ A failure is retained as engineering evidence of incomplete consequence-surface 
 
 ### Status
 
-DEFINED — NOT YET EXECUTED
+EXECUTED — FAIL
+
+### Observed Result
+
+Executable test:
+
+`harness/tests/test_at003_consequence_surface.py`
+
+Observed pytest outcome:
+
+```text
+1 failed in 0.17s
