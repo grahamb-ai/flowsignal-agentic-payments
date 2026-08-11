@@ -218,3 +218,14 @@ Observed pytest outcome:
 
 ```text
 1 failed in 0.17s
+```
+### AT-003.3 Remediation Retest
+
+Following the consequence-surface closure failure, `ProtectedPaymentState` was made immutable and the protected execution path was changed to return a new authorised state only after successful execution-gateway validation.
+
+The original adversarial test was retained.
+
+Observed pytest outcome:
+
+```text
+1 passed in 0.03s
