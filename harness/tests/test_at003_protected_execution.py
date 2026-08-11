@@ -25,7 +25,7 @@ def _make_attempt(request, *, beneficiary=None, attempted_at=None):
         beneficiary=beneficiary or request.beneficiary,
         purpose=request.purpose,
         mandate_id=request.mandate_id,
-        attempted_at=attempted_at or datetime.now(timezone.utc),
+        attempted_at=attempted_at or request.requested_execution_time,
     )
 
 
