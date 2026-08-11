@@ -94,7 +94,7 @@ def validate_execution(
         expected_action_binding_hash=receipt.action_binding_hash,
         attempted_action_binding_hash=attempted_hash,
     )
-@dataclass
+@dataclass(frozen=True)
 class ProtectedPaymentState:
     executed: bool = False
     amount: float = 0.0
@@ -106,7 +106,7 @@ def execute_protected_payment(
     state: ProtectedPaymentState,
     receipt: AuthorityReceipt,
     attempt: ExecutionAttempt,
-) -> GatewayResult:
+) -> tuple[GatewayResult, ProtectedPaymentState]:
     """
     v0.10 protected execution path.
 
@@ -123,12 +123,15 @@ def execute_protected_payment(
 
     gateway_result = validate_execution(receipt, attempt)
 
-    if gateway_result.status != "PERMITTED":
-        return gateway_result
 
-    state.executed = True
-    state.amount = attempt.amount
-    state.beneficiary = attempt.beneficiary
-    state.authority_receipt_id = receipt.id
+if gateway_result.status != "PERMITTED":
+    return gateway_result, state
 
-    return gateway_result
+new_state = ProtectedPaymentState(
+    executed=True,
+    amount=attempt.amount,
+    beneficiary=attempt.beneficiary,
+    authority_receipt_id=receipt.id,
+)
+
+return gateway_result, new_state
