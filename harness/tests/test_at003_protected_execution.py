@@ -74,7 +74,7 @@ def test_at003_2_expired_allow_is_blocked():
 
     expired_receipt = replace(
         receipt,
-        valid_until=datetime.now(timezone.utc) - timedelta(seconds=1),
+      valid_until=request.requested_execution_time - timedelta(seconds=1),
     )
 
     state = ProtectedPaymentState()
