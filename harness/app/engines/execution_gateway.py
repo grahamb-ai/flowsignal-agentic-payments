@@ -94,3 +94,41 @@ def validate_execution(
         expected_action_binding_hash=receipt.action_binding_hash,
         attempted_action_binding_hash=attempted_hash,
     )
+@dataclass
+class ProtectedPaymentState:
+    executed: bool = False
+    amount: float = 0.0
+    beneficiary: str = ""
+    authority_receipt_id: str = ""
+
+
+def execute_protected_payment(
+    state: ProtectedPaymentState,
+    receipt: AuthorityReceipt,
+    attempt: ExecutionAttempt,
+) -> GatewayResult:
+    """
+    v0.10 protected execution path.
+
+    The protected financial consequence is produced only after the
+    applicable Runtime Authority determination has been successfully
+    validated by the execution gateway.
+
+    This function deliberately separates:
+
+        determination -> gateway validation -> consequence formation
+
+    A BLOCKED gateway result must leave protected state unchanged.
+    """
+
+    gateway_result = validate_execution(receipt, attempt)
+
+    if gateway_result.status != "PERMITTED":
+        return gateway_result
+
+    state.executed = True
+    state.amount = attempt.amount
+    state.beneficiary = attempt.beneficiary
+    state.authority_receipt_id = receipt.id
+
+    return gateway_result
