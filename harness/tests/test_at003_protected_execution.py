@@ -98,7 +98,7 @@ def test_at003_2_refuse_is_blocked():
     state = ProtectedPaymentState()
     attempt = _make_attempt(request)
 
-  result, new_state = execute_protected_payment(state, refuse_receipt, attempt)
+    result, new_state = execute_protected_payment(state, refuse_receipt, attempt)
 
     assert result.status == "BLOCKED"
     assert result.reason_code == "NO_APPLICABLE_ALLOW"
