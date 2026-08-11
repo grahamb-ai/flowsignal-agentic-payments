@@ -54,15 +54,20 @@ def test_at003_2_mismatched_action_is_blocked():
     assert response.decision == "ALLOW"
 
     state = ProtectedPaymentState()
-    attempt = _make_attempt(request, beneficiary="SUBSTITUTED-BENEFICIARY")
+    attempt = _make_attempt(
+        request,
+        beneficiary="SUBSTITUTED-BENEFICIARY",
+    )
 
-result, new_state = execute_protected_payment(state, receipt, attempt)
-assert result.status == "BLOCKED"
-assert result.reason_code == "ACTION_BINDING_MISMATCH"
-assert new_state.executed is False
-assert new_state.amount == 0.0
-assert new_state.beneficiary == ""
-assert new_state.authority_receipt_id == ""
+    result, new_state = execute_protected_payment(state, receipt, attempt)
+
+    assert result.status == "BLOCKED"
+    assert result.reason_code == "ACTION_BINDING_MISMATCH"
+    assert new_state is state
+    assert new_state.executed is False
+    assert new_state.amount == 0.0
+    assert new_state.beneficiary == ""
+    assert new_state.authority_receipt_id == ""
 
 
 def test_at003_2_expired_allow_is_blocked():
