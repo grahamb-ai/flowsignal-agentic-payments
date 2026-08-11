@@ -229,3 +229,43 @@ Observed pytest outcome:
 
 ```text
 1 passed in 0.03s
+```
+---
+
+## Full Regression Suite
+
+Following the AT-003 remediation work, the complete harness test suite was executed.
+
+Command:
+
+```text
+pytest -q
+
+
+17 passed, 1 xfailed in 0.18s
+```
+The single `xfail` is AT-003.1.
+
+AT-003.1 is intentionally classified as an expected failure because it preserves executable evidence of the original v0.9 executor-binding weakness. The test demonstrates that the preserved baseline permits a protected financial consequence to occur without consumption of a valid, current Runtime Authority determination.
+
+The test has not been removed or altered to produce a passing result.
+
+All active regression and remediation tests pass.
+
+### Final AT-003 Evidence State
+
+AT-003.1: **XFAIL — preserved historical executor-binding failure**
+
+AT-003.2: **PASS — protected execution path established**
+
+AT-003.3 initial run: **FAIL — alternate consequence-producing path demonstrated**
+
+AT-003.3 remediation retest: **PASS — tested alternate path structurally blocked**
+
+Full regression suite: **17 passed, 1 xfailed**
+
+Overall AT-003 status:
+
+**RESOLVED FOR THE DECLARED REFERENCE EXECUTION SURFACE**
+
+This status does not claim universal enforcement across arbitrary external payment rails, credentials, APIs, service accounts or production financial infrastructure.
