@@ -9,7 +9,7 @@ a valid current ALLOW determination being consumed by the executor.
 
 This test does not modify the v0.9 Runtime Authority implementation.
 """
-
+import pytest
 from dataclasses import dataclass
 from typing import Optional
 
@@ -38,7 +38,10 @@ def legacy_payment_executor(
     state.amount = amount
     state.beneficiary = beneficiary
 
-
+@pytest.mark.xfail(
+    reason="AT-003.1 preserves the demonstrated v0.9 executor-binding failure as engineering evidence",
+    strict=True,
+)
 def test_at003_execution_without_authority_determination():
     """
     AT-003.1
