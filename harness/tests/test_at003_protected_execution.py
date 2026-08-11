@@ -38,13 +38,13 @@ def test_at003_2_valid_allow_executes_protected_payment():
     state = ProtectedPaymentState()
     attempt = _make_attempt(request)
 
-    result = execute_protected_payment(state, receipt, attempt)
+    result, new_state = execute_protected_payment(state, receipt, attempt)
 
     assert result.status == "PERMITTED"
-    assert state.executed is True
-    assert state.amount == request.amount
-    assert state.beneficiary == request.beneficiary
-    assert state.authority_receipt_id == receipt.id
+    assert new_state.executed is True
+assert new_state.amount == request.amount
+assert new_state.beneficiary == request.beneficiary
+assert new_state.authority_receipt_id == receipt.id
 
 
 def test_at003_2_mismatched_action_is_blocked():
@@ -56,14 +56,13 @@ def test_at003_2_mismatched_action_is_blocked():
     state = ProtectedPaymentState()
     attempt = _make_attempt(request, beneficiary="SUBSTITUTED-BENEFICIARY")
 
-    result = execute_protected_payment(state, receipt, attempt)
-
-    assert result.status == "BLOCKED"
-    assert result.reason_code == "ACTION_BINDING_MISMATCH"
-    assert state.executed is False
-    assert state.amount == 0.0
-    assert state.beneficiary == ""
-    assert state.authority_receipt_id == ""
+result, new_state = execute_protected_payment(state, receipt, attempt)
+assert result.status == "BLOCKED"
+assert result.reason_code == "ACTION_BINDING_MISMATCH"
+assert new_state.executed is False
+assert new_state.amount == 0.0
+assert new_state.beneficiary == ""
+assert new_state.authority_receipt_id == ""
 
 
 def test_at003_2_expired_allow_is_blocked():
@@ -80,11 +79,14 @@ def test_at003_2_expired_allow_is_blocked():
     state = ProtectedPaymentState()
     attempt = _make_attempt(request)
 
-    result = execute_protected_payment(state, expired_receipt, attempt)
+    result, new_state = execute_protected_payment(state, expired_receipt, attempt)
 
     assert result.status == "BLOCKED"
     assert result.reason_code == "AUTHORITY_DETERMINATION_EXPIRED"
-    assert state.executed is False
+  assert new_state is state
+assert new_state.amount == 0.0
+assert new_state.beneficiary == ""
+assert new_state.authority_receipt_id == ""
 
 
 def test_at003_2_refuse_is_blocked():
@@ -96,8 +98,12 @@ def test_at003_2_refuse_is_blocked():
     state = ProtectedPaymentState()
     attempt = _make_attempt(request)
 
-    result = execute_protected_payment(state, refuse_receipt, attempt)
+  result, new_state = execute_protected_payment(state, refuse_receipt, attempt)
 
     assert result.status == "BLOCKED"
     assert result.reason_code == "NO_APPLICABLE_ALLOW"
-    assert state.executed is False
+assert new_state is state
+   assert new_state.executed is False
+assert new_state.amount == 0.0
+assert new_state.beneficiary == ""
+assert new_state.authority_receipt_id == ""
