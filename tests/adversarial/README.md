@@ -115,3 +115,69 @@ Results must preserve enough evidence to identify:
 Passing these tests does not establish universal enforcement across arbitrary external financial infrastructure.
 
 Claims apply only to the execution surface explicitly represented and tested by this reference implementation.
+
+---
+
+## AT-003.2 — Protected Execution Retest
+
+### Objective
+
+Retest the executor-binding obligation after introducing a protected execution path in which the financial consequence is produced only after successful validation of the applicable Runtime Authority determination.
+
+### Implementation Under Test
+
+The protected execution path is implemented through:
+
+`execute_protected_payment()`
+
+The path requires the execution attempt to pass `validate_execution()` before protected financial state can be changed.
+
+A blocked gateway result leaves the protected state unchanged.
+
+### Tests Executed
+
+Executable test:
+
+`harness/tests/test_at003_protected_execution.py`
+
+The following conditions were tested:
+
+1. Valid, current and correctly bound ALLOW determination permits execution.
+2. Action-binding mismatch blocks execution.
+3. Expired ALLOW determination blocks execution.
+4. REFUSE determination blocks execution.
+
+### Observed Result
+
+So in the editor, those lines should literally look like:
+
+
+```text
+4 passed in 0.04s
+```
+
+### AT-003.2 Result
+
+**PASS**
+
+For the protected execution path represented by this reference implementation, the tested financial consequence cannot be produced unless the applicable Runtime Authority determination successfully passes the execution gateway.
+
+This resolves the specific executor-binding failure demonstrated by AT-003.1 for the protected path under test.
+
+### Important Limitation
+
+AT-003.2 does not establish that every possible execution route is protected.
+
+The result demonstrates enforcement only for the execution surface explicitly represented by `execute_protected_payment()`.
+
+The remaining architectural obligation is therefore consequence-surface closure:
+
+> Every route capable of producing the protected financial consequence must be bound to the same enforcement dependency, or otherwise be demonstrated to be unreachable.
+
+### Evidence Status
+
+AT-003.1: **FAIL — preserved as engineering evidence**
+
+AT-003.2: **PASS — protected execution path**
+
+Overall AT-003 status: **PARTIALLY RESOLVED / CONSEQUENCE-SURFACE CLOSURE NOT YET ESTABLISHED**
