@@ -157,3 +157,53 @@ It is:
 
 AT-003 will then be rerun against that strengthened execution boundary.
 <img width="1606" height="884" alt="image" src="https://github.com/user-attachments/assets/2ca8ea03-9d34-42f5-b4b8-426cd1b52125" />
+
+
+---
+
+## AT-003.3 — Consequence-Surface Closure
+
+### Objective
+
+Determine whether the protected financial consequence remains reachable through an execution path that does not successfully consume the applicable Runtime Authority determination.
+
+AT-003.2 established that `execute_protected_payment()` enforces the Runtime Authority determination before changing protected financial state.
+
+AT-003.3 tests the stronger architectural property:
+
+> The protected consequence itself must not be reachable through an alternative execution path that bypasses the enforcement dependency.
+
+### Challenge
+
+Attempt to produce the same protected financial consequence without invoking the declared protected execution path.
+
+The test must assume that an alternative or legacy execution mechanism may exist independently of `execute_protected_payment()`.
+
+The adversarial question is:
+
+> Can any reachable execution path change the protected financial state without first obtaining a successful execution-gateway result for the applicable Runtime Authority determination?
+
+### Expected Property
+
+For the execution surface represented by this reference implementation:
+
+`NO SUCCESSFUL AUTHORITY VALIDATION -> NO PROTECTED FINANCIAL CONSEQUENCE`
+
+This property must apply to the consequence surface, not merely to the preferred execution function.
+
+### Pass Criterion
+
+AT-003.3 passes only if every execution route represented by the reference implementation that is capable of producing the protected financial consequence is either:
+
+1. bound to successful Runtime Authority validation; or
+2. demonstrated to be unreachable from the executable consequence surface.
+
+### Failure Criterion
+
+AT-003.3 fails if any reachable route can produce the protected financial consequence without successful consumption of a valid, current and applicable Runtime Authority determination.
+
+A failure is retained as engineering evidence of incomplete consequence-surface closure.
+
+### Status
+
+DEFINED — NOT YET EXECUTED
