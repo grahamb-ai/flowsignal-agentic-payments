@@ -42,9 +42,9 @@ def test_at003_2_valid_allow_executes_protected_payment():
 
     assert result.status == "PERMITTED"
     assert new_state.executed is True
-assert new_state.amount == request.amount
-assert new_state.beneficiary == request.beneficiary
-assert new_state.authority_receipt_id == receipt.id
+    assert new_state.amount == request.amount
+    assert new_state.beneficiary == request.beneficiary
+    assert new_state.authority_receipt_id == receipt.id
 
 
 def test_at003_2_mismatched_action_is_blocked():
@@ -83,10 +83,10 @@ def test_at003_2_expired_allow_is_blocked():
 
     assert result.status == "BLOCKED"
     assert result.reason_code == "AUTHORITY_DETERMINATION_EXPIRED"
-  assert new_state is state
-assert new_state.amount == 0.0
-assert new_state.beneficiary == ""
-assert new_state.authority_receipt_id == ""
+    assert new_state is state
+    assert new_state.amount == 0.0
+    assert new_state.beneficiary == ""
+    assert new_state.authority_receipt_id == ""
 
 
 def test_at003_2_refuse_is_blocked():
@@ -102,8 +102,8 @@ def test_at003_2_refuse_is_blocked():
 
     assert result.status == "BLOCKED"
     assert result.reason_code == "NO_APPLICABLE_ALLOW"
-assert new_state is state
-   assert new_state.executed is False
-assert new_state.amount == 0.0
-assert new_state.beneficiary == ""
-assert new_state.authority_receipt_id == ""
+    assert new_state is state
+    assert new_state.executed is False
+    assert new_state.amount == 0.0
+    assert new_state.beneficiary == ""
+    assert new_state.authority_receipt_id == ""
