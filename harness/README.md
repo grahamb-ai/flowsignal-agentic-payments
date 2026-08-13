@@ -2,10 +2,12 @@
 
 **Executable companion to FS-AN-004 — The Runtime Authority Requirement in Agentic Payments**
 
-**Version:** 0.9  
-**Status:** Frozen Reference Demonstrator  
-**Date:** August 2026
+**Baseline:** v0.9 Frozen Reference Demonstrator  
+**Branch Status:** AT-004 Adversarial Assurance Candidate  
+**Assurance Baseline:** 60 non-database tests passing  
+**Date:** 13 August 2026
 
+> **Baseline preservation:** v0.9 remains the frozen reference demonstrator. This branch records subsequent adversarial assurance work, observed failures, remediations and regression tests. It does not alter the historical v0.9 baseline.
 ---
 
 ## Purpose
@@ -236,3 +238,196 @@ Install the required dependencies:
 
 ```powershell
 py -m pip install -r requirements.txt
+```
+
+---
+
+## AT-004 — Adversarial Runtime Authority Assurance
+
+Following the frozen v0.9 reference baseline, the harness was subjected to a further series of adversarial tests examining whether the Runtime Authority architecture remained effective when assumptions about authority source, evaluator control, execution routing, receipt integrity and runtime state freshness were challenged.
+
+The purpose of AT-004 was not to demonstrate that the architecture could pass tests written around its existing behaviour.
+
+The purpose was to identify conditions under which a consequential execution could escape, weaken or outlive the Runtime Authority determination intended to govern it.
+
+Where a test exposed a weakness, the failure was preserved before remediation and the same class of challenge was subsequently retested.
+
+### Assurance Sequence
+
+| Test | Question exercised | Initial result | Current status |
+| --- | --- | --- | --- |
+| AT-004.1 | Can locally presented authority state change the Runtime Authority outcome? | Differential observed | PASS |
+| AT-004.2 | Is authority-source separation sufficient if the execution environment controls the evaluator? | Differential observed | PASS |
+| AT-004.3 | Can a represented consequential execution bypass the current authority determination? | FAIL | PASS after remediation |
+| AT-004.4 | Can an altered Authority Receipt remain acceptable to the Execution Gateway? | FAIL | PASS after remediation |
+| AT-004.5 | Can evidential content change while the Authority Receipt continues to verify? | FAIL | PASS after remediation |
+| AT-004.6 | Can a valid ALLOW receipt remain executable after authoritative runtime state advances? | FAIL | PASS after remediation |
+
+### AT-004.1 — Authority Source Separation
+
+AT-004.1 challenged whether the Runtime Authority evaluator should trust authority state supplied by the execution environment.
+
+For the exercised scenario, the proposed payment was GBP 1.4m.
+
+The locally presented mandate limit was GBP 2m.
+
+The authoritative mandate limit was GBP 1m.
+
+When the presented authority value governed the evaluation, the request produced ALLOW.
+
+When the independently sourced authoritative value governed the evaluation, the same request produced ESCALATE.
+
+The test therefore established a material distinction, within the exercised implementation, between authority presented by the execution environment and authority obtained from an authoritative source.
+
+### AT-004.2 — Evaluator Independence
+
+AT-004.2 then challenged a stronger assumption.
+
+Separating authoritative state does not by itself ensure that the correct state will govern execution if the execution environment can control or replace the evaluator.
+
+Using the same request and authoritative state, an evaluator configured to consume the authoritative limit produced ESCALATE, while a locally controlled variant consuming the presented limit produced ALLOW.
+
+This demonstrated, within the exercised implementation, that authority-state separation and evaluator control are distinct architectural concerns.
+
+The deliberately weakened evaluator used for this experiment is not part of the maintained public regression surface.
+
+### AT-004.3 — Determination Non-Bypassability
+
+AT-004.3 tested whether every represented path capable of producing the governed consequence consumed the Execution Gateway determination.
+
+The initial adversarial test failed.
+
+A normal demonstrator path could report:
+
+`EXECUTION PERMITTED`
+
+without consuming the Execution Gateway.
+
+The demonstrator was remediated so that normal execution paths consume the gateway before the represented consequence is permitted.
+
+The unchanged assurance invariant subsequently passed.
+
+### AT-004.4 — Authority Receipt Integrity
+
+AT-004.4 challenged whether possession of an Authority Receipt was sufficient, or whether the gateway could independently establish that the receipt had not been altered.
+
+The initial architecture did not provide a receipt-level integrity proof verifiable by the Execution Gateway.
+
+The test failed.
+
+A proof-of-concept HMAC-SHA256 integrity mechanism was introduced and verification was placed before gateway enforcement.
+
+Altered receipts are now blocked with:
+
+`AUTHORITY_RECEIPT_INTEGRITY_INVALID`
+
+The fixed HMAC key in this public harness exists solely to demonstrate integrity behaviour. It is not a production secret, trust boundary or key-management design.
+
+### AT-004.5 — Authority Receipt Evidence Integrity
+
+AT-004.5 extended the integrity challenge beyond the enforcement-critical fields.
+
+The initial HMAC protected only a subset of the Authority Receipt.
+
+An adversarial test changed evidential content after sealing and demonstrated that the receipt could still verify.
+
+The test failed.
+
+The integrity boundary was subsequently expanded to include:
+
+- `request_snapshot`
+- `checks`
+- `evidence_references`
+
+The same class of modification then invalidated the receipt.
+
+### AT-004.6 — Runtime Authority Context Freshness
+
+AT-004.6 examined a different form of staleness.
+
+A receipt can remain authentic, unexpired and correctly bound to an action while the authoritative state under which it was issued has subsequently changed.
+
+The initial gateway did not distinguish receipt freshness from authority-state freshness.
+
+The adversarial test failed.
+
+The remediation introduced an `authority_state_version` into the Runtime Authority determination and its integrity-protected receipt.
+
+Immediately before consequence formation, the Execution Gateway compares the receipt state version with the current authoritative state version.
+
+If they differ, execution is blocked with:
+
+`AUTHORITY_STATE_STALE_REEVALUATION_REQUIRED`
+
+The gateway does not make the new policy decision itself.
+
+It requires a new Runtime Authority determination against current state.
+
+### Resulting Enforcement Chain
+
+The exercised architecture now forms the following chain:
+
+```text
+Authoritative State
+        |
+        v
+Runtime Authority Determination
+        |
+        v
+State-bound + integrity-protected Authority Receipt
+        |
+        v
+Mandatory Execution Gateway
+        |
+        v
+Current-state validation
+        |
+        v
+Consequence
+```
+
+The emerging engineering proposition is therefore narrower than simply requiring an `ALLOW` decision.
+
+For the exercised harness, consequential execution must remain bound to:
+
+- the action that was evaluated;
+- the authoritative state under which authority was determined;
+- the evidential record sealed with that determination; and
+- an execution path that consumes the current authority determination.
+
+### Preserved Evidence
+
+The AT-004 evidence record is maintained separately under:
+
+`/evidence/AT-004/`
+
+Where an adversarial test initially failed, the failure record is retained alongside the remediated result.
+
+AT-004.5 includes a reconstructed failure note because the original local Markdown failure file was subsequently found to be empty. The reconstruction is explicitly identified in that evidence record and is based on the recorded test result and remediation sequence.
+
+### Current Assurance Baseline
+
+Current non-database regression result:
+
+```text
+60 passed
+```
+
+The database-backed API tests are not included in this figure because the local PostgreSQL service required by those tests was not available during the AT-004 assurance run.
+
+The 60-test result should therefore be read as the exercised non-database regression baseline, not as evidence that every deployment path, integration or production configuration has been tested.
+
+### Scope
+
+AT-004 provides evidence about the behaviour of this proof-of-concept under the specific adversarial conditions exercised.
+
+It does not establish that:
+
+- every possible consequence-producing path is non-bypassable;
+- the proof-of-concept HMAC mechanism is production-grade key management;
+- authority-state versioning provides distributed consensus or atomic cross-system commit;
+- architectural independence alone is sufficient for institutional governance;
+- every implementation of Runtime Authority requires the same technical mechanisms; or
+- the harness proves legal or regulatory compliance.
+
+The purpose of the series is falsifiable engineering evidence: preserve what failed, identify why it mattered, strengthen the exercised boundary, and rerun the challenge.
