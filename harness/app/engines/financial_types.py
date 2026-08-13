@@ -62,6 +62,8 @@ class AuthorityReceipt:
     sealed_at: datetime
     valid_until: datetime | None
     action_binding_hash: str
+    authority_state_version: int
+    receipt_hmac: str
     request_snapshot: dict[str, Any]
     checks: list[FinancialCheck] = field(default_factory=list)
     evidence_references: list[dict[str, Any]] = field(default_factory=list)

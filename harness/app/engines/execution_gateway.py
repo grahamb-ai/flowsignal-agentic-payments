@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.engines.financial_types import AuthorityReceipt
-
+from app.engines.receipt_integrity import verify_receipt_hmac
+from app.engines.authority_store import get_authority_state_version
 
 @dataclass
 class ExecutionAttempt:
@@ -59,6 +60,25 @@ def validate_execution(
     attempt: ExecutionAttempt,
 ) -> GatewayResult:
     attempted_hash = action_binding_hash(attempt)
+    if not verify_receipt_hmac(receipt):
+        return GatewayResult(
+            status="BLOCKED",
+            reason_code="AUTHORITY_RECEIPT_INTEGRITY_INVALID",
+            authority_receipt_id=receipt.id,
+            expected_action_binding_hash=receipt.action_binding_hash,
+            attempted_action_binding_hash=attempted_hash,
+        )
+
+    current_authority_state_version = get_authority_state_version()
+
+    if receipt.authority_state_version != current_authority_state_version:
+        return GatewayResult(
+            status="BLOCKED",
+            reason_code="AUTHORITY_STATE_STALE_REEVALUATION_REQUIRED",
+            authority_receipt_id=receipt.id,
+            expected_action_binding_hash=receipt.action_binding_hash,
+            attempted_action_binding_hash=attempted_hash,
+        )
 
     if receipt.decision != "ALLOW":
         return GatewayResult(
