@@ -1,8 +1,15 @@
 from __future__ import annotations
+
 import hashlib, json, uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
+
+from app.engines.authority_store import (
+    get_authoritative_mandate_limit,
+    get_authority_state_version,
+)
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
+from app.engines.receipt_integrity import compute_receipt_hmac
 
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -35,6 +42,9 @@ def _check(name, passed, fail_outcome, reason=None, evidence_ref=None):
     )
 
 def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | None = None):
+    authoritative_limit = get_authoritative_mandate_limit(req.mandate_id)
+    if authoritative_limit is None:
+        authoritative_limit = req.mandate_max_amount
     now = _aware(sealed_at or req.requested_execution_time)
     expiry = _aware(req.mandate_valid_until)
     screening_time = _aware(req.screening_captured_at)
@@ -46,7 +56,7 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         _check("mandate_active", req.mandate_status.upper() == "ACTIVE", "REFUSE", f"Mandate status is '{req.mandate_status}'", req.mandate_id),
         _check("mandate_not_expired", now <= expiry, "REFUSE", "Delegated mandate has expired", req.mandate_id),
         _check("action_permitted", req.action == "payment.release", "REFUSE", f"Action '{req.action}' is not permitted", req.mandate_id),
-        _check("amount_within_limit", req.amount <= req.mandate_max_amount, "ESCALATE", f"Amount {req.amount:g} exceeds autonomous mandate limit {req.mandate_max_amount:g}", req.mandate_id),
+        _check("amount_within_limit", req.amount <=  authoritative_limit, "ESCALATE", f"Amount {req.amount:g} exceeds autonomous mandate limit {authoritative_limit:g}", req.mandate_id),
         _check("currency_permitted", req.currency.upper() == req.mandate_currency.upper(), "REFUSE", f"Currency '{req.currency}' is outside mandate currency '{req.mandate_currency}'", req.mandate_id),
         _check("source_account_permitted", req.source_account in req.permitted_source_accounts, "REFUSE", f"Source account '{req.source_account}' is outside the delegated mandate", req.mandate_id),
         _check("counterparty_approved", req.counterparty_status.upper() == "APPROVED", "REFUSE", f"Counterparty status is '{req.counterparty_status}'", "counterparty-status"),
@@ -70,12 +80,39 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         reason_code = "AUTHORITY_ESTABLISHED"
         required_action = None
 
-    rid = str(uuid.uuid4())
+    rid = str(uuid.uuid4())   
     valid_until = now + timedelta(seconds=60) if decision == "ALLOW" else None
     snapshot = asdict(req)
+    snapshot["presented_mandate_max_amount"] = req.mandate_max_amount
+    snapshot["authoritative_mandate_max_amount"] = authoritative_limit
+
     for k, v in list(snapshot.items()):
         if isinstance(v, datetime):
             snapshot[k] = _aware(v).isoformat()
+
+        evidence_references = [{
+        "type": "sanctions_screening",
+        "source": req.screening_source,
+        "status": req.screening_status,
+        "captured_at": screening_time.isoformat(),
+        "age_seconds": int(screening_age),
+        "max_age_seconds": req.screening_max_age_seconds,
+    }]
+    authority_state_version = get_authority_state_version()
+
+    receipt_hmac = compute_receipt_hmac(
+        receipt_id=rid,
+        scenario_id=req.scenario_id,
+        decision=decision,
+        reason_code=reason_code,
+        sealed_at=now,
+        valid_until=valid_until,
+        action_binding_hash=_binding(req),
+        authority_state_version=authority_state_version,
+        request_snapshot=snapshot,
+        checks=checks,
+        evidence_references=evidence_references,
+    )
 
     receipt = AuthorityReceipt(
         id=rid,
@@ -85,16 +122,11 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         sealed_at=now,
         valid_until=valid_until,
         action_binding_hash=_binding(req),
+        authority_state_version=authority_state_version,
+        receipt_hmac=receipt_hmac,
         request_snapshot=snapshot,
         checks=checks,
-        evidence_references=[{
-            "type": "sanctions_screening",
-            "source": req.screening_source,
-            "status": req.screening_status,
-            "captured_at": screening_time.isoformat(),
-            "age_seconds": int(screening_age),
-            "max_age_seconds": req.screening_max_age_seconds,
-        }],
+        evidence_references=evidence_references,
     )
     response = ExecutionResponse(
         decision=decision,

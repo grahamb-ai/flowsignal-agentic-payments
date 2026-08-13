@@ -130,11 +130,28 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
     doc = _scenario_doc(scenario_id)
     req = load_scenario(SCENARIO_DIR / SCENARIO_FILES[scenario_id])
     response, receipt = evaluate_financial(req)
-    consequence = {
-        "ALLOW": "EXECUTION PERMITTED",
-        "ESCALATE": "EXECUTION WITHHELD",
-        "REFUSE": "NO EXECUTION",
-    }[response.decision]
+    attempt = ExecutionAttempt(
+        actor_id=req.actor_id,
+        principal_id=req.principal_id,
+        action=req.action,
+        target=req.target,
+        amount=req.amount,
+        currency=req.currency,
+        source_account=req.source_account,
+        beneficiary=req.beneficiary,
+        purpose=req.purpose,
+        mandate_id=req.mandate_id,
+        attempted_at=req.requested_execution_time,
+    )
+
+    gateway = validate_execution(receipt, attempt)
+
+    if gateway.status == "PERMITTED":
+        consequence = "EXECUTION PERMITTED"
+    elif response.decision == "ESCALATE":
+        consequence = "EXECUTION WITHHELD"
+    else:
+        consequence = "NO EXECUTION"
     return {
         "scenario_id": scenario_id,
         "title": doc["title"],
@@ -142,7 +159,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
         "source": doc,
         "execution_response": _ser(response),
         "authority_receipt": _ser(receipt),
-        "execution_gateway": None,
+        "execution_gateway": _ser(gateway),
         "financial_consequence": consequence,
     }
 
