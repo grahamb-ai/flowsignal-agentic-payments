@@ -149,6 +149,45 @@ Planned work includes:
 
 ---
 
+## Consequence-Boundary Adversarial Testing
+
+The reference implementation is now being subjected to explicit consequence-boundary adversarial testing rather than relying solely on positive-path validation.
+
+The current **FS-CT Category Test series** examines whether a previously valid Runtime Authority determination can continue to produce the represented financial consequence after authoritative runtime conditions change.
+
+The exercised tests currently cover:
+
+- **Changed Authority After ALLOW** — whether a prior ALLOW remains usable after authoritative state changes.
+- **Governed Route Closure** — whether stale authority can reach the represented consequence through the governed execution path.
+- **Historical Determination Replay** — whether a preserved Authority Receipt can reconstruct its historical determination without consulting current authority state.
+
+The replay challenge initially **failed** because the public implementation preserved historical determination evidence but did not provide an independent replay mechanism.
+
+That failure has been retained as engineering evidence.
+
+A dedicated integrity-verified Authority Receipt replay capability was subsequently introduced and the **original adversarial test was rerun without weakening its invariant**.
+
+Current observed results:
+
+- FS-CT-001 — **PASS**
+- FS-CT-002 — **PASS**
+- FS-CT-003 — **FAIL → remediation → PASS**
+- Complete discovered regression suite — **72 passed, 0 failed**
+
+The evidence set includes the baseline, preserved failure, remediation result, adversarial tests and a SHA-256 evidence manifest.
+
+See [`evidence/FS-CT/`](evidence/FS-CT/) for the complete Category Test evidence.
+
+### Claim Boundary
+
+These results apply only to the execution surface exercised by this public reference implementation.
+
+They do **not** establish physical non-formation across external banking or payment rails, universal non-bypassability across execution paths outside the harness, or full deterministic re-execution from a complete frozen historical policy and evidence estate.
+
+The project deliberately limits its claims to the proof surface actually exercised.
+
+---
+
 ## ORAI
 
 This project is expected to use the **Open Runtime Authority Interface (ORAI)** as an implementation-independent interaction contract.
