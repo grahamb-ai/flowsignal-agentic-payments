@@ -1,6 +1,7 @@
 from dataclasses import replace
 from pathlib import Path
 
+from agentic_demo import evaluate_scenario
 from harness.runner import load_scenario
 from app.engines.financial_runtime import evaluate_financial
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash, validate_execution
@@ -78,3 +79,10 @@ def test_ec001_4_gateway_produced_permit_forms_represented_consequence():
         attempted_action_binding_hash=action_binding_hash(attempt),
     )
     assert result == "CONSEQUENCE_FORMED"
+
+
+def test_ec001_4_normal_demo_allow_path_consumes_protected_consequence_boundary():
+    result = evaluate_scenario("AP-001")
+    assert result["execution_gateway"]["status"] == "PERMITTED"
+    assert result["protected_consequence"] == "CONSEQUENCE_FORMED"
+    assert result["financial_consequence"] == "EXECUTION PERMITTED"
