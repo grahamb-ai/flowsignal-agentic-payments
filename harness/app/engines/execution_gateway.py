@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from app.engines.financial_types import AuthorityReceipt
 from app.engines.receipt_integrity import verify_receipt_hmac
 from app.engines.authority_store import get_authority_state_version
+from app.engines.protected_consequence import ExecutionPermit, issue_execution_permit
 
 @dataclass
 class ExecutionAttempt:
@@ -30,6 +31,7 @@ class GatewayResult:
     authority_receipt_id: str
     expected_action_binding_hash: str
     attempted_action_binding_hash: str
+    execution_permit: ExecutionPermit | None = None
 
 
 def _aware(dt: datetime) -> datetime:
@@ -107,10 +109,16 @@ def validate_execution(
             attempted_action_binding_hash=attempted_hash,
         )
 
+    permit = issue_execution_permit(
+        authority_receipt_id=receipt.id,
+        action_binding_hash=attempted_hash,
+        authority_state_version=current_authority_state_version,
+    )
     return GatewayResult(
         status="PERMITTED",
         reason_code="BOUND_ALLOW_VALID",
         authority_receipt_id=receipt.id,
         expected_action_binding_hash=receipt.action_binding_hash,
         attempted_action_binding_hash=attempted_hash,
+        execution_permit=permit,
     )
