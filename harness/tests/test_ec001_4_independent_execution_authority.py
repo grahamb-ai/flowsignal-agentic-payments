@@ -33,7 +33,6 @@ def test_ec001_4_executor_cannot_form_consequence_without_gateway_permit():
     result = execute_protected_consequence(
         permit=None,
         attempted_action_binding_hash=action_binding_hash(attempt),
-        current_authority_state_version=get_authority_state_version(),
     )
     assert result == "DENIED_NO_EXECUTION_PERMIT"
 
@@ -50,7 +49,6 @@ def test_ec001_4_executor_cannot_forge_execution_permit():
     result = execute_protected_consequence(
         permit=forged,
         attempted_action_binding_hash=action_binding_hash(attempt),
-        current_authority_state_version=get_authority_state_version(),
     )
     assert result == "DENIED_INVALID_EXECUTION_PERMIT"
 
@@ -65,7 +63,6 @@ def test_ec001_4_gateway_permit_is_bound_to_exact_action():
     result = execute_protected_consequence(
         permit=gateway.execution_permit,
         attempted_action_binding_hash=action_binding_hash(substituted),
-        current_authority_state_version=get_authority_state_version(),
     )
     assert result == "DENIED_ACTION_BINDING_MISMATCH"
 
@@ -79,6 +76,5 @@ def test_ec001_4_only_gateway_minted_permit_forms_represented_consequence():
     result = execute_protected_consequence(
         permit=gateway.execution_permit,
         attempted_action_binding_hash=action_binding_hash(attempt),
-        current_authority_state_version=get_authority_state_version(),
     )
     assert result == "CONSEQUENCE_FORMED"
