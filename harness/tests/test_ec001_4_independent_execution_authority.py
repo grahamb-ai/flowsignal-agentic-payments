@@ -28,7 +28,7 @@ def _allow_case():
     return receipt, attempt
 
 
-def test_ec001_4_executor_cannot_form_consequence_without_gateway_permit():
+def test_ec001_4_missing_permit_is_denied():
     _, attempt = _allow_case()
     result = execute_protected_consequence(
         permit=None,
@@ -37,7 +37,7 @@ def test_ec001_4_executor_cannot_form_consequence_without_gateway_permit():
     assert result == "DENIED_NO_EXECUTION_PERMIT"
 
 
-def test_ec001_4_executor_cannot_forge_execution_permit():
+def test_ec001_4_arbitrarily_fabricated_signature_is_denied():
     _, attempt = _allow_case()
     forged = ExecutionPermit(
         authority_receipt_id="forged-receipt",
@@ -67,7 +67,7 @@ def test_ec001_4_gateway_permit_is_bound_to_exact_action():
     assert result == "DENIED_ACTION_BINDING_MISMATCH"
 
 
-def test_ec001_4_only_gateway_minted_permit_forms_represented_consequence():
+def test_ec001_4_gateway_produced_permit_forms_represented_consequence():
     receipt, attempt = _allow_case()
     gateway = validate_execution(receipt, attempt)
     assert gateway.status == "PERMITTED"
