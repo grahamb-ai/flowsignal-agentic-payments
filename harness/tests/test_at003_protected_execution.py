@@ -6,7 +6,6 @@ execute_protected_payment(), which have since been superseded. These tests
 preserve the historical proof obligations against the current
 ExecutionGateway + ExecutionPermit + protected consequence boundary.
 """
-from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -20,7 +19,8 @@ from app.engines.execution_gateway import (
 from app.engines.protected_consequence import execute_protected_consequence
 
 
-SCENARIO = Path("harness/scenarios/AP-001_allow.json")
+ALLOW_SCENARIO = Path("harness/scenarios/AP-001_allow.json")
+REFUSE_SCENARIO = Path("harness/scenarios/AP-003_post_approval_counterparty_change.json")
 
 
 def _make_attempt(request, *, beneficiary=None, attempted_at=None):
@@ -40,7 +40,7 @@ def _make_attempt(request, *, beneficiary=None, attempted_at=None):
 
 
 def test_at003_2_valid_allow_forms_protected_consequence():
-    request = load_scenario(SCENARIO)
+    request = load_scenario(ALLOW_SCENARIO)
     response, receipt = evaluate_financial(request)
     assert response.decision == "ALLOW"
 
@@ -58,7 +58,7 @@ def test_at003_2_valid_allow_forms_protected_consequence():
 
 
 def test_at003_2_mismatched_action_is_blocked():
-    request = load_scenario(SCENARIO)
+    request = load_scenario(ALLOW_SCENARIO)
     response, receipt = evaluate_financial(request)
     assert response.decision == "ALLOW"
 
@@ -77,30 +77,32 @@ def test_at003_2_mismatched_action_is_blocked():
 
 
 def test_at003_2_expired_allow_is_blocked():
-    request = load_scenario(SCENARIO)
+    request = load_scenario(ALLOW_SCENARIO)
     response, receipt = evaluate_financial(request)
     assert response.decision == "ALLOW"
 
-    expired_receipt = replace(
-        receipt,
-        valid_until=request.requested_execution_time - timedelta(seconds=1),
+    # Preserve the integrity-sealed receipt and move only the execution attempt
+    # beyond the receipt validity window.
+    attempt = _make_attempt(
+        request,
+        attempted_at=receipt.valid_until + timedelta(seconds=1),
     )
-    attempt = _make_attempt(request)
-    gateway = validate_execution(expired_receipt, attempt)
+    gateway = validate_execution(receipt, attempt)
 
     assert gateway.status == "BLOCKED"
     assert gateway.reason_code == "AUTHORITY_DETERMINATION_EXPIRED"
     assert gateway.execution_permit is None
 
 
-def test_at003_2_refuse_is_blocked():
-    request = load_scenario(SCENARIO)
+def test_at003_2_native_refuse_is_blocked():
+    request = load_scenario(REFUSE_SCENARIO)
     response, receipt = evaluate_financial(request)
-    assert response.decision == "ALLOW"
+    assert response.decision == "REFUSE"
 
-    refuse_receipt = replace(receipt, decision="REFUSE")
+    # Use the natively issued, integrity-valid REFUSE receipt rather than
+    # mutating a sealed ALLOW receipt after issuance.
     attempt = _make_attempt(request)
-    gateway = validate_execution(refuse_receipt, attempt)
+    gateway = validate_execution(receipt, attempt)
 
     assert gateway.status == "BLOCKED"
     assert gateway.reason_code == "NO_APPLICABLE_ALLOW"
