@@ -6,6 +6,12 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Callable
+
+from app.engines.authority_store import (
+    authority_state_guard,
+    get_authority_state_version_unlocked,
+)
 
 
 # Reference-harness boundary secret. Production deployments MUST source this
@@ -66,11 +72,7 @@ def issue_execution_permit(
     action_binding_hash: str,
     authority_state_version: int,
 ) -> ExecutionPermit:
-    """Mint a consequence capability after the Execution Gateway permits.
-
-    This function represents the protected gateway-side capability minting
-    boundary. It is not exposed through the executor-facing API.
-    """
+    """Mint a consequence capability after the Execution Gateway permits."""
     issued_at = datetime.now(timezone.utc).isoformat()
     return ExecutionPermit(
         authority_receipt_id=authority_receipt_id,
@@ -89,9 +91,16 @@ def issue_execution_permit(
 def execute_protected_consequence(
     permit: ExecutionPermit | None,
     attempted_action_binding_hash: str,
-    current_authority_state_version: int,
+    *,
+    before_formation_hook: Callable[[], None] | None = None,
 ) -> str:
-    """Represent consequence formation behind a cryptographic permit boundary."""
+    """Form the represented consequence inside the final authority-state guard.
+
+    The optional hook exists only to make the critical interval observable to
+    adversarial tests. Authority-state advancement uses the same guard, so it
+    cannot commit between this function's final standing read and represented
+    consequence formation.
+    """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
 
@@ -107,7 +116,12 @@ def execute_protected_consequence(
     if permit.action_binding_hash != attempted_action_binding_hash:
         return "DENIED_ACTION_BINDING_MISMATCH"
 
-    if permit.authority_state_version != current_authority_state_version:
-        return "DENIED_AUTHORITY_STATE_STALE"
+    with authority_state_guard():
+        current_authority_state_version = get_authority_state_version_unlocked()
+        if permit.authority_state_version != current_authority_state_version:
+            return "DENIED_AUTHORITY_STATE_STALE"
 
-    return "CONSEQUENCE_FORMED"
+        if before_formation_hook is not None:
+            before_formation_hook()
+
+        return "CONSEQUENCE_FORMED"
