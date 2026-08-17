@@ -63,6 +63,8 @@ A protected represented consequence boundary was introduced. Consequence formati
 
 Adversarial tests demonstrate that missing permits, arbitrary invalid signatures and action substitution are denied, while a permit produced through the tested gateway path for the exact action is accepted.
 
+During final consistency review, the normal AP-001 demonstrator path was also wired through `execute_protected_consequence()` so `EXECUTION PERMITTED` is reported only after the protected represented consequence returns `CONSEQUENCE_FORMED`. A dedicated regression test exercises that path.
+
 ### Final pre-merge review finding
 
 The permit mechanism demonstrates permit enforcement, but the stronger isolation proposition remains unproven. `issue_execution_permit()` is callable within the same Python codebase/process and the reference implementation contains a repository-visible default HMAC key when an external key is not supplied.
@@ -72,6 +74,7 @@ The current tests therefore do not prove that the proposing/executing actor is t
 **Final result:**
 
 - `DEMONSTRATED — permit validation and exact-action binding on the represented harness surface`
+- `DEMONSTRATED — normal AP-001 represented ALLOW path consumes the protected consequence boundary`
 - `ND — independent permit-issuer/signing-authority isolation from the executor`
 - `OVERALL EC-001.4 — PARTIAL`
 
@@ -80,6 +83,7 @@ Evidence:
 - `EC-001.4_PRE_REMEDIATION.md`
 - `EC-001.4_RESULT.md`
 - `harness/tests/test_ec001_4_independent_execution_authority.py`
+- `harness/agentic_demo.py`
 
 ## EC-001.5 — Atomic Boundary
 
@@ -128,20 +132,22 @@ Evidence:
 - `harness/tests/test_ec001_6_non_formation.py`
 - `evidence/FS-CT/FS-CT-001_RESULT.md`
 
-## Regression evidence
+## Final regression evidence
 
-The EC-001 branch is exercised by the GitHub Actions workflow **EC-001 and Regression Tests**. The earlier post-EC-001.6 regression recorded:
+GitHub Actions workflow: **EC-001 and Regression Tests**
+
+Final consistency-review regression after wiring the normal demonstrator ALLOW path through the protected consequence boundary:
 
 ```text
-.............................                                            [100%]
-29 passed in 0.57s
+..............................                                           [100%]
+30 passed in 0.52s
 ```
 
-Workflow run: `32021585230`
+Workflow run: `32023485529`
 
-Commit under test: `7daf7883a40db6df8dae08e66bc2c48b735ce212`
+Head commit under test: `5ea9ab262c050266436e8deb47534a79af570d0f`
 
-Subsequent documentation corrections do not convert an engineering property from ND/PARTIAL to PASS. The branch should be merged only after the final documentation state also receives a clean regression run.
+The test job completed successfully, including dependency installation and the full `pytest -q` harness suite.
 
 ## Final engineering conclusion
 
@@ -150,13 +156,13 @@ The external challenge materially strengthened the public reference implementati
 The final evidence is deliberately differentiated:
 
 - EC-001.1, EC-001.2 and bounded EC-001.3 are demonstrated on their tested harness surfaces;
-- EC-001.4 improved from an untested proof gap to demonstrated permit enforcement, but independent issuer/credential isolation remains not demonstrated, so the overall result is PARTIAL;
+- EC-001.4 improved from an untested proof gap to demonstrated permit enforcement and normal-path protected-boundary consumption, but independent issuer/credential isolation remains not demonstrated, so the overall result is PARTIAL;
 - EC-001.5 is demonstrated only for the in-process serialization mechanism represented by the harness; and
 - EC-001.6 demonstrates represented non-formation while external physical non-formation remains outside the proof surface.
 
 The evidential value lies in the lineage rather than the aggregate test count:
 
-`external challenge → proposition → observed evidence → proof gap preserved → strengthening → retest → pre-merge claim review → bounded conclusion`
+`external challenge → proposition → observed evidence → proof gap preserved → strengthening → retest → pre-merge claim review → normal-path consistency check → bounded conclusion`
 
 ## Claim boundary
 
