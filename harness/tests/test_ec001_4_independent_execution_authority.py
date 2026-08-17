@@ -1,4 +1,5 @@
 from dataclasses import replace
+from pathlib import Path
 
 from harness.runner import load_scenario
 from app.engines.financial_runtime import evaluate_financial
@@ -8,7 +9,7 @@ from app.engines.protected_consequence import ExecutionPermit, execute_protected
 
 
 def _allow_case():
-    req = load_scenario("harness/scenarios/AP-001_allow.json")
+    req = load_scenario(Path("harness/scenarios/AP-001_allow.json"))
     response, receipt = evaluate_financial(req)
     assert response.decision == "ALLOW"
     attempt = ExecutionAttempt(
