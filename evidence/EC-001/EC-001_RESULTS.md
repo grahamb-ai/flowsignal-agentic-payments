@@ -8,7 +8,7 @@
 
 EC-001 records the application of an external adversarial consequence-boundary challenge to the public FlowSignal Agentic Payments Harness.
 
-The challenge was treated as an engineering exercise rather than a debate. Each proposition was assessed against the implementation and available evidence. Where a stronger proof obligation was identified, the gap was preserved before remediation and the same proposition was retested after strengthening.
+Each proposition was assessed against the implementation and available evidence. Where a stronger proof obligation was identified, the gap was preserved before strengthening and the proposition was retested. A final pre-merge review then checked whether each public conclusion was no stronger than the evidence supporting it.
 
 The resulting evidence is intentionally bounded to the execution surfaces represented by the public reference harness.
 
@@ -19,7 +19,7 @@ The resulting evidence is intentionally bounded to the execution surfaces repres
 | EC-001.1 | Current Standing at Effect | Demonstrated | **PASS — bounded harness surface** |
 | EC-001.2 | No Stale ALLOW | Demonstrated | **PASS — bounded harness surface** |
 | EC-001.3 | Route Closure | Demonstrated | **PASS — bounded governed route** |
-| EC-001.4 | No Independent Execution Authority | ND | **PASS after strengthening — represented harness surface** |
+| EC-001.4 | No Independent Execution Authority | ND | **PARTIAL — permit enforcement demonstrated / capability isolation ND** |
 | EC-001.5 | Atomic Boundary | ND | **PASS after strengthening — in-process harness surface** |
 | EC-001.6 | Non-Formation | Partial | **PASS represented / ND external physical** |
 
@@ -59,24 +59,21 @@ The existing harness required the normal demonstrator path to consume the Execut
 
 ### Strengthening
 
-A protected represented consequence boundary was introduced. Consequence formation now requires a cryptographically signed `ExecutionPermit` minted only after successful Execution Gateway validation.
+A protected represented consequence boundary was introduced. Consequence formation requires a signed `ExecutionPermit` bound to the Authority Receipt, exact action, authority-state version and issue time.
 
-The permit is bound to:
+Adversarial tests demonstrate that missing permits, arbitrary invalid signatures and action substitution are denied, while a permit produced through the tested gateway path for the exact action is accepted.
 
-- Authority Receipt identifier;
-- exact action-binding hash;
-- authority-state version;
-- issue time; and
-- integrity signature.
+### Final pre-merge review finding
 
-Adversarial tests demonstrate:
+The permit mechanism demonstrates permit enforcement, but the stronger isolation proposition remains unproven. `issue_execution_permit()` is callable within the same Python codebase/process and the reference implementation contains a repository-visible default HMAC key when an external key is not supplied.
 
-- no permit → denied;
-- executor-fabricated permit → denied;
-- substituted action → denied;
-- valid gateway-minted permit for the exact action → represented consequence forms.
+The current tests therefore do not prove that the proposing/executing actor is technically unable to invoke the minting capability or obtain signing authority.
 
-**Final result:** `PASS — demonstrated on the represented public harness execution surface`.
+**Final result:**
+
+- `DEMONSTRATED — permit validation and exact-action binding on the represented harness surface`
+- `ND — independent permit-issuer/signing-authority isolation from the executor`
+- `OVERALL EC-001.4 — PARTIAL`
 
 Evidence:
 
@@ -131,11 +128,9 @@ Evidence:
 - `harness/tests/test_ec001_6_non_formation.py`
 - `evidence/FS-CT/FS-CT-001_RESULT.md`
 
-## Final regression evidence
+## Regression evidence
 
-GitHub Actions workflow: **EC-001 and Regression Tests**
-
-Final EC-001 branch regression after EC-001.6 formalisation:
+The EC-001 branch is exercised by the GitHub Actions workflow **EC-001 and Regression Tests**. The earlier post-EC-001.6 regression recorded:
 
 ```text
 .............................                                            [100%]
@@ -146,27 +141,30 @@ Workflow run: `32021585230`
 
 Commit under test: `7daf7883a40db6df8dae08e66bc2c48b735ce212`
 
+Subsequent documentation corrections do not convert an engineering property from ND/PARTIAL to PASS. The branch should be merged only after the final documentation state also receives a clean regression run.
+
 ## Final engineering conclusion
 
-The external challenge materially strengthened the public reference implementation.
+The external challenge materially strengthened the public reference implementation, but it did not produce six blanket PASS results.
 
-It did not produce a blanket claim that every consequence path is controlled. Instead it produced a differentiated result:
+The final evidence is deliberately differentiated:
 
-- three challenge propositions were already demonstrated on the bounded harness surface;
-- two stronger proof obligations were initially not demonstrated and were preserved as such before remediation;
-- both were subsequently strengthened and passed unchanged adversarial propositions on the represented harness surface; and
-- non-formation is demonstrated only for the represented consequence boundary, while real-world external physical non-formation remains outside the proof surface.
+- EC-001.1, EC-001.2 and bounded EC-001.3 are demonstrated on their tested harness surfaces;
+- EC-001.4 improved from an untested proof gap to demonstrated permit enforcement, but independent issuer/credential isolation remains not demonstrated, so the overall result is PARTIAL;
+- EC-001.5 is demonstrated only for the in-process serialization mechanism represented by the harness; and
+- EC-001.6 demonstrates represented non-formation while external physical non-formation remains outside the proof surface.
 
 The evidential value lies in the lineage rather than the aggregate test count:
 
-`external challenge → proposition → observed evidence → proof gap preserved where present → remediation → unchanged retest → regression → bounded conclusion`
+`external challenge → proposition → observed evidence → proof gap preserved → strengthening → retest → pre-merge claim review → bounded conclusion`
 
 ## Claim boundary
 
 EC-001 does **not** establish:
 
 - universal non-bypassability across systems not represented by the harness;
-- production credential isolation or IAM enforcement;
+- production credential or permit-issuer isolation;
+- production IAM, KMS or HSM enforcement;
 - distributed atomic commit or consensus;
 - transactional guarantees across independent external services;
 - physical prevention of settlement across real banking or payment rails; or
