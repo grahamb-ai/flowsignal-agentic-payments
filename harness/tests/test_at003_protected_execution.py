@@ -1,13 +1,23 @@
+"""
+AT-003.2 — Protected Execution (translated to current boundary)
+
+The original v0.10 test module targeted ProtectedPaymentState and
+execute_protected_payment(), which have since been superseded. These tests
+preserve the historical proof obligations against the current
+ExecutionGateway + ExecutionPermit + protected consequence boundary.
+"""
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+
 from harness.runner import load_scenario
 from app.engines.financial_runtime import evaluate_financial
 from app.engines.execution_gateway import (
     ExecutionAttempt,
-    ProtectedPaymentState,
-    execute_protected_payment,
+    action_binding_hash,
+    validate_execution,
 )
+from app.engines.protected_consequence import execute_protected_consequence
 
 
 SCENARIO = Path("harness/scenarios/AP-001_allow.json")
@@ -29,63 +39,69 @@ def _make_attempt(request, *, beneficiary=None, attempted_at=None):
     )
 
 
-def test_at003_2_valid_allow_executes_protected_payment():
+def test_at003_2_valid_allow_forms_protected_consequence():
     request = load_scenario(SCENARIO)
     response, receipt = evaluate_financial(request)
     assert response.decision == "ALLOW"
-    state = ProtectedPaymentState()
+
     attempt = _make_attempt(request)
-    result, new_state = execute_protected_payment(state, receipt, attempt)
-    assert result.status == "PERMITTED"
-    assert new_state.executed is True
-    assert new_state.amount == request.amount
-    assert new_state.beneficiary == request.beneficiary
-    assert new_state.authority_receipt_id == receipt.id
+    gateway = validate_execution(receipt, attempt)
+
+    assert gateway.status == "PERMITTED"
+    assert gateway.execution_permit is not None
+
+    consequence = execute_protected_consequence(
+        gateway.execution_permit,
+        action_binding_hash(attempt),
+    )
+    assert consequence == "CONSEQUENCE_FORMED"
 
 
 def test_at003_2_mismatched_action_is_blocked():
     request = load_scenario(SCENARIO)
     response, receipt = evaluate_financial(request)
     assert response.decision == "ALLOW"
-    state = ProtectedPaymentState()
+
     attempt = _make_attempt(request, beneficiary="SUBSTITUTED-BENEFICIARY")
-    result, new_state = execute_protected_payment(state, receipt, attempt)
-    assert result.status == "BLOCKED"
-    assert result.reason_code == "ACTION_BINDING_MISMATCH"
-    assert new_state is state
-    assert new_state.executed is False
-    assert new_state.amount == 0.0
-    assert new_state.beneficiary == ""
-    assert new_state.authority_receipt_id == ""
+    gateway = validate_execution(receipt, attempt)
+
+    assert gateway.status == "BLOCKED"
+    assert gateway.reason_code == "ACTION_BINDING_MISMATCH"
+    assert gateway.execution_permit is None
+
+    consequence = execute_protected_consequence(
+        gateway.execution_permit,
+        action_binding_hash(attempt),
+    )
+    assert consequence == "DENIED_NO_EXECUTION_PERMIT"
 
 
 def test_at003_2_expired_allow_is_blocked():
     request = load_scenario(SCENARIO)
     response, receipt = evaluate_financial(request)
     assert response.decision == "ALLOW"
-    expired_receipt = replace(receipt, valid_until=request.requested_execution_time - timedelta(seconds=1))
-    state = ProtectedPaymentState()
+
+    expired_receipt = replace(
+        receipt,
+        valid_until=request.requested_execution_time - timedelta(seconds=1),
+    )
     attempt = _make_attempt(request)
-    result, new_state = execute_protected_payment(state, expired_receipt, attempt)
-    assert result.status == "BLOCKED"
-    assert result.reason_code == "AUTHORITY_DETERMINATION_EXPIRED"
-    assert new_state is state
-    assert new_state.amount == 0.0
-    assert new_state.beneficiary == ""
-    assert new_state.authority_receipt_id == ""
+    gateway = validate_execution(expired_receipt, attempt)
+
+    assert gateway.status == "BLOCKED"
+    assert gateway.reason_code == "AUTHORITY_DETERMINATION_EXPIRED"
+    assert gateway.execution_permit is None
 
 
 def test_at003_2_refuse_is_blocked():
     request = load_scenario(SCENARIO)
     response, receipt = evaluate_financial(request)
+    assert response.decision == "ALLOW"
+
     refuse_receipt = replace(receipt, decision="REFUSE")
-    state = ProtectedPaymentState()
     attempt = _make_attempt(request)
-    result, new_state = execute_protected_payment(state, refuse_receipt, attempt)
-    assert result.status == "BLOCKED"
-    assert result.reason_code == "NO_APPLICABLE_ALLOW"
-    assert new_state is state
-    assert new_state.executed is False
-    assert new_state.amount == 0.0
-    assert new_state.beneficiary == ""
-    assert new_state.authority_receipt_id == ""
+    gateway = validate_execution(refuse_receipt, attempt)
+
+    assert gateway.status == "BLOCKED"
+    assert gateway.reason_code == "NO_APPLICABLE_ALLOW"
+    assert gateway.execution_permit is None
