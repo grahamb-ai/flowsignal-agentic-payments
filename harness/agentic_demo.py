@@ -12,7 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from harness.runner import load_scenario
 from app.engines.financial_runtime import evaluate_financial
-from app.engines.execution_gateway import ExecutionAttempt, validate_execution
+from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash, validate_execution
+from app.engines.protected_consequence import execute_protected_consequence
 
 ROOT = Path(__file__).resolve().parent
 SCENARIO_DIR = ROOT / "harness" / "scenarios"
@@ -95,6 +96,21 @@ def _scenario_doc(scenario_id: str) -> dict[str, Any]:
     return json.loads((SCENARIO_DIR / filename).read_text(encoding="utf-8"))
 
 
+def _represented_consequence(gateway, attempt: ExecutionAttempt, decision: str) -> tuple[str, str | None]:
+    if gateway.status == "PERMITTED":
+        protected_result = execute_protected_consequence(
+            permit=gateway.execution_permit,
+            attempted_action_binding_hash=action_binding_hash(attempt),
+        )
+        consequence = "EXECUTION PERMITTED" if protected_result == "CONSEQUENCE_FORMED" else "NO EXECUTION"
+        return consequence, protected_result
+
+    if decision == "ESCALATE":
+        return "EXECUTION WITHHELD", None
+
+    return "NO EXECUTION", None
+
+
 def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
     if scenario_id == "AP-006":
         base = load_scenario(SCENARIO_DIR / SCENARIO_FILES["AP-001"])
@@ -115,6 +131,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
             attempted_at=datetime.fromisoformat(x["attempted_at"].replace("Z", "+00:00")),
         )
         gateway = validate_execution(receipt, attempt)
+        consequence, protected_result = _represented_consequence(gateway, attempt, response.decision)
         return {
             "scenario_id": scenario_id,
             "title": doc["title"],
@@ -124,7 +141,8 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
             "authority_receipt": _ser(receipt),
             "execution_attempt": _ser(attempt),
             "execution_gateway": _ser(gateway),
-            "financial_consequence": "NO EXECUTION" if gateway.status == "BLOCKED" else "EXECUTION PERMITTED",
+            "protected_consequence": protected_result,
+            "financial_consequence": consequence,
         }
 
     doc = _scenario_doc(scenario_id)
@@ -145,13 +163,8 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
     )
 
     gateway = validate_execution(receipt, attempt)
+    consequence, protected_result = _represented_consequence(gateway, attempt, response.decision)
 
-    if gateway.status == "PERMITTED":
-        consequence = "EXECUTION PERMITTED"
-    elif response.decision == "ESCALATE":
-        consequence = "EXECUTION WITHHELD"
-    else:
-        consequence = "NO EXECUTION"
     return {
         "scenario_id": scenario_id,
         "title": doc["title"],
@@ -160,6 +173,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
         "execution_response": _ser(response),
         "authority_receipt": _ser(receipt),
         "execution_gateway": _ser(gateway),
+        "protected_consequence": protected_result,
         "financial_consequence": consequence,
     }
 
