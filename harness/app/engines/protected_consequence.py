@@ -12,6 +12,10 @@ from app.engines.authority_store import (
     authority_state_guard,
     get_authority_state_version_unlocked,
 )
+from app.engines.consequence_receipt import (
+    ConsequenceOutcomeReceipt,
+    create_consequence_outcome_receipt,
+)
 
 
 # Reference-harness boundary secret. Production deployments MUST source this
@@ -192,3 +196,30 @@ def execute_protected_consequence(
             before_formation_hook()
 
         return "CONSEQUENCE_FORMED"
+
+
+def execute_protected_consequence_with_receipt(
+    permit: ExecutionPermit | None,
+    attempted_action_binding_hash: str,
+    *,
+    before_formation_hook: Callable[[], None] | None = None,
+) -> tuple[str, ConsequenceOutcomeReceipt]:
+    """Execute the represented consequence boundary and seal its observed result.
+
+    The outcome receipt binds the represented result to the Authority Receipt
+    identifier, exact action binding and authority-state version carried by the
+    permit. It is tamper-evident harness evidence, not a durable external payment
+    settlement receipt or production audit-store guarantee.
+    """
+    outcome = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=attempted_action_binding_hash,
+        before_formation_hook=before_formation_hook,
+    )
+    receipt = create_consequence_outcome_receipt(
+        authority_receipt_id=(permit.authority_receipt_id if permit is not None else None),
+        action_binding_hash=attempted_action_binding_hash,
+        authority_state_version=(permit.authority_state_version if permit is not None else None),
+        outcome=outcome,
+    )
+    return outcome, receipt
