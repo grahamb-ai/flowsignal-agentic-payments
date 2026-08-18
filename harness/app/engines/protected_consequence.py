@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
-import os
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -12,80 +7,23 @@ from app.engines.authority_store import (
     authority_state_guard,
     get_authority_state_version_unlocked,
 )
+from app.engines.consequence_receipt import (
+    ConsequenceOutcomeReceipt,
+    create_consequence_outcome_receipt,
+)
+from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
 
 
-# Reference-harness boundary secret. Production deployments MUST source this
-# from a dedicated secret/KMS boundary inaccessible to the proposing executor.
-_PERMIT_KEY = os.environ.get(
-    "FLOWSIGNAL_EXECUTION_PERMIT_KEY",
-    "flowsignal-reference-harness-ec0014-key",
-).encode("utf-8")
+# In-process one-time-consumption registry for execution permits. The registry
+# remains bounded to the lifetime of this reference process. Durable duplicate
+# suppression across restart or multiple instances is a separate proof burden.
+_CONSUMED_PERMIT_SIGNATURES: set[str] = set()
 
 
-@dataclass(frozen=True)
-class ExecutionPermit:
-    authority_receipt_id: str
-    action_binding_hash: str
-    authority_state_version: int
-    issued_at: str
-    signature: str
-
-
-def _payload(
-    authority_receipt_id: str,
-    action_binding_hash: str,
-    authority_state_version: int,
-    issued_at: str,
-) -> bytes:
-    return json.dumps(
-        {
-            "authority_receipt_id": authority_receipt_id,
-            "action_binding_hash": action_binding_hash,
-            "authority_state_version": authority_state_version,
-            "issued_at": issued_at,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
-def _sign(
-    authority_receipt_id: str,
-    action_binding_hash: str,
-    authority_state_version: int,
-    issued_at: str,
-) -> str:
-    return hmac.new(
-        _PERMIT_KEY,
-        _payload(
-            authority_receipt_id,
-            action_binding_hash,
-            authority_state_version,
-            issued_at,
-        ),
-        hashlib.sha256,
-    ).hexdigest()
-
-
-def issue_execution_permit(
-    authority_receipt_id: str,
-    action_binding_hash: str,
-    authority_state_version: int,
-) -> ExecutionPermit:
-    """Mint a consequence capability after the Execution Gateway permits."""
-    issued_at = datetime.now(timezone.utc).isoformat()
-    return ExecutionPermit(
-        authority_receipt_id=authority_receipt_id,
-        action_binding_hash=action_binding_hash,
-        authority_state_version=authority_state_version,
-        issued_at=issued_at,
-        signature=_sign(
-            authority_receipt_id,
-            action_binding_hash,
-            authority_state_version,
-            issued_at,
-        ),
-    )
+def _aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def execute_protected_consequence(
@@ -94,34 +32,67 @@ def execute_protected_consequence(
     *,
     before_formation_hook: Callable[[], None] | None = None,
 ) -> str:
-    """Form the represented consequence inside the final authority-state guard.
+    """Consume, but do not mint, a consequence-authorising execution permit.
 
-    The optional hook exists only to make the critical interval observable to
-    adversarial tests. Authority-state advancement uses the same guard, so it
-    cannot commit between this function's final standing read and represented
-    consequence formation.
+    Permit issuance/signing lives in the separate reference permit-authority
+    component. This represented execution component verifies the permit, checks
+    exact action binding and temporal/current-state standing, enforces one-time
+    use and forms the represented consequence.
+
+    The separation is a reference component/module boundary. It is not claimed
+    as production process/IAM/KMS/HSM isolation.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
 
-    expected = _sign(
-        permit.authority_receipt_id,
-        permit.action_binding_hash,
-        permit.authority_state_version,
-        permit.issued_at,
-    )
-    if not hmac.compare_digest(expected, permit.signature):
+    if not verify_execution_permit(permit):
         return "DENIED_INVALID_EXECUTION_PERMIT"
 
     if permit.action_binding_hash != attempted_action_binding_hash:
         return "DENIED_ACTION_BINDING_MISMATCH"
+
+    if permit.valid_until is None:
+        return "DENIED_EXECUTION_PERMIT_EXPIRY_MISSING"
+
+    try:
+        permit_expiry = _aware(datetime.fromisoformat(permit.valid_until))
+    except (TypeError, ValueError):
+        return "DENIED_EXECUTION_PERMIT_EXPIRY_INVALID"
+
+    if datetime.now(timezone.utc) > permit_expiry:
+        return "DENIED_EXECUTION_PERMIT_EXPIRED"
 
     with authority_state_guard():
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
 
+        if permit.signature in _CONSUMED_PERMIT_SIGNATURES:
+            return "DENIED_EXECUTION_PERMIT_REPLAY"
+
+        _CONSUMED_PERMIT_SIGNATURES.add(permit.signature)
+
         if before_formation_hook is not None:
             before_formation_hook()
 
         return "CONSEQUENCE_FORMED"
+
+
+def execute_protected_consequence_with_receipt(
+    permit: ExecutionPermit | None,
+    attempted_action_binding_hash: str,
+    *,
+    before_formation_hook: Callable[[], None] | None = None,
+) -> tuple[str, ConsequenceOutcomeReceipt]:
+    outcome = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=attempted_action_binding_hash,
+        before_formation_hook=before_formation_hook,
+    )
+    receipt = create_consequence_outcome_receipt(
+        authority_receipt_id=(permit.authority_receipt_id if permit is not None else None),
+        action_binding_hash=attempted_action_binding_hash,
+        authority_state_version=(permit.authority_state_version if permit is not None else None),
+        outcome=outcome,
+    )
+    return outcome, receipt
