@@ -41,16 +41,17 @@ def execute_protected_consequence(
     the represented expiry time-of-check/time-of-use interval exercised by
     PMQ-002.4.
 
-    Before returning CONSEQUENCE_FORMED, the executor also persists a durable
-    represented consequence-outcome record keyed by the execution permit. This
-    preserves recoverable formation evidence if subsequent receipt creation
-    fails, as exercised by PMQ-002.6.
+    Before returning CONSEQUENCE_FORMED, the executor persists a durable
+    represented consequence-outcome record keyed by the execution permit. If a
+    represented executor exception occurs after permit consumption but before
+    formation, the executor records CONSEQUENCE_NOT_FORMED before propagating
+    that exception. This preserves the distinction exercised by PMQ-002.7.
 
     The separation is a reference component/module boundary. The durable stores
     demonstrate persistence within the represented MVP mechanism when the same
     stores remain available. They are not claimed as production process/IAM/
-    KMS/HSM isolation, database HA, distributed consensus, write-once audit or
-    external payment-rail idempotency.
+    KMS/HSM isolation, hard-process-kill recovery, database HA, distributed
+    consensus, write-once audit or external payment-rail idempotency.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
@@ -73,8 +74,6 @@ def execute_protected_consequence(
         return "DENIED_EXECUTION_PERMIT_EXPIRED"
 
     with authority_state_guard():
-        # Revalidate temporal standing after any wait to acquire the protected
-        # boundary. A permit that expired while blocked must not proceed.
         if datetime.now(timezone.utc) > permit_expiry:
             return "DENIED_EXECUTION_PERMIT_EXPIRED"
 
@@ -86,11 +85,16 @@ def execute_protected_consequence(
             return "DENIED_EXECUTION_PERMIT_REPLAY"
 
         if before_formation_hook is not None:
-            before_formation_hook()
+            try:
+                before_formation_hook()
+            except Exception:
+                record_consequence_outcome(
+                    permit_signature=permit.signature,
+                    action_binding_hash=attempted_action_binding_hash,
+                    outcome="CONSEQUENCE_NOT_FORMED",
+                )
+                raise
 
-        # In the represented harness, formation is not reported until the fact
-        # of formation has a durable recoverable outcome record. If this write
-        # fails, execution raises rather than claiming CONSEQUENCE_FORMED.
         record_consequence_outcome(
             permit_signature=permit.signature,
             action_binding_hash=attempted_action_binding_hash,
