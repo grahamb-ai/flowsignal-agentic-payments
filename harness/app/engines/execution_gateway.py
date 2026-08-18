@@ -117,6 +117,7 @@ def validate_execution(
         authority_receipt_id=receipt.id,
         action_binding_hash=attempted_hash,
         authority_state_version=current_authority_state_version,
+        valid_until=_aware(receipt.valid_until).isoformat(),
         mint_capability=_GATEWAY_MINT_CAPABILITY,
     )
     return GatewayResult(
