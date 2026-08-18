@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import time
 from pathlib import Path
 
 
 _DEFAULT_ANCHOR_PATH = Path(".flowsignal-runtime/execution_rollback_anchor.sqlite3")
+_BUSY_RETRY_ATTEMPTS = 100
+_BUSY_RETRY_DELAY_SECONDS = 0.05
 
 
 def _anchor_path() -> Path:
@@ -22,22 +25,37 @@ def _anchor_path() -> Path:
     return _DEFAULT_ANCHOR_PATH
 
 
+def _is_busy(exc: sqlite3.OperationalError) -> bool:
+    message = str(exc).lower()
+    return "locked" in message or "busy" in message
+
+
 def _connect() -> sqlite3.Connection:
     path = _anchor_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path, timeout=5.0, isolation_level=None)
-    connection.execute("PRAGMA busy_timeout=5000")
-    connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS execution_rollback_anchors (
-            permit_signature TEXT PRIMARY KEY,
-            action_binding_hash TEXT NOT NULL,
-            anchored_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    return connection
+
+    for attempt in range(_BUSY_RETRY_ATTEMPTS):
+        connection = sqlite3.connect(path, timeout=5.0, isolation_level=None)
+        try:
+            connection.execute("PRAGMA busy_timeout=5000")
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_rollback_anchors (
+                    permit_signature TEXT PRIMARY KEY,
+                    action_binding_hash TEXT NOT NULL,
+                    anchored_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            return connection
+        except sqlite3.OperationalError as exc:
+            connection.close()
+            if not _is_busy(exc) or attempt == _BUSY_RETRY_ATTEMPTS - 1:
+                raise
+            time.sleep(_BUSY_RETRY_DELAY_SECONDS)
+
+    raise AssertionError("unreachable")
 
 
 def claim_execution_anchor_once(*, permit_signature: str, action_binding_hash: str) -> bool:
