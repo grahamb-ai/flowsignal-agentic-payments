@@ -37,27 +37,16 @@ def execute_protected_consequence(
     durable permit consumption together with an initial unresolved execution
     outcome before entering the remaining consequence-formation interval.
 
-    Temporal standing is checked once before waiting for the final authority
-    boundary and again immediately after that boundary is acquired. This closes
-    the represented expiry time-of-check/time-of-use interval exercised by
-    PMQ-002.4.
+    PMQ-002.9 commits permit consumption and CONSEQUENCE_OUTCOME_UNRESOLVED
+    together through one attached-database transaction.
 
-    PMQ-002.9 demonstrated that separate commits for permit consumption and the
-    first outcome record leave a crash window. The reference SQLite mechanism
-    commits permit consumption and CONSEQUENCE_OUTCOME_UNRESOLVED together
-    through one attached-database transaction before formation proceeds.
-
-    PMQ-002.10 demonstrated that restoring both of those execution-state stores
-    to a pre-execution snapshot can resurrect a consumed permit. The reference
-    executor therefore also claims a separate rollback-detection anchor before
-    consequence formation. If the two execution-state stores move backwards
-    while that anchor survives, the same permit is denied rather than forming a
-    second represented consequence.
-
-    A normal represented failure before formation replaces the unresolved state
-    with CONSEQUENCE_NOT_FORMED; successful represented formation replaces it
-    with CONSEQUENCE_FORMED. Abrupt termination after the initial transaction
-    therefore leaves an explicit unresolved state for recovery.
+    PMQ-002.10 adds a separate surviving rollback anchor. Ordinary replay remains
+    distinguishable from rollback: if the anchor already exists and the durable
+    permit store also reports the permit consumed, the result remains the prior
+    DENIED_EXECUTION_PERMIT_REPLAY. If the anchor already exists but the restored
+    execution-state stores accept the permit as apparently unused, execution is
+    stopped as DENIED_EXECUTION_STATE_ROLLBACK_OR_REPLAY before consequence
+    formation.
 
     This is a reference-MVP local SQLite boundary. The rollback anchor only
     demonstrates detection when that separate anchor survives rollback of the
@@ -95,17 +84,25 @@ def execute_protected_consequence(
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
 
-        if not claim_execution_anchor_once(
+        anchor_was_new = claim_execution_anchor_once(
             permit_signature=permit.signature,
             action_binding_hash=attempted_action_binding_hash,
-        ):
-            return "DENIED_EXECUTION_STATE_ROLLBACK_OR_REPLAY"
+        )
 
-        if not consume_execution_permit_and_begin_outcome_once(
+        consumption_was_new = consume_execution_permit_and_begin_outcome_once(
             permit.signature,
             attempted_action_binding_hash,
-        ):
+        )
+
+        if not consumption_was_new:
             return "DENIED_EXECUTION_PERMIT_REPLAY"
+
+        if not anchor_was_new:
+            # The separate anchor remembers this execution while the restored
+            # execution-state stores have accepted it as new. The consumption
+            # transaction has safely re-established an unresolved record, but
+            # represented consequence formation must stop here.
+            return "DENIED_EXECUTION_STATE_ROLLBACK_OR_REPLAY"
 
         if before_formation_hook is not None:
             try:
