@@ -41,17 +41,19 @@ def execute_protected_consequence(
     the represented expiry time-of-check/time-of-use interval exercised by
     PMQ-002.4.
 
-    Before returning CONSEQUENCE_FORMED, the executor persists a durable
-    represented consequence-outcome record keyed by the execution permit. If a
-    represented executor exception occurs after permit consumption but before
-    formation, the executor records CONSEQUENCE_NOT_FORMED before propagating
-    that exception. This preserves the distinction exercised by PMQ-002.7.
+    Immediately after successful durable permit consumption, the executor
+    persists CONSEQUENCE_OUTCOME_UNRESOLVED before entering the remaining
+    formation interval. A normal represented failure before formation replaces
+    that state with CONSEQUENCE_NOT_FORMED; successful represented formation
+    replaces it with CONSEQUENCE_FORMED. If the process terminates abruptly in
+    that interval, the durable unresolved state survives for recovery instead of
+    leaving permit consumption with no explicit consequence outcome.
 
     The separation is a reference component/module boundary. The durable stores
     demonstrate persistence within the represented MVP mechanism when the same
     stores remain available. They are not claimed as production process/IAM/
-    KMS/HSM isolation, hard-process-kill recovery, database HA, distributed
-    consensus, write-once audit or external payment-rail idempotency.
+    KMS/HSM isolation, database HA, distributed consensus, write-once audit,
+    storage-loss recovery or external payment-rail idempotency.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
@@ -83,6 +85,12 @@ def execute_protected_consequence(
 
         if not consume_execution_permit_once(permit.signature):
             return "DENIED_EXECUTION_PERMIT_REPLAY"
+
+        record_consequence_outcome(
+            permit_signature=permit.signature,
+            action_binding_hash=attempted_action_binding_hash,
+            outcome="CONSEQUENCE_OUTCOME_UNRESOLVED",
+        )
 
         if before_formation_hook is not None:
             try:
