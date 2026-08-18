@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 from app.engines.financial_types import AuthorityReceipt
 from app.engines.receipt_integrity import verify_receipt_hmac
 from app.engines.authority_store import get_authority_state_version
-from app.engines.protected_consequence import ExecutionPermit, issue_execution_permit
+from app.engines.protected_consequence import (
+    ExecutionPermit,
+    _GATEWAY_MINT_CAPABILITY,
+    issue_execution_permit,
+)
 
 @dataclass
 class ExecutionAttempt:
@@ -113,6 +117,7 @@ def validate_execution(
         authority_receipt_id=receipt.id,
         action_binding_hash=attempted_hash,
         authority_state_version=current_authority_state_version,
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
     )
     return GatewayResult(
         status="PERMITTED",
