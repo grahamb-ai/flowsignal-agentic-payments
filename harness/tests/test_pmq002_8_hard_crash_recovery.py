@@ -38,6 +38,17 @@ def _hard_crash_worker(permit, binding, permit_store: str, outcome_store: str):
     os.environ["FLOWSIGNAL_PERMIT_CONSUMPTION_STORE"] = permit_store
     os.environ["FLOWSIGNAL_CONSEQUENCE_OUTCOME_STORE"] = outcome_store
 
+    # Spawn starts with a fresh represented in-process authority state. Align
+    # only this fixture with the already-issued permit so the frozen crash point
+    # is reached instead of returning DENIED_AUTHORITY_STATE_STALE early.
+    from app.engines.authority_store import (
+        advance_authority_state_version,
+        get_authority_state_version,
+    )
+    while get_authority_state_version() < permit.authority_state_version:
+        advance_authority_state_version()
+    assert get_authority_state_version() == permit.authority_state_version
+
     from app.engines import protected_consequence
 
     def terminate_after_consumption_before_outcome_record():
