@@ -4,6 +4,7 @@ Frozen challenge:
 `evidence/PMQ-001/PMQ-001_DELAYED_PERMIT_EXPIRY_CHALLENGE.md`
 """
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -17,6 +18,16 @@ def test_pmq001_gateway_permit_cannot_form_consequence_after_authority_window_ex
     req = load_scenario(Path("harness/scenarios/AP-001_allow.json"))
 
     sealed_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+
+    # Keep the baseline authority/evidence conditions valid at the artificial
+    # historical seal time so the test reaches the frozen delayed-expiry
+    # proposition rather than failing earlier on stale screening evidence.
+    req = replace(
+        req,
+        screening_captured_at=sealed_at,
+        requested_execution_time=sealed_at + timedelta(seconds=30),
+    )
+
     response, receipt = evaluate_financial(req, sealed_at=sealed_at)
     assert response.decision == "ALLOW"
     assert receipt.valid_until is not None
@@ -35,7 +46,7 @@ def test_pmq001_gateway_permit_cannot_form_consequence_after_authority_window_ex
         beneficiary=req.beneficiary,
         purpose=req.purpose,
         mandate_id=req.mandate_id,
-        attempted_at=sealed_at + timedelta(seconds=30),
+        attempted_at=req.requested_execution_time,
     )
 
     gateway = validate_execution(receipt, attempt)
