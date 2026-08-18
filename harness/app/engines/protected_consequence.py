@@ -14,6 +14,7 @@ from app.engines.consequence_receipt import (
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
 from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
+from app.engines.rollback_anchor_store import claim_execution_anchor_once
 
 
 def _aware(dt: datetime) -> datetime:
@@ -43,18 +44,28 @@ def execute_protected_consequence(
 
     PMQ-002.9 demonstrated that separate commits for permit consumption and the
     first outcome record leave a crash window. The reference SQLite mechanism
-    now commits permit consumption and CONSEQUENCE_OUTCOME_UNRESOLVED together
+    commits permit consumption and CONSEQUENCE_OUTCOME_UNRESOLVED together
     through one attached-database transaction before formation proceeds.
+
+    PMQ-002.10 demonstrated that restoring both of those execution-state stores
+    to a pre-execution snapshot can resurrect a consumed permit. The reference
+    executor therefore also claims a separate rollback-detection anchor before
+    consequence formation. If the two execution-state stores move backwards
+    while that anchor survives, the same permit is denied rather than forming a
+    second represented consequence.
 
     A normal represented failure before formation replaces the unresolved state
     with CONSEQUENCE_NOT_FORMED; successful represented formation replaces it
     with CONSEQUENCE_FORMED. Abrupt termination after the initial transaction
     therefore leaves an explicit unresolved state for recovery.
 
-    This is a reference-MVP local SQLite boundary. It is not claimed as
-    production distributed transactionality, database HA, cross-host atomicity,
-    fsync/power-loss durability, write-once audit, external payment idempotency
-    or production process/IAM/KMS/HSM isolation.
+    This is a reference-MVP local SQLite boundary. The rollback anchor only
+    demonstrates detection when that separate anchor survives rollback of the
+    permit-consumption and consequence-outcome stores. It is not claimed as
+    resistance to rollback of all local state, production distributed
+    transactionality, database HA, cross-host atomicity, fsync/power-loss
+    durability, immutable/write-once audit, external payment idempotency or
+    production process/IAM/KMS/HSM isolation.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
@@ -83,6 +94,12 @@ def execute_protected_consequence(
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
+
+        if not claim_execution_anchor_once(
+            permit_signature=permit.signature,
+            action_binding_hash=attempted_action_binding_hash,
+        ):
+            return "DENIED_EXECUTION_STATE_ROLLBACK_OR_REPLAY"
 
         if not consume_execution_permit_and_begin_outcome_once(
             permit.signature,
