@@ -22,6 +22,11 @@ def _outcome_store_path() -> Path:
     return Path(configured) if configured else _DEFAULT_OUTCOME_STORE_PATH
 
 
+def _is_busy(exc: sqlite3.OperationalError) -> bool:
+    message = str(exc).lower()
+    return "locked" in message or "busy" in message
+
+
 def _execute_with_busy_retry(connection: sqlite3.Connection, statement: str) -> None:
     """Execute store-initialization SQL while tolerating bounded SQLite lock races."""
     for attempt in range(_BUSY_RETRY_ATTEMPTS):
@@ -29,8 +34,7 @@ def _execute_with_busy_retry(connection: sqlite3.Connection, statement: str) -> 
             connection.execute(statement)
             return
         except sqlite3.OperationalError as exc:
-            message = str(exc).lower()
-            if "locked" not in message and "busy" not in message:
+            if not _is_busy(exc):
                 raise
             if attempt == _BUSY_RETRY_ATTEMPTS - 1:
                 raise
@@ -68,48 +72,30 @@ def consume_execution_permit_once(signature: str) -> bool:
         connection.close()
 
 
-def consume_execution_permit_and_begin_outcome_once(
+def _consume_and_begin_once_attempt(
+    *,
+    permit_path: Path,
+    outcome_path: Path,
     signature: str,
     action_binding_hash: str,
 ) -> bool:
-    """Establish consumption and initial execution state as one SQLite transaction.
-
-    PMQ-002.9 demonstrated that committing permit consumption before creating the
-    first consequence-outcome row leaves a crash window with a consumed permit
-    and no recoverable execution state. This reference-MVP operation attaches the
-    configured outcome database and commits both records in one transaction.
-
-    Returns True only for the first successful permit consumption. A duplicate
-    signature returns False without replacing the existing execution outcome.
-
-    This is a bounded SQLite reference mechanism. It does not establish
-    production distributed transactions, database HA/failover, cross-host
-    atomicity, external payment idempotency, fsync/power-loss guarantees or
-    infrastructure trust isolation.
-    """
-    permit_path = _store_path()
-    outcome_path = _outcome_store_path()
-    permit_path.parent.mkdir(parents=True, exist_ok=True)
-    outcome_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Use rollback-journal mode for this specific attached-database transaction.
-    # SQLite can then coordinate the two file commits through its super-journal
-    # mechanism on the represented local-filesystem boundary.
     connection = sqlite3.connect(permit_path, timeout=5.0, isolation_level=None)
     try:
         connection.execute("PRAGMA busy_timeout=5000")
-        connection.execute("PRAGMA journal_mode=DELETE")
+        _execute_with_busy_retry(connection, "PRAGMA journal_mode=DELETE")
         connection.execute("ATTACH DATABASE ? AS outcome_db", (str(outcome_path),))
-        connection.execute("PRAGMA outcome_db.journal_mode=DELETE")
-        connection.execute(
+        _execute_with_busy_retry(connection, "PRAGMA outcome_db.journal_mode=DELETE")
+        _execute_with_busy_retry(
+            connection,
             """
             CREATE TABLE IF NOT EXISTS consumed_execution_permits (
                 signature TEXT PRIMARY KEY,
                 consumed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-            """
+            """,
         )
-        connection.execute(
+        _execute_with_busy_retry(
+            connection,
             """
             CREATE TABLE IF NOT EXISTS outcome_db.consequence_outcomes (
                 permit_signature TEXT PRIMARY KEY,
@@ -117,7 +103,7 @@ def consume_execution_permit_and_begin_outcome_once(
                 outcome TEXT NOT NULL,
                 recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-            """
+            """,
         )
 
         connection.execute("BEGIN IMMEDIATE")
@@ -147,3 +133,50 @@ def consume_execution_permit_and_begin_outcome_once(
         raise
     finally:
         connection.close()
+
+
+def consume_execution_permit_and_begin_outcome_once(
+    signature: str,
+    action_binding_hash: str,
+) -> bool:
+    """Establish consumption and initial execution state as one SQLite transaction.
+
+    PMQ-002.9 demonstrated that committing permit consumption before creating the
+    first consequence-outcome row leaves a crash window with a consumed permit
+    and no recoverable execution state. This reference-MVP operation attaches the
+    configured outcome database and commits both records in one transaction.
+
+    The bounded retry around the complete attached-database attempt preserves the
+    already-qualified PMQ-002.2 two-process race when concurrent processes are
+    initializing or entering this local SQLite transaction. A retry starts with a
+    fresh connection so partially completed ATTACH/PRAGMA setup is not reused.
+
+    Returns True only for the first successful permit consumption. A duplicate
+    signature returns False without replacing the existing execution outcome.
+
+    This is a bounded SQLite reference mechanism. It does not establish
+    production distributed transactions, database HA/failover, cross-host
+    atomicity, external payment idempotency, fsync/power-loss guarantees or
+    infrastructure trust isolation.
+    """
+    permit_path = _store_path()
+    outcome_path = _outcome_store_path()
+    permit_path.parent.mkdir(parents=True, exist_ok=True)
+    outcome_path.parent.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(_BUSY_RETRY_ATTEMPTS):
+        try:
+            return _consume_and_begin_once_attempt(
+                permit_path=permit_path,
+                outcome_path=outcome_path,
+                signature=signature,
+                action_binding_hash=action_binding_hash,
+            )
+        except sqlite3.OperationalError as exc:
+            if not _is_busy(exc):
+                raise
+            if attempt == _BUSY_RETRY_ATTEMPTS - 1:
+                raise
+            time.sleep(_BUSY_RETRY_DELAY_SECONDS)
+
+    raise AssertionError("unreachable")
