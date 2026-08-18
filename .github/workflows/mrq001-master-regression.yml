@@ -1,12 +1,6 @@
 name: MRQ-001 Master Runtime Qualification Regression
 
 on:
-  push:
-    branches:
-      - mrq-001-master-regression
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -17,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: AT-004 documented historical baseline (60 non-database tests)
+          - label: AT-004 historical commit (documented 60; current collection 17)
             ref: d9dab01eb1cc6d8a0c7fb50eadbdb1560a7d6ce1
           - label: EC-001 bounded regression baseline (30 tests)
             ref: b154b82bd429d1d1f2a1e63306099de3e18423ff
