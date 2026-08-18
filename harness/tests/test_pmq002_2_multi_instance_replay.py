@@ -50,10 +50,24 @@ def _worker(start_event, result_queue, permit_payload, binding, store_path):
 
     # Import inside each worker so each process owns an independent Python
     # execution component while sharing only the configured durable store.
+    from app.engines.authority_store import (
+        advance_authority_state_version,
+        get_authority_state_version,
+    )
     from app.engines.permit_authority import ExecutionPermit
     from app.engines.protected_consequence import execute_protected_consequence
 
     permit = ExecutionPermit(**json.loads(permit_payload))
+
+    # Spawned workers initialise their in-memory reference authority store at
+    # version 1. Align only that test fixture state to the already-issued permit
+    # so the replay proposition is actually reached. This does not alter the
+    # permit, action binding, concurrency model or replay mechanism under test.
+    while get_authority_state_version() < permit.authority_state_version:
+        advance_authority_state_version()
+
+    assert get_authority_state_version() == permit.authority_state_version
+
     start_event.wait(timeout=5.0)
     outcome = execute_protected_consequence(
         permit=permit,
