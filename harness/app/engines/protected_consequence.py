@@ -40,6 +40,7 @@ class ExecutionPermit:
     authority_state_version: int
     issued_at: str
     signature: str
+    valid_until: str | None = None
 
 
 def _payload(
@@ -47,6 +48,7 @@ def _payload(
     action_binding_hash: str,
     authority_state_version: int,
     issued_at: str,
+    valid_until: str | None,
 ) -> bytes:
     return json.dumps(
         {
@@ -54,6 +56,7 @@ def _payload(
             "action_binding_hash": action_binding_hash,
             "authority_state_version": authority_state_version,
             "issued_at": issued_at,
+            "valid_until": valid_until,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -65,6 +68,7 @@ def _sign(
     action_binding_hash: str,
     authority_state_version: int,
     issued_at: str,
+    valid_until: str | None,
 ) -> str:
     return hmac.new(
         _PERMIT_KEY,
@@ -73,9 +77,16 @@ def _sign(
             action_binding_hash,
             authority_state_version,
             issued_at,
+            valid_until,
         ),
         hashlib.sha256,
     ).hexdigest()
+
+
+def _aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def issue_execution_permit(
@@ -83,16 +94,22 @@ def issue_execution_permit(
     action_binding_hash: str,
     authority_state_version: int,
     *,
+    valid_until: str | None = None,
     mint_capability: object | None = None,
 ) -> ExecutionPermit | None:
     """Mint a consequence capability only for the governed gateway path.
 
     Direct callers that do not possess the exact in-process gateway capability
-    receive no permit. This closes the specific PMQ-001 no-bind bypass on the
-    public reference harness surface, while leaving production-grade capability
-    isolation as a separate proof obligation.
+    receive no permit. A gateway caller must also provide the validated
+    Authority Receipt validity boundary so temporal standing is preserved in the
+    signed permit and rechecked at consequence formation.
+
+    This remains a reference-harness mechanism, not production-grade
+    process/IAM/KMS isolation.
     """
     if mint_capability is not _GATEWAY_MINT_CAPABILITY:
+        return None
+    if valid_until is None:
         return None
 
     issued_at = datetime.now(timezone.utc).isoformat()
@@ -101,11 +118,13 @@ def issue_execution_permit(
         action_binding_hash=action_binding_hash,
         authority_state_version=authority_state_version,
         issued_at=issued_at,
+        valid_until=valid_until,
         signature=_sign(
             authority_receipt_id,
             action_binding_hash,
             authority_state_version,
             issued_at,
+            valid_until,
         ),
     )
 
@@ -118,15 +137,14 @@ def execute_protected_consequence(
 ) -> str:
     """Form the represented consequence inside the final authority-state guard.
 
+    The protected boundary rechecks signed temporal validity, current authority
+    state and one-time permit consumption before represented consequence
+    formation.
+
     Permit consumption is serialized inside the same in-process authority-state
     guard as the final standing read and represented consequence formation. This
     means one valid permit can form at most one represented consequence during
     the lifetime of the reference process.
-
-    The optional hook exists only to make the critical interval observable to
-    adversarial tests. Authority-state advancement uses the same guard, so it
-    cannot commit between this function's final standing read and represented
-    consequence formation.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
@@ -136,12 +154,24 @@ def execute_protected_consequence(
         permit.action_binding_hash,
         permit.authority_state_version,
         permit.issued_at,
+        permit.valid_until,
     )
     if not hmac.compare_digest(expected, permit.signature):
         return "DENIED_INVALID_EXECUTION_PERMIT"
 
     if permit.action_binding_hash != attempted_action_binding_hash:
         return "DENIED_ACTION_BINDING_MISMATCH"
+
+    if permit.valid_until is None:
+        return "DENIED_EXECUTION_PERMIT_EXPIRY_MISSING"
+
+    try:
+        permit_expiry = _aware(datetime.fromisoformat(permit.valid_until))
+    except (TypeError, ValueError):
+        return "DENIED_EXECUTION_PERMIT_EXPIRY_INVALID"
+
+    if datetime.now(timezone.utc) > permit_expiry:
+        return "DENIED_EXECUTION_PERMIT_EXPIRED"
 
     with authority_state_guard():
         current_authority_state_version = get_authority_state_version_unlocked()
