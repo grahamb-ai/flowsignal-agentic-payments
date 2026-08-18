@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - mrq-001-master-regression
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
