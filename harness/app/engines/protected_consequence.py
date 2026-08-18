@@ -21,6 +21,11 @@ _PERMIT_KEY = os.environ.get(
     "flowsignal-reference-harness-ec0014-key",
 ).encode("utf-8")
 
+# In-process reference capability used only to prevent the public permit issuer
+# from being independently usable without the governed gateway path. This is
+# deliberately NOT described as production-grade process/IAM/KMS isolation.
+_GATEWAY_MINT_CAPABILITY = object()
+
 
 @dataclass(frozen=True)
 class ExecutionPermit:
@@ -71,8 +76,19 @@ def issue_execution_permit(
     authority_receipt_id: str,
     action_binding_hash: str,
     authority_state_version: int,
-) -> ExecutionPermit:
-    """Mint a consequence capability after the Execution Gateway permits."""
+    *,
+    mint_capability: object | None = None,
+) -> ExecutionPermit | None:
+    """Mint a consequence capability only for the governed gateway path.
+
+    Direct callers that do not possess the exact in-process gateway capability
+    receive no permit. This closes the specific PMQ-001 no-bind bypass on the
+    public reference harness surface, while leaving production-grade capability
+    isolation as a separate proof obligation.
+    """
+    if mint_capability is not _GATEWAY_MINT_CAPABILITY:
+        return None
+
     issued_at = datetime.now(timezone.utc).isoformat()
     return ExecutionPermit(
         authority_receipt_id=authority_receipt_id,
