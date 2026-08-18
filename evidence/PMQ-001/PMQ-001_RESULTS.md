@@ -22,7 +22,7 @@ This record is not a production certification. A PASS applies only to the exact 
 | PMQ-001.5 Lawful continuation / loss | **PASS** | Continuation is bounded by current state, exact action binding, signed temporal validity and one-time permit consumption on the in-process surface. |
 | PMQ-001.6 NO_BIND / represented non-formation | **PASS represented / ND external physical** | REFUSE/BLOCKED/no-permit paths do not form the represented harness consequence. External physical payment non-formation is not demonstrated. |
 | PMQ-001.7 Credible bypass attempts and route closure | **PARTIAL** | Governed harness routes, direct no-bind permit use, stale state, action substitution, invalid receipts and permit replay are closed on tested paths. Production-grade capability isolation and universal external route closure are not demonstrated. |
-| PMQ-001.8 Receipt of what formed / did not form | **PARTIAL** | Authority Receipts preserve the determination and integrity-protected evidence; the harness exposes represented consequence outcome. A separately sealed consequence-outcome receipt is not currently demonstrated. |
+| PMQ-001.8 Receipt of what formed / did not form | **PASS — bounded harness evidence** | The harness emits a separate HMAC-protected consequence-outcome receipt binding represented formation/non-formation to the Authority Receipt identifier and exact action binding. Durable external settlement evidence and production audit-store guarantees remain ND. |
 | PMQ-001.9 Same-condition / changed-condition replay | **PASS — bounded** | Historical determination replay, changed-state rejection and same-permit duplicate rejection are demonstrated on the current process surface. Durable replay protection after restart is not demonstrated. |
 
 ## Material failures found and preserved
@@ -93,11 +93,15 @@ The resulting full rerun returned:
 34 passed
 ```
 
-A subsequent unavailable-evidence fail-closed test increased the current tested branch surface to:
+An unavailable-evidence fail-closed test increased the surface to 35 passing tests. PMQ-001.8 then added three outcome-receipt tests covering represented formation, represented non-formation and receipt tampering.
+
+Current code-and-test-complete regression:
 
 ```text
-35 passed
+38 passed in 0.46s
 ```
+
+GitHub Actions run: `32101912646`.
 
 ## Additional demonstrated controls
 
@@ -111,7 +115,9 @@ The PMQ result also relies on pre-existing public tests only where they exercise
 - historical Authority Receipt replay without rewriting current state;
 - represented non-formation for REFUSE/BLOCKED outcomes;
 - arbitrary execution-permit signature rejection;
-- unavailable required screening evidence fails closed.
+- unavailable required screening evidence fails closed;
+- separately sealed represented consequence-outcome receipt;
+- consequence-outcome receipt tampering detection.
 
 ## Residual proof obligations
 
@@ -137,9 +143,9 @@ The exercised governed public harness paths are tested. External payment rails, 
 
 `NO EXECUTION` is a represented harness consequence. No bank/payment-network settlement rail is integrated into this reference harness.
 
-### Separately sealed consequence receipt — NOT DEMONSTRATED
+### Durable/external consequence evidence — NOT DEMONSTRATED
 
-The Authority Receipt records the Runtime Authority determination and evidence. The current public harness reports the represented protected-consequence outcome but does not yet produce a separate integrity-protected consequence-outcome receipt.
+PMQ-001.8 now demonstrates a separate integrity-protected receipt for the represented consequence outcome. It does not demonstrate durable write-once audit storage, external settlement confirmation, independent timestamping or atomic persistence with a real payment rail.
 
 ### Evidence-service transport failures and malformed external payloads — NOT DEMONSTRATED
 
@@ -157,13 +163,14 @@ Within the declared **in-process represented MVP boundary and tested governed ro
 
 - current-state rejection of stale authority;
 - exact action binding;
-- receipt integrity;
+- Authority Receipt integrity;
 - final temporal standing enforcement;
 - represented no-bind non-formation on the tested public path;
 - atomic one-time permit use during process lifetime;
 - fail-closed unavailable evidence;
 - final-interval state serialization;
-- historical determination replay.
+- historical determination replay;
+- a separate tamper-evident represented consequence-outcome receipt.
 
 The strongest safe market statement is:
 
