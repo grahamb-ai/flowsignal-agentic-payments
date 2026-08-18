@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from harness.runner import load_scenario
 from app.engines.financial_runtime import evaluate_financial
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash, validate_execution
-from app.engines.protected_consequence import execute_protected_consequence
+from app.engines.protected_consequence import execute_protected_consequence_with_receipt
+from app.engines.consequence_receipt import create_consequence_outcome_receipt
 
 ROOT = Path(__file__).resolve().parent
 SCENARIO_DIR = ROOT / "harness" / "scenarios"
@@ -96,19 +97,29 @@ def _scenario_doc(scenario_id: str) -> dict[str, Any]:
     return json.loads((SCENARIO_DIR / filename).read_text(encoding="utf-8"))
 
 
-def _represented_consequence(gateway, attempt: ExecutionAttempt, decision: str) -> tuple[str, str | None]:
+def _represented_consequence(gateway, attempt: ExecutionAttempt, decision: str):
+    attempted_hash = action_binding_hash(attempt)
+
     if gateway.status == "PERMITTED":
-        protected_result = execute_protected_consequence(
+        protected_result, outcome_receipt = execute_protected_consequence_with_receipt(
             permit=gateway.execution_permit,
-            attempted_action_binding_hash=action_binding_hash(attempt),
+            attempted_action_binding_hash=attempted_hash,
         )
         consequence = "EXECUTION PERMITTED" if protected_result == "CONSEQUENCE_FORMED" else "NO EXECUTION"
-        return consequence, protected_result
+        return consequence, protected_result, outcome_receipt
+
+    blocked_outcome = f"GATEWAY_{gateway.status}:{gateway.reason_code}"
+    outcome_receipt = create_consequence_outcome_receipt(
+        authority_receipt_id=gateway.authority_receipt_id,
+        action_binding_hash=attempted_hash,
+        authority_state_version=None,
+        outcome=blocked_outcome,
+    )
 
     if decision == "ESCALATE":
-        return "EXECUTION WITHHELD", None
+        return "EXECUTION WITHHELD", None, outcome_receipt
 
-    return "NO EXECUTION", None
+    return "NO EXECUTION", None, outcome_receipt
 
 
 def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
@@ -131,7 +142,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
             attempted_at=datetime.fromisoformat(x["attempted_at"].replace("Z", "+00:00")),
         )
         gateway = validate_execution(receipt, attempt)
-        consequence, protected_result = _represented_consequence(gateway, attempt, response.decision)
+        consequence, protected_result, outcome_receipt = _represented_consequence(gateway, attempt, response.decision)
         return {
             "scenario_id": scenario_id,
             "title": doc["title"],
@@ -142,6 +153,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
             "execution_attempt": _ser(attempt),
             "execution_gateway": _ser(gateway),
             "protected_consequence": protected_result,
+            "consequence_outcome_receipt": _ser(outcome_receipt),
             "financial_consequence": consequence,
         }
 
@@ -163,7 +175,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
     )
 
     gateway = validate_execution(receipt, attempt)
-    consequence, protected_result = _represented_consequence(gateway, attempt, response.decision)
+    consequence, protected_result, outcome_receipt = _represented_consequence(gateway, attempt, response.decision)
 
     return {
         "scenario_id": scenario_id,
@@ -174,6 +186,7 @@ def evaluate_scenario(scenario_id: str) -> dict[str, Any]:
         "authority_receipt": _ser(receipt),
         "execution_gateway": _ser(gateway),
         "protected_consequence": protected_result,
+        "consequence_outcome_receipt": _ser(outcome_receipt),
         "financial_consequence": consequence,
     }
 
