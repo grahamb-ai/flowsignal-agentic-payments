@@ -12,12 +12,7 @@ from app.engines.consequence_receipt import (
     create_consequence_outcome_receipt,
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
-
-
-# In-process one-time-consumption registry for execution permits. The registry
-# remains bounded to the lifetime of this reference process. Durable duplicate
-# suppression across restart or multiple instances is a separate proof burden.
-_CONSUMED_PERMIT_SIGNATURES: set[str] = set()
+from app.engines.permit_consumption_store import consume_execution_permit_once
 
 
 def _aware(dt: datetime) -> datetime:
@@ -36,11 +31,15 @@ def execute_protected_consequence(
 
     Permit issuance/signing lives in the separate reference permit-authority
     component. This represented execution component verifies the permit, checks
-    exact action binding and temporal/current-state standing, enforces one-time
-    use and forms the represented consequence.
+    exact action binding and temporal/current-state standing, atomically records
+    permit consumption in a durable reference store and forms the represented
+    consequence only for the first successful consumption.
 
-    The separation is a reference component/module boundary. It is not claimed
-    as production process/IAM/KMS/HSM isolation.
+    The separation is a reference component/module boundary. The durable store
+    demonstrates persistence within the represented MVP mechanism when the same
+    store remains available across restart. It is not claimed as production
+    process/IAM/KMS/HSM isolation, database HA, distributed consensus or
+    external payment-rail idempotency.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
@@ -67,10 +66,8 @@ def execute_protected_consequence(
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
 
-        if permit.signature in _CONSUMED_PERMIT_SIGNATURES:
+        if not consume_execution_permit_once(permit.signature):
             return "DENIED_EXECUTION_PERMIT_REPLAY"
-
-        _CONSUMED_PERMIT_SIGNATURES.add(permit.signature)
 
         if before_formation_hook is not None:
             before_formation_hook()
