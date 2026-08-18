@@ -26,6 +26,12 @@ _PERMIT_KEY = os.environ.get(
 # deliberately NOT described as production-grade process/IAM/KMS isolation.
 _GATEWAY_MINT_CAPABILITY = object()
 
+# In-process one-time-consumption registry for execution permits. The registry
+# is intentionally bounded to the lifetime of this reference process. Durable
+# duplicate suppression across restarts or multiple service instances remains a
+# separate production proof obligation.
+_CONSUMED_PERMIT_SIGNATURES: set[str] = set()
+
 
 @dataclass(frozen=True)
 class ExecutionPermit:
@@ -112,6 +118,11 @@ def execute_protected_consequence(
 ) -> str:
     """Form the represented consequence inside the final authority-state guard.
 
+    Permit consumption is serialized inside the same in-process authority-state
+    guard as the final standing read and represented consequence formation. This
+    means one valid permit can form at most one represented consequence during
+    the lifetime of the reference process.
+
     The optional hook exists only to make the critical interval observable to
     adversarial tests. Authority-state advancement uses the same guard, so it
     cannot commit between this function's final standing read and represented
@@ -136,6 +147,16 @@ def execute_protected_consequence(
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
+
+        if permit.signature in _CONSUMED_PERMIT_SIGNATURES:
+            return "DENIED_EXECUTION_PERMIT_REPLAY"
+
+        # Mark consumed before the represented formation step so duplicate or
+        # concurrent retries fail closed. If a later formation step were to
+        # raise, this reference harness deliberately does not make the permit
+        # reusable; recovery/idempotency across real external rails is a
+        # separate integration obligation.
+        _CONSUMED_PERMIT_SIGNATURES.add(permit.signature)
 
         if before_formation_hook is not None:
             before_formation_hook()
