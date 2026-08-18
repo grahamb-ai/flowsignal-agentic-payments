@@ -35,6 +35,11 @@ def execute_protected_consequence(
     permit consumption in a durable reference store and forms the represented
     consequence only for the first successful consumption.
 
+    Temporal standing is checked once before waiting for the final authority
+    boundary and again immediately after that boundary is acquired. This closes
+    the represented expiry time-of-check/time-of-use interval exercised by
+    PMQ-002.4.
+
     The separation is a reference component/module boundary. The durable store
     demonstrates persistence within the represented MVP mechanism when the same
     store remains available across restart. It is not claimed as production
@@ -62,6 +67,11 @@ def execute_protected_consequence(
         return "DENIED_EXECUTION_PERMIT_EXPIRED"
 
     with authority_state_guard():
+        # Revalidate temporal standing after any wait to acquire the protected
+        # boundary. A permit that expired while blocked must not proceed.
+        if datetime.now(timezone.utc) > permit_expiry:
+            return "DENIED_EXECUTION_PERMIT_EXPIRED"
+
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
