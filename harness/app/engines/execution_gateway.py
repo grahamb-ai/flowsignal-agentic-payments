@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from app.engines.financial_types import AuthorityReceipt
 from app.engines.receipt_integrity import verify_receipt_hmac
 from app.engines.authority_store import get_authority_state_version
-from app.engines.protected_consequence import (
+from app.engines.permit_authority import (
     ExecutionPermit,
     _GATEWAY_MINT_CAPABILITY,
     issue_execution_permit,
