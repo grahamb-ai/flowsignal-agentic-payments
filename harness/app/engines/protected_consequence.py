@@ -13,7 +13,7 @@ from app.engines.consequence_receipt import (
     create_consequence_outcome_receipt,
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
-from app.engines.permit_consumption_store import consume_execution_permit_once
+from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
 
 
 def _aware(dt: datetime) -> datetime:
@@ -32,28 +32,29 @@ def execute_protected_consequence(
 
     Permit issuance/signing lives in the separate reference permit-authority
     component. This represented execution component verifies the permit, checks
-    exact action binding and temporal/current-state standing, atomically records
-    permit consumption in a durable reference store and forms the represented
-    consequence only for the first successful consumption.
+    exact action binding and temporal/current-state standing, and establishes
+    durable permit consumption together with an initial unresolved execution
+    outcome before entering the remaining consequence-formation interval.
 
     Temporal standing is checked once before waiting for the final authority
     boundary and again immediately after that boundary is acquired. This closes
     the represented expiry time-of-check/time-of-use interval exercised by
     PMQ-002.4.
 
-    Immediately after successful durable permit consumption, the executor
-    persists CONSEQUENCE_OUTCOME_UNRESOLVED before entering the remaining
-    formation interval. A normal represented failure before formation replaces
-    that state with CONSEQUENCE_NOT_FORMED; successful represented formation
-    replaces it with CONSEQUENCE_FORMED. If the process terminates abruptly in
-    that interval, the durable unresolved state survives for recovery instead of
-    leaving permit consumption with no explicit consequence outcome.
+    PMQ-002.9 demonstrated that separate commits for permit consumption and the
+    first outcome record leave a crash window. The reference SQLite mechanism
+    now commits permit consumption and CONSEQUENCE_OUTCOME_UNRESOLVED together
+    through one attached-database transaction before formation proceeds.
 
-    The separation is a reference component/module boundary. The durable stores
-    demonstrate persistence within the represented MVP mechanism when the same
-    stores remain available. They are not claimed as production process/IAM/
-    KMS/HSM isolation, database HA, distributed consensus, write-once audit,
-    storage-loss recovery or external payment-rail idempotency.
+    A normal represented failure before formation replaces the unresolved state
+    with CONSEQUENCE_NOT_FORMED; successful represented formation replaces it
+    with CONSEQUENCE_FORMED. Abrupt termination after the initial transaction
+    therefore leaves an explicit unresolved state for recovery.
+
+    This is a reference-MVP local SQLite boundary. It is not claimed as
+    production distributed transactionality, database HA, cross-host atomicity,
+    fsync/power-loss durability, write-once audit, external payment idempotency
+    or production process/IAM/KMS/HSM isolation.
     """
     if permit is None:
         return "DENIED_NO_EXECUTION_PERMIT"
@@ -83,14 +84,11 @@ def execute_protected_consequence(
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
 
-        if not consume_execution_permit_once(permit.signature):
+        if not consume_execution_permit_and_begin_outcome_once(
+            permit.signature,
+            attempted_action_binding_hash,
+        ):
             return "DENIED_EXECUTION_PERMIT_REPLAY"
-
-        record_consequence_outcome(
-            permit_signature=permit.signature,
-            action_binding_hash=attempted_action_binding_hash,
-            outcome="CONSEQUENCE_OUTCOME_UNRESOLVED",
-        )
 
         if before_formation_hook is not None:
             try:
