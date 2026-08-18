@@ -7,6 +7,7 @@ from app.engines.authority_store import (
     authority_state_guard,
     get_authority_state_version_unlocked,
 )
+from app.engines.consequence_outcome_store import record_consequence_outcome
 from app.engines.consequence_receipt import (
     ConsequenceOutcomeReceipt,
     create_consequence_outcome_receipt,
@@ -40,10 +41,15 @@ def execute_protected_consequence(
     the represented expiry time-of-check/time-of-use interval exercised by
     PMQ-002.4.
 
-    The separation is a reference component/module boundary. The durable store
-    demonstrates persistence within the represented MVP mechanism when the same
-    store remains available across restart. It is not claimed as production
-    process/IAM/KMS/HSM isolation, database HA, distributed consensus or
+    Before returning CONSEQUENCE_FORMED, the executor also persists a durable
+    represented consequence-outcome record keyed by the execution permit. This
+    preserves recoverable formation evidence if subsequent receipt creation
+    fails, as exercised by PMQ-002.6.
+
+    The separation is a reference component/module boundary. The durable stores
+    demonstrate persistence within the represented MVP mechanism when the same
+    stores remain available. They are not claimed as production process/IAM/
+    KMS/HSM isolation, database HA, distributed consensus, write-once audit or
     external payment-rail idempotency.
     """
     if permit is None:
@@ -81,6 +87,15 @@ def execute_protected_consequence(
 
         if before_formation_hook is not None:
             before_formation_hook()
+
+        # In the represented harness, formation is not reported until the fact
+        # of formation has a durable recoverable outcome record. If this write
+        # fails, execution raises rather than claiming CONSEQUENCE_FORMED.
+        record_consequence_outcome(
+            permit_signature=permit.signature,
+            action_binding_hash=attempted_action_binding_hash,
+            outcome="CONSEQUENCE_FORMED",
+        )
 
         return "CONSEQUENCE_FORMED"
 
