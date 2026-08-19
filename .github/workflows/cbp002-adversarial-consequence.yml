@@ -1,0 +1,43 @@
+name: CBP-002 Adversarial Consequence Attacks
+
+on:
+  push:
+    branches:
+      - cbp-002-adversarial-consequence-attacks
+  pull_request:
+    paths:
+      - 'harness/tests/test_cbp002_adversarial_consequence_attacks.py'
+      - 'evidence/CBP-002/**'
+      - '.github/workflows/cbp002-adversarial-consequence.yml'
+      - 'harness/app/engines/protected_consequence.py'
+      - 'harness/app/engines/execution_gateway.py'
+      - 'harness/app/engines/authority_store.py'
+      - 'harness/app/engines/permit_authority.py'
+      - 'harness/app/engines/consequence_receipt.py'
+      - 'harness/app/engines/permit_consumption_store.py'
+      - 'harness/app/engines/consequence_outcome_store.py'
+      - 'harness/app/engines/rollback_anchor_store.py'
+  workflow_dispatch:
+
+jobs:
+  adversarial-consequence-attacks:
+    name: Frozen CBP-002 attack surface
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: harness
+
+    steps:
+      - name: Check out exact branch state
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run frozen CBP-002 challenge
+        run: pytest -q tests/test_cbp002_adversarial_consequence_attacks.py
