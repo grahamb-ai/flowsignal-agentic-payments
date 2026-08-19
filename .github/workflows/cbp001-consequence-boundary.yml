@@ -1,0 +1,32 @@
+name: CBP-001 Consequence Boundary Proof
+
+on:
+  push:
+    branches:
+      - cbp-001-consequence-boundary-proof
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  cbp001:
+    name: Frozen consequence-boundary seam
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out exact branch state
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: harness
+        run: pip install -r requirements.txt
+
+      - name: Run frozen CBP-001 challenge
+        working-directory: harness
+        run: pytest -q tests/test_cbp001_consequence_boundary_proof.py
