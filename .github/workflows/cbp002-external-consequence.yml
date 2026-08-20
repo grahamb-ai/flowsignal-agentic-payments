@@ -1,0 +1,53 @@
+name: CBP-002 External Consequence Boundary
+
+on:
+  push:
+    branches:
+      - cbp-002-external-consequence-proof
+    paths:
+      - 'evidence/CBP-002/**'
+      - 'harness/tests/test_cbp002_external_consequence_boundary.py'
+      - 'harness/external_targets/cbp002_consequence_service.py'
+      - 'harness/app/engines/external_consequence_adapter.py'
+      - 'harness/app/engines/protected_consequence.py'
+      - 'harness/app/engines/execution_gateway.py'
+      - 'harness/app/engines/authority_store.py'
+      - 'harness/app/engines/permit_authority.py'
+      - 'harness/app/engines/consequence_receipt.py'
+      - '.github/workflows/cbp002-external-consequence.yml'
+  pull_request:
+    paths:
+      - 'evidence/CBP-002/**'
+      - 'harness/tests/test_cbp002_external_consequence_boundary.py'
+      - 'harness/external_targets/cbp002_consequence_service.py'
+      - 'harness/app/engines/external_consequence_adapter.py'
+      - 'harness/app/engines/protected_consequence.py'
+      - 'harness/app/engines/execution_gateway.py'
+      - 'harness/app/engines/authority_store.py'
+      - 'harness/app/engines/permit_authority.py'
+      - 'harness/app/engines/consequence_receipt.py'
+      - '.github/workflows/cbp002-external-consequence.yml'
+  workflow_dispatch:
+
+jobs:
+  external-consequence-boundary:
+    name: Frozen external consequence seam
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harness
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install harness requirements
+        run: pip install -r requirements.txt
+
+      - name: Run frozen CBP-002 challenge
+        run: pytest -q tests/test_cbp002_external_consequence_boundary.py
