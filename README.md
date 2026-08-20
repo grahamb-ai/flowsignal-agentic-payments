@@ -1,63 +1,22 @@
 # Runtime Authority for Agentic Payments
 
-**An open engineering reference project examining how institutional authority can be independently determined and enforced immediately before an autonomous financial action becomes a financial consequence.**
+**An open engineering reference project examining how institutional authority can be independently determined and enforced immediately before an autonomous financial action becomes a represented financial consequence.**
 
 ## Why This Project Exists
 
 The UK Financial Services AI Adoption Plan identifies agentic payments as an emerging area for industry development.
 
-Recommendation 10 proposes an industry-led trust framework for agentic payments, including work around:
+Recommendation 10 proposes an industry-led trust framework for agentic payments, including work around legal/liability frameworks, Know Your Agent protocols, authentication and governance.
 
-- Legal & Liability Frameworks
-- Know Your Agent (KYA) protocols
-- Authentication & Governance
-
-These are important foundations for trusted agentic financial infrastructure.
-
-This project examines a narrower implementation question that arises when an authenticated autonomous agent moves from proposing an action to causing a financial consequence:
+This project examines a narrower implementation question:
 
 > **Once an autonomous agent is known, authenticated and operating under delegated authority, what determines whether that authority remains sufficient for the specific financial action immediately before execution?**
 
-The project explores **Runtime Authority** as one architectural answer to that question.
-
----
-
-## The Execution-Authority Problem
-
-Identity can establish **who or what the agent is**.
-
-Authentication can establish **whether the interaction is genuine**.
-
-A mandate can establish **what authority has previously been delegated**.
-
-But financial execution introduces another question:
-
-> **May this specific action legitimately execute under current institutional conditions?**
-
-Those conditions may have changed since the agent was authenticated, the action was planned or an earlier approval was obtained.
-
-Examples include:
-
-- mandate expiry or revocation;
-- transaction limits;
-- beneficiary or counterparty changes;
-- account status;
-- policy changes;
-- fraud or risk state;
-- sanctions or screening evidence;
-- evidence freshness;
-- approval state; and
-- escalation availability.
-
-The project investigates how that final execution-authority determination can be made explicit, enforceable and evidentially reconstructable.
-
----
+The project explores **Runtime Authority** as one architectural answer.
 
 ## Runtime Authority
 
-Within this project, Runtime Authority is the function that evaluates whether sufficient institutional authority exists for a proposed autonomous action immediately before consequence formation.
-
-Conceptually:
+Within this reference project, Runtime Authority evaluates whether sufficient represented institutional authority exists for a proposed autonomous action immediately before the protected consequence boundary.
 
 **Actor + Mandate + Proposed Action + Current Context + Applicable Constraints + Trusted Evidence**
 
@@ -67,33 +26,59 @@ Conceptually:
 
 → **Execution Gateway**
 
-→ **Financial Consequence**
+→ **Represented Financial Consequence**
 
-The autonomous system may remain probabilistic.
+The autonomous system may remain probabilistic. The represented authority boundary can be deterministic.
 
-The institution's final authority boundary does not have to be.
+## Executable Evidence
 
----
+The primary public evidence index is [`EVIDENCE.md`](EVIDENCE.md).
+
+> **EVIDENCE.md is an index to executable evidence; it is not itself the evidence.**
+
+It links the engineering propositions directly to implementation/test artifacts, preserved failures, remediation records, reruns and explicit residual limitations.
+
+The current qualified reference-MVP candidate was reproduced on a clean GitHub-hosted Ubuntu runner using Python 3.11 and the repository dependency manifest. The qualified run recorded:
+
+**53 passed / 0 failed**
+
+This is a regression count, **not 53 independent proofs**, and clean hosted CI reproduction is **not independent third-party validation**.
+
+The evidence estate deliberately preserves material failures discovered during adversarial qualification, including consequence-producing bypass/replay/rollback failures before remediation. See [`evidence/PMQ-001/`](evidence/PMQ-001/), [`evidence/PMQ-002/`](evidence/PMQ-002/) and [`evidence/CAT-001/`](evidence/CAT-001/).
+
+## Current Qualification Boundary
+
+The maintained reference-MVP has been exercised against standing-at-effect, stale authority, changed conditions, temporal expiry, direct bypass, consequence non-formation, replay, restart, concurrency, evidence failure, crash recovery and durable rollback propositions.
+
+The architecture-neutral CAT-001 record currently classifies the FlowSignal reference-MVP as **14 PASS · 1 PARTIAL · 0 FAIL · 0 NOT DEMONSTRATED** under its frozen fifteen-proposition burden.
+
+The single PARTIAL is governed route closure: tested governed consequence-producing bypasses have been exercised and remediated, but **universal external route closure is not demonstrated**.
+
+CAT-001 is a qualification/evidence-mapping record. The executable tests and execution records linked from [`EVIDENCE.md`](EVIDENCE.md) are the primary engineering evidence.
+
+## What This Project Does Not Claim
+
+The public reference-MVP does **not** establish:
+
+- production certification;
+- universal route closure or universal non-bypassability;
+- prevention across real bank/payment rails;
+- external physical consequence non-formation;
+- production process/IAM/KMS/HSM isolation;
+- distributed consensus, serializability or multi-region correctness;
+- resistance to privileged host/storage compromise;
+- rollback resistance where every store and surviving reference anchor is coherently restored or compromised;
+- immutable/write-once external audit infrastructure;
+- real external evidence-provider outage/transport/malformed-payload behaviour unless explicitly tested; or
+- independent third-party reproduction, validation or commercial endorsement.
+
+Those are separate proof obligations and must not be inferred from the reference-MVP evidence.
 
 ## What Runtime Authority Is Not
 
-Runtime Authority is not intended to replace:
+Runtime Authority is not intended to replace identity/authentication, Know Your Agent infrastructure, fraud detection, sanctions/AML controls, risk systems, institutional policy, human approval, legal/regulatory judgement or payment infrastructure.
 
-- Know Your Agent infrastructure;
-- identity or authentication;
-- fraud detection;
-- sanctions, AML or financial-crime controls;
-- risk systems;
-- institutional policy;
-- human approval;
-- legal or regulatory judgement; or
-- payment infrastructure.
-
-These functions remain authoritative within their respective domains.
-
-Runtime Authority may consume trusted evidence or assertions produced by those functions where relevant to the execution-authority determination.
-
----
+Those functions remain authoritative in their domains. Runtime Authority may consume trusted evidence/assertions from them where relevant to the execution-authority determination.
 
 ## Architectural Analysis
 
@@ -101,135 +86,27 @@ The architectural foundation for this project is:
 
 ### [FS-AN-004 — The Runtime Authority Requirement in Agentic Payments](docs/FS-AN-004%20v1.0%20Released.pdf)
 
-**Architectural Analysis of Recommendation 10 of the UK Financial Services AI Adoption Plan**
+FS-AN-004 treats Runtime Authority as an architectural proposition for investigation and testing, **not** as a requirement stated by HM Treasury.
 
-FS-AN-004 examines the relationship between:
+## Reproduce
 
-- agent identity;
-- authentication;
-- delegated authority;
-- runtime context;
-- execution binding;
-- deterministic authority determination;
-- escalation;
-- evidence freshness;
-- revalidation;
-- Authority Receipts;
-- execution enforcement;
-- interoperability; and
-- independent assurance.
+```bash
+git clone https://github.com/grahamb-ai/flowsignal-agentic-payments.git
+cd flowsignal-agentic-payments
+python -m venv .venv
+source .venv/bin/activate   # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+pytest -q
+```
 
-The paper treats Runtime Authority as an architectural proposition for investigation and testing, not as a requirement stated by HM Treasury.
-
----
-
-## Engineering Programme
-
-This repository will progressively contain the engineering evidence used to test that proposition.
-
-Planned work includes:
-
-1. **Agentic Payments Reference Implementation**  
-   A bounded autonomous financial workflow demonstrating ALLOW, ESCALATE and REFUSE outcomes.
-
-2. **Execution-Bind Testing**  
-   Demonstrating that authority is evaluated immediately before financial consequence formation.
-
-3. **Revalidation & Evidence Freshness**  
-   Testing state changes, expired evidence and post-approval revalidation.
-
-4. **Authority Receipt & Replay**  
-   Producing reconstructable evidence of execution-authority determinations.
-
-5. **Adversarial & Stress Testing**  
-   Testing attempted bypass, action substitution, dependency failure and high-volume execution.
-
-6. **ORAI Interoperability**  
-   Exploring implementation-independent authority interaction across heterogeneous agent and financial platforms.
-
----
-
-## Consequence-Boundary Adversarial Testing
-
-The reference implementation is now being subjected to explicit consequence-boundary adversarial testing rather than relying solely on positive-path validation.
-
-The current **FS-CT Category Test series** examines whether a previously valid Runtime Authority determination can continue to produce the represented financial consequence after authoritative runtime conditions change.
-
-The exercised tests currently cover:
-
-- **Changed Authority After ALLOW** — whether a prior ALLOW remains usable after authoritative state changes.
-- **Governed Route Closure** — whether stale authority can reach the represented consequence through the governed execution path.
-- **Historical Determination Replay** — whether a preserved Authority Receipt can reconstruct its historical determination without consulting current authority state.
-
-The replay challenge initially **failed** because the public implementation preserved historical determination evidence but did not provide an independent replay mechanism.
-
-That failure has been retained as engineering evidence.
-
-A dedicated integrity-verified Authority Receipt replay capability was subsequently introduced and the **original adversarial test was rerun without weakening its invariant**.
-
-Current observed results:
-
-- FS-CT-001 — **PASS**
-- FS-CT-002 — **PASS**
-- FS-CT-003 — **FAIL → remediation → PASS**
-- Complete discovered regression suite — **72 passed, 0 failed**
-
-The evidence set includes the baseline, preserved failure, remediation result, adversarial tests and a SHA-256 evidence manifest.
-
-See [`evidence/FS-CT/`](evidence/FS-CT/) for the complete Category Test evidence.
-
-### Claim Boundary
-
-These results apply only to the execution surface exercised by this public reference implementation.
-
-They do **not** establish physical non-formation across external banking or payment rails, universal non-bypassability across execution paths outside the harness, or full deterministic re-execution from a complete frozen historical policy and evidence estate.
-
-The project deliberately limits its claims to the proof surface actually exercised.
-
----
-
-## ORAI
-
-This project is expected to use the **Open Runtime Authority Interface (ORAI)** as an implementation-independent interaction contract.
-
-ORAI remains separate from this financial-services project.
-
-The objective is not to create a proprietary financial-services version of Runtime Authority, but to test whether a common authority interaction can operate across different agents, platforms and institutional implementations.
-
-The guiding principle is:
-
-> **Standardise the authority interaction, not the institution's authority decision.**
-
----
-
-## Current Status
-
-**Phase: Architectural foundation / reference implementation preparation**
-
-Current artefact:
-
-- FS-AN-004 v1.0 — *The Runtime Authority Requirement in Agentic Payments*
-
-Next phase:
-
-- Agentic payments reference implementation
-- Deterministic test scenarios
-- Assurance evidence
-- Multi-platform interoperability experiments
-
----
+Future repository changes may change the collected test count. Read any count with its relevant commit/workflow evidence rather than as a permanent product metric.
 
 ## Research Approach
 
-The project follows an evidence-first progression:
+**Define → Implement → Test → Challenge → Preserve Failure → Remediate → Rerun → Bound Claim**
 
-**Define → Implement → Test → Challenge → Interoperate → Measure → Review**
-
-The objective is not to assume that the Runtime Authority architecture is correct.
-
-It is to make the proposition sufficiently explicit that it can be implemented, tested, challenged and potentially falsified.
-
----
+The objective is not to assume Runtime Authority is correct. It is to make the proposition sufficiently explicit that it can be implemented, tested, challenged and falsified.
 
 ## Independence and Attribution
 
@@ -237,20 +114,10 @@ This is an independent FlowSignal engineering research project.
 
 It is informed by implementation questions arising from the UK Financial Services AI Adoption Plan but is **not affiliated with, endorsed by, or produced on behalf of HM Treasury, the FCA or any other UK government or regulatory body**.
 
-References to Recommendation 10 describe the policy context from which the engineering question examined by this project arises.
-
 Runtime Authority, the associated architecture and the interpretations presented here are FlowSignal's independent technical analysis.
 
 ---
 
-## FlowSignal
-
-FlowSignal develops independent Runtime Authority infrastructure for consequential autonomous systems.
-
-The core architectural principle is:
-
-> **An autonomous system may propose a consequence. It should not be the final authority that permits that consequence to occur.**
-
----
+**FlowSignal™ — Execute with Authority. Defend with Evidence.**
 
 © 2026 FlowSignal. All rights reserved.
