@@ -1,0 +1,55 @@
+name: CBP-003 Protected Route Capability Closure
+
+on:
+  push:
+    branches:
+      - cbp-003-route-closure-challenge
+    paths:
+      - 'evidence/CBP-003/**'
+      - 'harness/tests/test_cbp003_route_capability_closure.py'
+      - 'harness/external_targets/cbp003_capability_service.py'
+      - 'harness/app/engines/capability_external_adapter.py'
+      - 'harness/app/engines/protected_consequence.py'
+      - 'harness/app/engines/execution_gateway.py'
+      - 'harness/app/engines/authority_store.py'
+      - 'harness/app/engines/permit_authority.py'
+      - 'harness/app/engines/permit_consumption_store.py'
+      - 'harness/app/engines/consequence_receipt.py'
+      - '.github/workflows/cbp003-route-capability.yml'
+  pull_request:
+    paths:
+      - 'evidence/CBP-003/**'
+      - 'harness/tests/test_cbp003_route_capability_closure.py'
+      - 'harness/external_targets/cbp003_capability_service.py'
+      - 'harness/app/engines/capability_external_adapter.py'
+      - 'harness/app/engines/protected_consequence.py'
+      - 'harness/app/engines/execution_gateway.py'
+      - 'harness/app/engines/authority_store.py'
+      - 'harness/app/engines/permit_authority.py'
+      - 'harness/app/engines/permit_consumption_store.py'
+      - 'harness/app/engines/consequence_receipt.py'
+      - '.github/workflows/cbp003-route-capability.yml'
+  workflow_dispatch:
+
+jobs:
+  route-capability-closure:
+    name: Frozen protected route capability seam
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harness
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install harness requirements
+        run: pip install -r requirements.txt
+
+      - name: Run frozen CBP-003 challenge
+        run: pytest -q tests/test_cbp003_route_capability_closure.py
