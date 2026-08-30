@@ -1,0 +1,22 @@
+name: VPC-001 Parallel Admissibility Drift
+
+on:
+  push:
+    branches:
+      - vpc-001-parallel-admissibility
+  workflow_dispatch:
+
+jobs:
+  flowsignal-vpc001-2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        working-directory: harness
+        run: pip install -r requirements.txt
+      - name: Run VPC-001.2
+        working-directory: harness
+        run: pytest -q tests/test_vpc001_2_parallel_admissibility_drift.py
