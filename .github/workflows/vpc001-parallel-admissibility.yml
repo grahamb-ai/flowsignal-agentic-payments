@@ -14,9 +14,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install dependencies
+      - name: Install FlowSignal dependencies
         working-directory: harness
         run: pip install -r requirements.txt
-      - name: Run VPC-001.2
+      - name: Run FlowSignal VPC-001.2
         working-directory: harness
         run: pytest -q tests/test_vpc001_2_parallel_admissibility_drift.py
+
+  elyria-vpc001-2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Clone frozen Elyria Admission Runtime
+        run: |
+          git clone https://github.com/Kamanaka5502/elyria-admission-runtime.git /tmp/elyria
+          cd /tmp/elyria
+          git checkout ae0bf0733cae12d0a2f7b5c0b0b3ccb69f6cdc9d
+      - name: Install frozen Elyria
+        run: pip install -e /tmp/elyria
+      - name: Run Elyria VPC-001.2 probe
+        run: PYTHONPATH=/tmp/elyria/src python harness/vpc001_elyria_probe.py
