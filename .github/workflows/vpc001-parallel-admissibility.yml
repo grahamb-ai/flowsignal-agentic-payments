@@ -68,3 +68,34 @@ jobs:
         run: pip install -e /tmp/elyria
       - name: Run Elyria VPC-001.2 probe
         run: PYTHONPATH=/tmp/elyria/src python harness/vpc001_elyria_probe.py
+
+  flowsignal-vpc001-3:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install FlowSignal dependencies
+        working-directory: harness
+        run: pip install -r requirements.txt
+      - name: Run FlowSignal VPC-001.3
+        working-directory: harness
+        run: pytest -q tests/test_vpc001_3_cross_department_collision.py
+
+  elyria-vpc001-3:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Clone frozen Elyria Admission Runtime
+        run: |
+          git clone https://github.com/Kamanaka5502/elyria-admission-runtime.git /tmp/elyria
+          cd /tmp/elyria
+          git checkout ae0bf0733cae12d0a2f7b5c0b0b3ccb69f6cdc9d
+      - name: Install frozen Elyria
+        run: pip install -e /tmp/elyria
+      - name: Run Elyria VPC-001.3 probe
+        run: PYTHONPATH=/tmp/elyria/src python harness/vpc001_3_elyria_probe.py
