@@ -18,9 +18,9 @@ The operational question is not simply:
 
 It is:
 
-> **Does the organisation still have legitimate authority to form this consequence now, for this exact action?**
+> **Does sufficient current institutional authority exist for this exact action under the defined authoritative conditions?**
 
-CBP-001 tests that boundary.
+CBP-001 tests that boundary within the represented FlowSignal reference implementation.
 
 ---
 
@@ -30,15 +30,15 @@ Consider an autonomous treasury workflow preparing a payment.
 
 At **T0**, the payment is within delegated authority. The runtime determination is ALLOW and an execution permit is bound to the exact attempted action.
 
-Before the consequence forms, the authoritative state changes.
+Before the represented consequence forms, the authoritative state changes.
 
-At **T1**, the agent still possesses its earlier permission — but the world underneath that permission is no longer the same.
+At **T1**, the agent still possesses its earlier permission — but the state on which that permission depended is no longer the same.
 
 A conventional workflow may continue because it still has an approval, token, queued instruction or previously valid decision.
 
-FlowSignal asks again at the consequence boundary:
+FlowSignal asks again at the represented consequence boundary:
 
-> **Is this authority still current and does it still apply to this exact consequence?**
+> **Is this authority still current and does it still apply to this exact represented consequence?**
 
 ---
 
@@ -62,9 +62,9 @@ The fresh permit was presented to the protected-consequence boundary.
 
 **Result: CONSEQUENCE FORMED.**
 
-This establishes that the boundary can permit consequence formation when the required authority remains current.
+This establishes that the represented boundary can permit represented consequence formation when the required authority remains current.
 
-### 2. Obtain authority — then change the world
+### 2. Obtain authority — then change the represented state
 
 A second valid authority determination and execution permit were obtained.
 
@@ -74,7 +74,7 @@ The agent still held a permit that had been valid when issued.
 
 It was no longer current.
 
-### 3. Attempt consequence formation with stale authority
+### 3. Attempt represented consequence formation with stale authority
 
 The stale permit was presented directly to the protected-consequence boundary.
 
@@ -82,11 +82,11 @@ The stale permit was presented directly to the protected-consequence boundary.
 
 **The represented consequence did not form.**
 
-### 4. Produce evidence of non-formation
+### 4. Produce evidence of represented non-formation
 
 The denied attempt produced a signed consequence outcome receipt.
 
-The receipt bound the result to the attempted action and recorded that consequence formation was false.
+The receipt bound the result to the attempted action and recorded that represented consequence formation was false.
 
 The receipt itself was verified.
 
@@ -110,11 +110,11 @@ The payment amount was altered while retaining the historical permit.
 
 **Result: DENIED_ACTION_BINDING_MISMATCH.**
 
-The permission was not transferable to a different consequence.
+The permission was not transferable to a different represented consequence.
 
 ### 8. Reacquire current authority
 
-FlowSignal then evaluated the same intended consequence against the current authority state.
+FlowSignal then evaluated the same intended consequence against the current represented authority state.
 
 A new authority receipt and new execution permit were produced, bound to the new authority-state version.
 
@@ -134,16 +134,16 @@ CBP-001 demonstrates a specific architectural property of the FlowSignal referen
 
 > **A previous ALLOW is not sufficient to form the represented protected consequence after the authoritative state on which that permission depended has changed.**
 
-At the boundary, FlowSignal requires both:
+At the represented boundary, FlowSignal requires both:
 
 - authority that remains current; and
 - exact binding between that authority and the attempted consequence.
 
 The distinction is important.
 
-An organisation can have a perfectly valid historical record showing why an action was approved and still lack legitimate authority to execute that action now.
+An organisation can have a valid historical record showing why an action was approved and still lack sufficient current institutional authority, under the defined authoritative conditions, for that action to proceed now.
 
-FlowSignal separates those two questions.
+FlowSignal separates those two questions within the tested reference implementation.
 
 ---
 
@@ -164,7 +164,7 @@ BOUND EXECUTION PERMIT
         |
         |      authoritative state changes
         v
-CONSEQUENCE BOUNDARY
+REPRESENTED CONSEQUENCE BOUNDARY
         |
         v
 OLD PERMIT PRESENTED
@@ -172,7 +172,7 @@ OLD PERMIT PRESENTED
         v
       NO_BIND
         |
-        +----> signed evidence of non-formation
+        +----> signed evidence of represented non-formation
         |
         v
 CURRENT AUTHORITY REACQUIRED
@@ -181,30 +181,32 @@ CURRENT AUTHORITY REACQUIRED
 NEW BOUND PERMIT
         |
         v
-CONSEQUENCE FORMED
+REPRESENTED CONSEQUENCE FORMED
 ```
 
 The important control is not another dashboard decision.
 
-It is the dependency between **current authority** and **consequence formation**.
+It is the dependency, within the tested execution surface, between **current authority** and **represented consequence formation**.
 
 ---
 
 # Why this matters for agentic AI
 
-Agentic systems increase the distance between human intent and machine consequence.
+Agentic systems can increase the distance between human intent and machine consequence.
 
-An agent may plan correctly, receive permission correctly and begin execution correctly — while the conditions that made that action legitimate change before the consequence actually forms.
+An agent may plan correctly, receive permission correctly and begin execution correctly while the conditions that made that action permissible change before the consequence actually forms.
 
-That creates an execution gap.
+That creates an execution gap worth testing.
 
-FlowSignal is designed to sit immediately before consequence formation and independently determine whether delegated authority remains legitimately exercisable for the exact attempted action.
+FlowSignal is designed to sit immediately before a protected execution point and determine whether delegated authority remains exercisable for the exact attempted action under the defined authoritative conditions.
 
 The output is deterministic:
 
 **ALLOW / ESCALATE / REFUSE**
 
-Where execution is permitted, the authority is bound to the attempted consequence. Where current authority no longer holds, prior permission alone does not authorise formation.
+Where execution is permitted, the authority is bound to the attempted consequence. Where current authority no longer holds, prior permission alone is insufficient within the represented protected-consequence boundary.
+
+This is an engineering authority determination. It does not replace legal or regulatory judgement about whether an action is lawful or substantively justified.
 
 ---
 
@@ -241,9 +243,10 @@ It does not claim to prove:
 - production process or IAM isolation;
 - HSM/KMS-backed production key isolation;
 - closure of every possible infrastructure or external execution route;
+- legal or regulatory authority as an independent substantive judgement; or
 - that the public reference harness is itself a production deployment.
 
-Those claims require evidence from the environment in which FlowSignal is deployed.
+Those claims require separate evidence from the environment in which FlowSignal is deployed.
 
 That is the next useful stage of validation: put the authority boundary in front of a real sandbox or pilot consequence and attempt to defeat it there.
 
@@ -261,16 +264,16 @@ Examples include:
 - an AI-assisted clinical-record commit;
 - an autonomous infrastructure change;
 - supplier onboarding or release;
-- a regulated customer action;
+- a regulated customer action; or
 - another machine-initiated operation where authority can change between approval and execution.
 
 Then define the consequence that must be protected.
 
-We establish the authority conditions, bind them to that exact action and deliberately change those conditions before execution.
+We establish the relevant represented authority conditions, bind them to that exact action and deliberately change those conditions before execution.
 
 The pilot question is straightforward:
 
-> **Can the consequential action still form when the organisation no longer has current authority to perform it?**
+> **Can the consequential action still form in the tested environment when the defined current authority conditions no longer support it?**
 
 The result should not depend on a slide deck.
 
@@ -304,6 +307,6 @@ Merged evidence baseline:
 
 **FlowSignal™**
 
-**The independent authority infrastructure required before consequence formation.**
+**Independent Runtime Authority infrastructure for protected execution points.**
 
 **Execute with Authority. Defend with Evidence.**
