@@ -1,0 +1,22 @@
+name: CTO-001 DR Authority Resurrection
+
+on:
+  push:
+    branches:
+      - cto-001-dr-authority-resurrection
+  workflow_dispatch:
+
+jobs:
+  challenge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: harness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Run CTO-001 failure-first challenge
+        run: pytest -q tests/test_cto001_dr_authority_resurrection.py
