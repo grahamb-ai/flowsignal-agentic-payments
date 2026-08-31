@@ -7,6 +7,8 @@
 
 > **Control rule:** A document, diagram or marketing statement is not implementation evidence merely because it states a proposition. Implementation claims require an implementation artefact plus executable/observable evidence appropriate to the claim.
 
+> **Public-scope exclusion:** Internal pricing, buyer economics, willingness-to-pay assumptions, ROI/TCO models, build-vs-buy analysis, commercial thresholds and customer-specific economic frameworks are outside the scope of this public register and must not be published here.
+
 ## Status vocabulary
 
 - **SUPPORTED — BOUNDED:** evidence supports the proposition within an explicitly identified tested/represented surface.
@@ -36,13 +38,11 @@ The current qualified public engineering baseline is defined by the root `README
 | CL-011 | FlowSignal provides evidence/receipts supporting reconstruction of tested determinations and consequence outcomes. | Authority Receipt tests; consequence-outcome evidence tests; `EVIDENCE.md` | SUPPORTED — BOUNDED | “The tested implementation records evidence supporting reconstruction of the exercised determination/outcome.” | “The receipt alone proves legal compliance or every physical consequence state.” |
 | CL-012 | FlowSignal is architecturally independent of the proposing/executing system. | Architecture plus tested authority-source/evaluator separation; deployment independence remains environment-dependent | PARTIAL | “FlowSignal is designed as an independent Runtime Authority layer; the reference work tests important separation properties.” | “Every deployment is independently isolated by definition.” |
 | CL-013 | FlowSignal determines whether delegated authority remains legitimately exercisable. | Implementation evaluates defined institutional authority conditions; substantive legal legitimacy is outside public MVP claim boundary | SUPPORTED — BOUNDED / QUALIFIED | “FlowSignal determines whether defined current authority conditions remain sufficient for the specific attempted action.” | “FlowSignal determines legal/regulatory legitimacy.” |
-| CL-014 | FlowSignal reduces operational/regulatory risk or prevents losses. | No customer outcome evidence in public reference-MVP | EXTERNAL VALIDATION PENDING | “Designed to reduce exposure to execution under stale or insufficient authority; customer impact must be measured.” | “FlowSignal has proven it reduces losses/fines/risk by X.” |
-| CL-015 | FlowSignal enables additional safe automation / reduces manual controls. | Commercial hypothesis; FS-COM measurement framework, not public implementation proof | EXTERNAL VALIDATION PENDING | “A pilot can measure whether Runtime Authority enables additional automation or removes control effort.” | “FlowSignal has proven automation savings” without customer evidence. |
+| CL-014 | FlowSignal reduces operational/regulatory risk or prevents losses. | No customer outcome evidence in public reference-MVP | EXTERNAL VALIDATION PENDING | “FlowSignal is designed to reduce exposure to execution under stale or insufficient authority.” | “FlowSignal has proven it reduces losses, fines or regulatory risk.” |
+| CL-015 | FlowSignal enables additional safe automation or reduces manual controls. | No customer outcome evidence in public reference-MVP | EXTERNAL VALIDATION PENDING | “Additional automation or control reduction is a potential customer outcome that must be established separately.” | “FlowSignal has proven automation savings” without customer evidence. |
 | CL-016 | FlowSignal is production-certified / regulator-approved / independently third-party validated. | Public evidence explicitly says no | NOT DEMONSTRATED | “Public reference implementation; external validation is a separate proof obligation.” | “Certified”, “approved”, “endorsed”, or “independently validated” unless a named completed process supports it. |
 | CL-017 | No other system performs an equivalent function / the category did not previously exist. | No exhaustive market evidence | PROHIBITED OVERSTATEMENT | “FlowSignal addresses a distinct Runtime Authority problem at the execution boundary.” | “No system does this”, “this layer does not exist”, “first/only” absent separately verified evidence. |
-| CL-018 | Runtime Authority is universally required before consequence formation. | Architectural/commercial proposition, not universally established by the harness | PROHIBITED OVERSTATEMENT as empirical fact | “FlowSignal provides independent Runtime Authority infrastructure for protected execution points.” | “Every consequential AI system requires FlowSignal/Runtime Authority.” |
-| CL-019 | £150k/year for up to 10 Protected Execution Points is proven market willingness-to-pay. | Commercial working model only | EXTERNAL VALIDATION PENDING | “Current commercial working model: £150k annual enterprise licence for up to 10 Protected Execution Points.” | “Customers have validated £150k willingness-to-pay” until evidenced. |
-| CL-020 | A FlowSignal pilot can establish technical and economic fit. | FS-COM-002 methodology; actual economic outcome customer-specific | SUPPORTED AS METHODOLOGY, NOT OUTCOME | “The pilot framework is designed to test Technical Fit → Economic Fit → Portfolio Fit and may conclude PROCEED / CONDITIONAL / STOP.” | “A pilot will prove positive ROI.” |
+| CL-018 | Runtime Authority is universally required before consequence formation. | Architectural proposition, not universally established by the harness | PROHIBITED OVERSTATEMENT as empirical fact | “FlowSignal provides independent Runtime Authority infrastructure for protected execution points.” | “Every consequential AI system requires FlowSignal/Runtime Authority.” |
 
 ## Website wording control
 
@@ -90,7 +90,7 @@ Avoid universal or substantive-correctness wording such as:
 - universal non-bypassability
 - external physical non-formation
 - regulator/Google/hyperscaler/third-party endorsement without explicit evidence
-- proven customer risk reduction or ROI without measured customer evidence
+- proven customer outcome claims without supporting customer evidence
 
 ## External-party wording control
 
