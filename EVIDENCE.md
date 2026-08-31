@@ -1,7 +1,7 @@
 # FlowSignal Agentic Payments — Executable Evidence Index
 
 **Status:** Public engineering evidence index  
-**Updated:** 20 August 2026  
+**Updated:** 31 August 2026  
 **Scope:** FlowSignal Agentic Payments reference-MVP  
 **Production certification:** No
 
@@ -14,6 +14,12 @@ FlowSignal uses the following evidence chain:
 **Claim / proposition → implementation artifact → executable test → observed result or preserved failure → remediation where required → semantic rerun → demonstrated scope → residual limitation**
 
 A PASS is not a claim of universal or production correctness. Where evidence is incomplete, the qualification remains PARTIAL or NOT DEMONSTRATED.
+
+## Document-status convention
+
+The repository intentionally preserves historical challenge, failure, remediation and result records. Those records may state the valid test count, branch status or qualification result at the time they were created.
+
+**Only the root `README.md` and this `EVIDENCE.md` define the current qualified public baseline.** Historical counts and statuses must be read with their relevant date, commit and workflow evidence; they are not permanent product metrics and should not be interpreted as contradictory current baselines.
 
 ## Current qualified public baseline
 
