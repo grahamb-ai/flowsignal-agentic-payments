@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import hashlib, json, math, uuid
+import hashlib, json, math, unicodedata, uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 
@@ -46,11 +46,12 @@ def _check(name, passed, fail_outcome, reason=None, evidence_ref=None):
 
 
 def _meaningful_text(value: object) -> bool:
-    """Reject empty, whitespace-only, control-only and zero-width-only authority text."""
+    """Require visible text and reject embedded Unicode control/format characters."""
     if not isinstance(value, str) or not value:
         return False
-    visible = "".join(ch for ch in value if ch.isprintable() and not ch.isspace() and ch != "\u200b")
-    return bool(visible)
+    if any(unicodedata.category(ch) in {"Cc", "Cf"} for ch in value):
+        return False
+    return any(ch.isprintable() and not ch.isspace() for ch in value)
 
 
 def _valid_datetime(value: object) -> bool:
@@ -122,8 +123,6 @@ def _malformed_response(req: FinancialAuthorityRequest, *, sealed_at: datetime |
         valid_until=None,
         required_action=None,
     )
-    # Deliberately no receipt: malformed authority material must not be hashed, signed,
-    # or represented as a normal evaluated authority receipt.
     return response, None
 
 
@@ -133,7 +132,6 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
 
     authoritative_limit = get_authoritative_mandate_limit(req.mandate_id)
     mandate_resolved = authoritative_limit is not None
-    # Unknown mandates must never bootstrap authority from request-presented values.
     effective_limit = authoritative_limit if authoritative_limit is not None else 0.0
 
     now = _aware(sealed_at or req.requested_execution_time)
@@ -146,15 +144,8 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     required_text_valid = all(
         _meaningful_text(value)
         for value in (
-            req.actor_id,
-            req.principal_id,
-            req.mandate_id,
-            req.action,
-            req.target,
-            req.source_account,
-            req.beneficiary,
-            req.currency,
-            req.purpose,
+            req.actor_id, req.principal_id, req.mandate_id, req.action, req.target,
+            req.source_account, req.beneficiary, req.currency, req.purpose,
         )
     )
 
@@ -183,71 +174,42 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
 
     failed = [c for c in checks if not c.passed]
     if any(c.outcome_on_failure == "REFUSE" for c in failed):
-        decision = "REFUSE"
-        reason_code = "AUTHORITY_NOT_ESTABLISHED"
-        required_action = None
+        decision, reason_code, required_action = "REFUSE", "AUTHORITY_NOT_ESTABLISHED", None
     elif failed:
-        decision = "ESCALATE"
-        reason_code = "ADDITIONAL_AUTHORITY_OR_EVIDENCE_REQUIRED"
+        decision, reason_code = "ESCALATE", "ADDITIONAL_AUTHORITY_OR_EVIDENCE_REQUIRED"
         required_action = "Route for authorised intervention or refresh required evidence"
     else:
-        decision = "ALLOW"
-        reason_code = "AUTHORITY_ESTABLISHED"
-        required_action = None
+        decision, reason_code, required_action = "ALLOW", "AUTHORITY_ESTABLISHED", None
 
     rid = str(uuid.uuid4())
     valid_until = now + timedelta(seconds=60) if decision == "ALLOW" else None
     snapshot = asdict(req)
     snapshot["presented_mandate_max_amount"] = req.mandate_max_amount
     snapshot["authoritative_mandate_max_amount"] = authoritative_limit
-
     for k, v in list(snapshot.items()):
         if isinstance(v, datetime):
             snapshot[k] = _aware(v).isoformat()
 
     evidence_references = [{
-        "type": "sanctions_screening",
-        "source": req.screening_source,
-        "status": req.screening_status,
-        "captured_at": screening_time.isoformat(),
-        "age_seconds": int(screening_age),
-        "max_age_seconds": req.screening_max_age_seconds,
+        "type": "sanctions_screening", "source": req.screening_source,
+        "status": req.screening_status, "captured_at": screening_time.isoformat(),
+        "age_seconds": int(screening_age), "max_age_seconds": req.screening_max_age_seconds,
     }]
     authority_state_version = get_authority_state_version()
-
     receipt_hmac = compute_receipt_hmac(
-        receipt_id=rid,
-        scenario_id=req.scenario_id,
-        decision=decision,
-        reason_code=reason_code,
-        sealed_at=now,
-        valid_until=valid_until,
-        action_binding_hash=_binding(req),
-        authority_state_version=authority_state_version,
-        request_snapshot=snapshot,
-        checks=checks,
-        evidence_references=evidence_references,
+        receipt_id=rid, scenario_id=req.scenario_id, decision=decision,
+        reason_code=reason_code, sealed_at=now, valid_until=valid_until,
+        action_binding_hash=_binding(req), authority_state_version=authority_state_version,
+        request_snapshot=snapshot, checks=checks, evidence_references=evidence_references,
     )
-
     receipt = AuthorityReceipt(
-        id=rid,
-        scenario_id=req.scenario_id,
-        decision=decision,
-        reason_code=reason_code,
-        sealed_at=now,
-        valid_until=valid_until,
-        action_binding_hash=_binding(req),
-        authority_state_version=authority_state_version,
-        receipt_hmac=receipt_hmac,
-        request_snapshot=snapshot,
-        checks=checks,
-        evidence_references=evidence_references,
+        id=rid, scenario_id=req.scenario_id, decision=decision, reason_code=reason_code,
+        sealed_at=now, valid_until=valid_until, action_binding_hash=_binding(req),
+        authority_state_version=authority_state_version, receipt_hmac=receipt_hmac,
+        request_snapshot=snapshot, checks=checks, evidence_references=evidence_references,
     )
     response = ExecutionResponse(
-        decision=decision,
-        reason_code=reason_code,
-        authority_receipt_id=rid,
-        valid_until=valid_until,
-        required_action=required_action,
+        decision=decision, reason_code=reason_code, authority_receipt_id=rid,
+        valid_until=valid_until, required_action=required_action,
     )
     return response, receipt
