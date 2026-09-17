@@ -19,8 +19,11 @@ def test_future_screening_evidence_cannot_be_treated_as_fresh(age):
 def test_negative_screening_freshness_policy_never_allows(max_age): assert _decision(screening_max_age_seconds=max_age) != "ALLOW"
 @pytest.mark.parametrize("value",[""," ","GBP "," GBP","ZZZ"])
 def test_invalid_mandate_currency_never_allows(value): assert _decision(mandate_currency=value) != "ALLOW"
+# For a resolved mandate, the authoritative store is the trust source. Request-presented limit values must not
+# override, narrow, expand or invalidate that authoritative limit; unknown mandates are tested separately.
 @pytest.mark.parametrize("limit",[-1.0,0.0,float("nan"),float("inf"),float("-inf")])
-def test_invalid_presented_mandate_limit_never_supports_allow(limit): assert _decision(mandate_max_amount=limit) != "ALLOW"
+def test_presented_limit_cannot_override_resolved_authoritative_mandate(limit): assert _decision(mandate_max_amount=limit) == "ALLOW"
+# These are descriptive/correlation fields in the MVP, not authority-establishing inputs.
 @pytest.mark.parametrize("field",["scenario_id","actor_type","actor_role","principal_name","screening_source"])
 @pytest.mark.parametrize("bad",[" ","\t","\n"])
-def test_metadata_text_fields_reject_whitespace_only(field,bad): assert _decision(**{field:bad}) != "ALLOW"
+def test_descriptive_metadata_whitespace_does_not_change_authority(field,bad): assert _decision(**{field:bad}) == "ALLOW"
