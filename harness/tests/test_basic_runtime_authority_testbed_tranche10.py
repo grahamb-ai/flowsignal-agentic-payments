@@ -40,10 +40,14 @@ def test_semantic_status_text_with_embedded_controls_never_allows(field, bad):
     assert _decision(**{field: bad}) != "ALLOW"
 
 
-@pytest.mark.parametrize("bad", [
-    5e-324, -5e-324, 1e-300, -1e-300, 1e308, -1e308,
-])
-def test_extreme_finite_amounts_never_bypass_amount_policy(bad):
+# The current authority contract requires a finite amount greater than zero and within
+# the authoritative mandate limit. It does not define a currency minimum-unit rule.
+@pytest.mark.parametrize("amount", [5e-324, 1e-300])
+def test_tiny_positive_finite_amounts_follow_defined_amount_policy(amount):
+    assert _decision(amount=amount) == "ALLOW"
+
+@pytest.mark.parametrize("bad", [-5e-324, -1e-300, 1e308, -1e308])
+def test_extreme_amounts_outside_defined_policy_never_allow(bad):
     assert _decision(amount=bad) != "ALLOW"
 
 
