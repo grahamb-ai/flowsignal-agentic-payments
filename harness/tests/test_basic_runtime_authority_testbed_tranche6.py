@@ -19,10 +19,12 @@ def test_future_screening_evidence_cannot_be_treated_as_fresh(age):
 def test_negative_screening_freshness_policy_never_allows(max_age): assert _decision(screening_max_age_seconds=max_age) != "ALLOW"
 @pytest.mark.parametrize("value",[""," ","GBP "," GBP","ZZZ"])
 def test_invalid_mandate_currency_never_allows(value): assert _decision(mandate_currency=value) != "ALLOW"
-# For a resolved mandate, the authoritative store is the trust source. Request-presented limit values must not
-# override, narrow, expand or invalidate that authoritative limit; unknown mandates are tested separately.
-@pytest.mark.parametrize("limit",[-1.0,0.0,float("nan"),float("inf"),float("-inf")])
-def test_presented_limit_cannot_override_resolved_authoritative_mandate(limit): assert _decision(mandate_max_amount=limit) == "ALLOW"
+# For a resolved mandate, finite request-presented limits do not override the authoritative store.
+# Nonfinite numeric material is malformed at the request boundary and must fail closed.
+@pytest.mark.parametrize("limit",[-1.0,0.0])
+def test_finite_presented_limit_cannot_override_resolved_authoritative_mandate(limit): assert _decision(mandate_max_amount=limit) == "ALLOW"
+@pytest.mark.parametrize("limit",[float("nan"),float("inf"),float("-inf")])
+def test_nonfinite_presented_limit_is_malformed_even_for_resolved_mandate(limit): assert _decision(mandate_max_amount=limit) != "ALLOW"
 # These are descriptive/correlation fields in the MVP, not authority-establishing inputs.
 @pytest.mark.parametrize("field",["scenario_id","actor_type","actor_role","principal_name","screening_source"])
 @pytest.mark.parametrize("bad",[" ","\t","\n"])
