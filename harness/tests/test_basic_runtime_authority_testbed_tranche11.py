@@ -18,6 +18,11 @@ def _decision(**changes):
     return response.decision
 
 
+def _decision_from(req, **changes):
+    response, _ = evaluate_financial(replace(req, **changes))
+    return response.decision
+
+
 # Additional Unicode format/control characters that can visually disguise authority text.
 @pytest.mark.parametrize("field", ["actor_id", "principal_id", "mandate_id", "beneficiary", "purpose"])
 @pytest.mark.parametrize("bad", [
@@ -61,27 +66,29 @@ def test_semantic_status_trailing_whitespace_never_allows(field, value):
     assert _decision(**{field: value}) != "ALLOW"
 
 
-# Boundary clock checks use the request's own fixed execution time, avoiding wall-clock flakiness.
+# Boundary clock checks operate on one loaded request. load_scenario() rebases fixtures
+# to datetime.now(), so reloading between deriving a boundary and evaluating it introduces
+# a small clock shift and does not test equality at all.
 def test_mandate_expiring_exactly_at_execution_time_is_still_current():
     req = _base()
-    assert _decision(mandate_valid_until=req.requested_execution_time) == "ALLOW"
+    assert _decision_from(req, mandate_valid_until=req.requested_execution_time) == "ALLOW"
 
 
 def test_mandate_expired_one_microsecond_before_execution_never_allows():
     req = _base()
-    assert _decision(mandate_valid_until=req.requested_execution_time - timedelta(microseconds=1)) != "ALLOW"
+    assert _decision_from(req, mandate_valid_until=req.requested_execution_time - timedelta(microseconds=1)) != "ALLOW"
 
 
 def test_screening_exactly_at_freshness_limit_is_accepted():
     req = _base()
     captured = req.requested_execution_time - timedelta(seconds=req.screening_max_age_seconds)
-    assert _decision(screening_captured_at=captured) == "ALLOW"
+    assert _decision_from(req, screening_captured_at=captured) == "ALLOW"
 
 
 def test_screening_one_microsecond_beyond_freshness_limit_never_allows():
     req = _base()
     captured = req.requested_execution_time - timedelta(seconds=req.screening_max_age_seconds, microseconds=1)
-    assert _decision(screening_captured_at=captured) != "ALLOW"
+    assert _decision_from(req, screening_captured_at=captured) != "ALLOW"
 
 
 # Boolean values are integers in Python; authority numeric fields must not inherit that coercion.
