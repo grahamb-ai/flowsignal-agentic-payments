@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import hashlib, json, uuid
+import hashlib, json, math, uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 
@@ -11,10 +11,12 @@ from app.engines.authority_store import (
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
 from app.engines.receipt_integrity import compute_receipt_hmac
 
+
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
 
 def _binding(req: FinancialAuthorityRequest) -> str:
     payload = {
@@ -32,6 +34,7 @@ def _binding(req: FinancialAuthorityRequest) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
 
+
 def _check(name, passed, fail_outcome, reason=None, evidence_ref=None):
     return FinancialCheck(
         name=name,
@@ -41,29 +44,64 @@ def _check(name, passed, fail_outcome, reason=None, evidence_ref=None):
         evidence_ref=evidence_ref,
     )
 
+
+def _meaningful_text(value: object) -> bool:
+    """Reject empty, whitespace-only, control-only and zero-width-only authority text."""
+    if not isinstance(value, str) or not value:
+        return False
+    visible = "".join(ch for ch in value if ch.isprintable() and not ch.isspace() and ch != "\u200b")
+    return bool(visible)
+
+
 def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | None = None):
     authoritative_limit = get_authoritative_mandate_limit(req.mandate_id)
-    if authoritative_limit is None:
-        authoritative_limit = req.mandate_max_amount
+    mandate_resolved = authoritative_limit is not None
+    # Unknown mandates must never bootstrap authority from request-presented values.
+    effective_limit = authoritative_limit if authoritative_limit is not None else 0.0
+
     now = _aware(sealed_at or req.requested_execution_time)
     expiry = _aware(req.mandate_valid_until)
     screening_time = _aware(req.screening_captured_at)
-    screening_age = max(0.0, (now - screening_time).total_seconds())
+    raw_screening_age = (now - screening_time).total_seconds()
+    screening_age = max(0.0, raw_screening_age)
+
+    amount_valid = isinstance(req.amount, (int, float)) and not isinstance(req.amount, bool) and math.isfinite(req.amount) and req.amount > 0
+    required_text_valid = all(
+        _meaningful_text(value)
+        for value in (
+            req.actor_id,
+            req.principal_id,
+            req.mandate_id,
+            req.action,
+            req.target,
+            req.source_account,
+            req.beneficiary,
+            req.currency,
+            req.purpose,
+        )
+    )
 
     checks = [
-        _check("actor_authenticated", req.actor_authenticated, "REFUSE", "Actor authentication is not established", "authentication"),
+        _check("required_authority_text_valid", required_text_valid, "REFUSE", "Required authority/action text is empty or non-meaningful", "request"),
+        _check("mandate_resolved", mandate_resolved, "REFUSE", f"Mandate '{req.mandate_id}' is not present in the authoritative mandate store", req.mandate_id),
+        _check("actor_authenticated", req.actor_authenticated is True, "REFUSE", "Actor authentication is not established", "authentication"),
         _check("kya_verified", req.kya_status.upper() == "VERIFIED", "REFUSE", f"KYA status is '{req.kya_status}'", "kya"),
         _check("mandate_active", req.mandate_status.upper() == "ACTIVE", "REFUSE", f"Mandate status is '{req.mandate_status}'", req.mandate_id),
         _check("mandate_not_expired", now <= expiry, "REFUSE", "Delegated mandate has expired", req.mandate_id),
         _check("action_permitted", req.action == "payment.release", "REFUSE", f"Action '{req.action}' is not permitted", req.mandate_id),
-        _check("amount_within_limit", req.amount <=  authoritative_limit, "ESCALATE", f"Amount {req.amount:g} exceeds autonomous mandate limit {authoritative_limit:g}", req.mandate_id),
+        _check("target_permitted", req.target == "TREASURY_PAYMENT_GATEWAY", "REFUSE", f"Target '{req.target}' is not permitted", req.mandate_id),
+        _check("amount_valid", amount_valid, "REFUSE", "Payment amount must be finite and greater than zero", req.mandate_id),
+        _check("amount_within_limit", amount_valid and req.amount <= effective_limit, "ESCALATE", "Amount exceeds autonomous mandate limit", req.mandate_id),
         _check("currency_permitted", req.currency.upper() == req.mandate_currency.upper(), "REFUSE", f"Currency '{req.currency}' is outside mandate currency '{req.mandate_currency}'", req.mandate_id),
         _check("source_account_permitted", req.source_account in req.permitted_source_accounts, "REFUSE", f"Source account '{req.source_account}' is outside the delegated mandate", req.mandate_id),
         _check("counterparty_approved", req.counterparty_status.upper() == "APPROVED", "REFUSE", f"Counterparty status is '{req.counterparty_status}'", "counterparty-status"),
         _check("account_active", req.account_status.upper() == "ACTIVE", "REFUSE", f"Account status is '{req.account_status}'", "account-status"),
         _check("risk_state_permits_execution", req.risk_state.upper() == "NORMAL", "ESCALATE", f"Risk state is '{req.risk_state}'", "risk-state"),
+        _check("approval_not_required", req.approval_required is False, "ESCALATE", "Explicit approval is required before execution", "approval"),
         _check("screening_clear", req.screening_status.upper() == "CLEAR", "REFUSE", f"Screening status is '{req.screening_status}'", req.screening_source),
-        _check("screening_fresh", screening_age <= req.screening_max_age_seconds, "ESCALATE", f"Screening evidence age {int(screening_age)}s exceeds maximum age {req.screening_max_age_seconds}s", req.screening_source),
+        _check("screening_not_future_dated", raw_screening_age >= 0, "ESCALATE", "Screening evidence is future-dated relative to evaluation time", req.screening_source),
+        _check("screening_policy_valid", req.screening_max_age_seconds >= 0, "ESCALATE", "Screening freshness policy cannot be negative", req.screening_source),
+        _check("screening_fresh", raw_screening_age >= 0 and req.screening_max_age_seconds >= 0 and screening_age <= req.screening_max_age_seconds, "ESCALATE", f"Screening evidence age {int(screening_age)}s exceeds maximum age {req.screening_max_age_seconds}s", req.screening_source),
     ]
 
     failed = [c for c in checks if not c.passed]
@@ -80,7 +118,7 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         reason_code = "AUTHORITY_ESTABLISHED"
         required_action = None
 
-    rid = str(uuid.uuid4())   
+    rid = str(uuid.uuid4())
     valid_until = now + timedelta(seconds=60) if decision == "ALLOW" else None
     snapshot = asdict(req)
     snapshot["presented_mandate_max_amount"] = req.mandate_max_amount
@@ -90,7 +128,7 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         if isinstance(v, datetime):
             snapshot[k] = _aware(v).isoformat()
 
-        evidence_references = [{
+    evidence_references = [{
         "type": "sanctions_screening",
         "source": req.screening_source,
         "status": req.screening_status,
