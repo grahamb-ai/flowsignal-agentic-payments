@@ -53,7 +53,84 @@ def _meaningful_text(value: object) -> bool:
     return bool(visible)
 
 
+def _valid_datetime(value: object) -> bool:
+    return isinstance(value, datetime)
+
+
+def _valid_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _valid_nonnegative_number(value: object) -> bool:
+    return _valid_number(value) and value >= 0
+
+
+def _valid_string_list(value: object) -> bool:
+    return isinstance(value, list) and all(_meaningful_text(item) for item in value)
+
+
+def _request_shape_valid(req: FinancialAuthorityRequest) -> bool:
+    """Validate authority-bearing request shape before any semantic evaluation.
+
+    Dataclass annotations are not runtime validation. A malformed request must therefore
+    fail closed here rather than reach operations such as .upper(), datetime arithmetic,
+    membership tests, or numeric comparisons that can raise or coerce unexpectedly.
+    """
+    required_text = (
+        req.actor_id,
+        req.principal_id,
+        req.mandate_id,
+        req.action,
+        req.target,
+        req.source_account,
+        req.beneficiary,
+        req.currency,
+        req.purpose,
+        req.kya_status,
+        req.mandate_status,
+        req.mandate_currency,
+        req.counterparty_status,
+        req.account_status,
+        req.risk_state,
+        req.screening_status,
+    )
+    return (
+        all(_meaningful_text(value) for value in required_text)
+        and isinstance(req.actor_authenticated, bool)
+        and isinstance(req.approval_required, bool)
+        and _valid_number(req.amount)
+        and _valid_number(req.mandate_max_amount)
+        and _valid_nonnegative_number(req.screening_max_age_seconds)
+        and _valid_datetime(req.mandate_valid_until)
+        and _valid_datetime(req.screening_captured_at)
+        and _valid_datetime(req.requested_execution_time)
+        and _valid_string_list(req.permitted_source_accounts)
+    )
+
+
+def _malformed_response(req: FinancialAuthorityRequest, *, sealed_at: datetime | None = None):
+    """Return a deterministic REFUSE without constructing evidence from malformed values."""
+    now = sealed_at if _valid_datetime(sealed_at) else (
+        req.requested_execution_time if _valid_datetime(req.requested_execution_time) else datetime.now(timezone.utc)
+    )
+    now = _aware(now)
+    rid = str(uuid.uuid4())
+    response = ExecutionResponse(
+        decision="REFUSE",
+        reason_code="MALFORMED_AUTHORITY_REQUEST",
+        authority_receipt_id=rid,
+        valid_until=None,
+        required_action=None,
+    )
+    # Deliberately no receipt: malformed authority material must not be hashed, signed,
+    # or represented as a normal evaluated authority receipt.
+    return response, None
+
+
 def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | None = None):
+    if not _request_shape_valid(req):
+        return _malformed_response(req, sealed_at=sealed_at)
+
     authoritative_limit = get_authoritative_mandate_limit(req.mandate_id)
     mandate_resolved = authoritative_limit is not None
     # Unknown mandates must never bootstrap authority from request-presented values.
@@ -65,7 +142,7 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     raw_screening_age = (now - screening_time).total_seconds()
     screening_age = max(0.0, raw_screening_age)
 
-    amount_valid = isinstance(req.amount, (int, float)) and not isinstance(req.amount, bool) and math.isfinite(req.amount) and req.amount > 0
+    amount_valid = _valid_number(req.amount) and req.amount > 0
     required_text_valid = all(
         _meaningful_text(value)
         for value in (
