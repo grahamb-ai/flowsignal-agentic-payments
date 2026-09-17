@@ -1,0 +1,29 @@
+name: Basic Correctness Review
+
+on:
+  push:
+    branches:
+      - basic-correctness-review
+  workflow_dispatch:
+
+jobs:
+  basic-correctness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.16'
+      - name: Install harness dependencies
+        working-directory: harness
+        run: pip install -r requirements.txt
+      - name: Run basic correctness test bed
+        working-directory: harness
+        run: pytest -q tests/test_basic_runtime_authority_testbed*.py --junitxml=basic-correctness-results.xml
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mvp-basic-correctness-${{ github.run_id }}
+          path: harness/basic-correctness-results.xml
+          if-no-files-found: error
