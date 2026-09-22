@@ -4,7 +4,7 @@
   "purpose": "Canonical EC-009 action for exact consequence binding into Stripe Test Mode.",
   "authority_request": {
     "action": "payment.collect",
-    "target": "stripe:test:acct_1U06JYL6P3J1guFB:payment_intent.create",
+    "target": "stripe:test:acct_1U06JYL6P3JlguFB:payment_intent.create",
     "actor": {
       "id": "agent-payment-collection-ec009-01",
       "type": "autonomous_agent",
@@ -29,7 +29,7 @@
       "amount": 1.0,
       "currency": "USD",
       "source_account": "pm_card_visa",
-      "beneficiary": "acct_1U06JYL6P3J1guFB",
+      "beneficiary": "acct_1U06JYL6P3JlguFB",
       "purpose": "EC-009 bounded Stripe Test Mode payment collection"
     },
     "runtime_context": {

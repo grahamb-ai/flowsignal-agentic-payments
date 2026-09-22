@@ -6,11 +6,11 @@ SafeAgent × Stripe Test Mode EC-009 fixture.
 - Action: `payment.collect`
 - Stripe environment: Test Mode only
 - Stripe operation: `payment_intent.create`
-- Stripe account / beneficiary: `acct_1U06JYL6P3J1guFB`
+- Stripe account / beneficiary: `acct_1U06JYL6P3JlguFB`
 - Source payment method: `pm_card_visa`
 - Amount: USD 1.00, represented canonically as 100 minor units
 - Customer: none
-- Canonical SHA-256: `d2edea00f0bb048324ebc6e60f38972a8e12fb0d751878505b3bf6c02fe9badd`
+- Canonical SHA-256: `bb7dbb55025471a21a216f5e08eea74f72a5a6e1bd0513e127d2f84abcc8de93`
 
 `EC-009_CANONICAL_ACTION.json` is the authority-bearing action object. FlowSignal,
 the SafeAgent adapter, the Stripe projection and the semantic evidence verifier

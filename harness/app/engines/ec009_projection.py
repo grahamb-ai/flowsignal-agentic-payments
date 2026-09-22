@@ -6,7 +6,7 @@ from typing import Any
 from app.engines.action_binding import action_binding_hash, canonical_action_object
 
 
-EC009_ACCOUNT = "acct_1U06JYL6P3J1guFB"
+EC009_ACCOUNT = "acct_1U06JYL6P3JlguFB"
 EC009_TARGET = f"stripe:test:{EC009_ACCOUNT}:payment_intent.create"
 
 

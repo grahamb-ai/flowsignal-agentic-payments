@@ -26,10 +26,10 @@ AUTHORITATIVE_MANDATES = {
         max_amount=1.0,
         currency="USD",
         actions=("payment.collect",),
-        targets=("stripe:test:acct_1U06JYL6P3J1guFB:payment_intent.create",),
+        targets=("stripe:test:acct_1U06JYL6P3JlguFB:payment_intent.create",),
         source_accounts=("pm_card_visa",),
         counterparty_class="STRIPE_TEST_ACCOUNTS",
-        beneficiaries=("acct_1U06JYL6P3J1guFB",),
+        beneficiaries=("acct_1U06JYL6P3JlguFB",),
     ),
 }
 

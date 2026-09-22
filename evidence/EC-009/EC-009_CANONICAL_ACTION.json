@@ -2,12 +2,12 @@
   "action": "payment.collect",
   "actor_id": "agent-payment-collection-ec009-01",
   "amount_minor": 100,
-  "beneficiary": "acct_1U06JYL6P3J1guFB",
+  "beneficiary": "acct_1U06JYL6P3JlguFB",
   "currency": "USD",
   "mandate_id": "MANDATE-EC009-STRIPE-USD-001",
   "principal_id": "institution-001",
   "purpose": "EC-009 bounded Stripe Test Mode payment collection",
   "schema": "flowsignal.canonical-payment-action.v1",
   "source_account": "pm_card_visa",
-  "target": "stripe:test:acct_1U06JYL6P3J1guFB:payment_intent.create"
+  "target": "stripe:test:acct_1U06JYL6P3JlguFB:payment_intent.create"
 }

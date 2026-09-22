@@ -42,6 +42,8 @@ def _attempt(req):
 def test_ec009_frozen_object_is_exact_runtime_action():
     req = _request()
     frozen = json.loads(FROZEN.read_text(encoding="utf-8"))
+    assert frozen["beneficiary"] == "acct_1U06JYL6P3JlguFB"
+    assert frozen["target"] == "stripe:test:acct_1U06JYL6P3JlguFB:payment_intent.create"
     assert canonical_action_object(req) == frozen
     canonical = json.dumps(frozen, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     assert action_binding_hash(req) == hashlib.sha256(canonical).hexdigest()
@@ -92,7 +94,7 @@ def test_ec009_stripe_projection_is_exact_and_minor_unit_safe():
     assert params["amount"] == 100
     assert params["currency"] == "usd"
     assert params["payment_method"] == "pm_card_visa"
-    assert params["metadata"]["flowsignal_beneficiary"] == "acct_1U06JYL6P3J1guFB"
+    assert params["metadata"]["flowsignal_beneficiary"] == "acct_1U06JYL6P3JlguFB"
     assert params["metadata"]["flowsignal_action_binding_hash"] == action_binding_hash(req)
 
 
