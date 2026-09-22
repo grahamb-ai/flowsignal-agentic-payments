@@ -15,10 +15,12 @@ def test_ap001_all_required_conditions_are_evaluated_and_allow():
     assert receipt.valid_until is not None
 
     expected = {
-        "actor_authenticated","kya_verified","mandate_active","mandate_not_expired",
-        "action_permitted","amount_within_limit","currency_permitted",
+        "required_authority_text_valid","mandate_resolved","actor_authenticated",
+        "kya_verified","mandate_active","mandate_not_expired",
+        "action_permitted","target_permitted","amount_valid","amount_within_limit","currency_permitted",
         "source_account_permitted","counterparty_approved","account_active",
-        "risk_state_permits_execution","screening_clear","screening_fresh",
+        "risk_state_permits_execution","approval_not_required","screening_clear",
+        "screening_not_future_dated","screening_policy_valid","screening_fresh",
     }
     assert {c.name for c in receipt.checks} == expected
     assert all(c.passed for c in receipt.checks)
@@ -99,9 +101,8 @@ def test_ap003_post_approval_counterparty_change_refuses():
     assert receipt.decision == "REFUSE"
 
     failed = [c for c in receipt.checks if not c.passed]
-    assert len(failed) == 1
-    assert failed[0].name == "counterparty_approved"
-    assert failed[0].outcome_on_failure == "REFUSE"
+    assert {c.name for c in failed} == {"counterparty_approved", "approval_not_required"}
+    assert next(c for c in failed if c.name == "counterparty_approved").outcome_on_failure == "REFUSE"
 
 def test_ap001_and_ap003_share_action_but_current_context_changes():
     ap1 = load_scenario(SCENARIO)

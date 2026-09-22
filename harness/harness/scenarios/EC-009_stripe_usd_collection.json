@@ -1,0 +1,56 @@
+{
+  "scenario_id": "EC-009-STRIPE-USD-COLLECTION-001",
+  "title": "Bounded Stripe Test Mode USD payment collection",
+  "purpose": "Canonical EC-009 action for exact consequence binding into Stripe Test Mode.",
+  "authority_request": {
+    "action": "payment.collect",
+    "target": "stripe:test:acct_1U06JYL6P3J1guFB:payment_intent.create",
+    "actor": {
+      "id": "agent-payment-collection-ec009-01",
+      "type": "autonomous_agent",
+      "role": "payment_collection_agent",
+      "authenticated": true,
+      "kya_status": "VERIFIED"
+    },
+    "principal": {
+      "id": "institution-001",
+      "name": "Example Financial Institution"
+    },
+    "mandate": {
+      "id": "MANDATE-EC009-STRIPE-USD-001",
+      "status": "ACTIVE",
+      "max_amount": 1.0,
+      "currency": "USD",
+      "source_accounts": ["pm_card_visa"],
+      "counterparty_class": "STRIPE_TEST_ACCOUNTS",
+      "valid_until": "2026-12-31T23:59:59Z"
+    },
+    "proposed_action": {
+      "amount": 1.0,
+      "currency": "USD",
+      "source_account": "pm_card_visa",
+      "beneficiary": "acct_1U06JYL6P3J1guFB",
+      "purpose": "EC-009 bounded Stripe Test Mode payment collection"
+    },
+    "runtime_context": {
+      "counterparty_status": "APPROVED",
+      "account_status": "ACTIVE",
+      "risk_state": "NORMAL",
+      "approval_required": false
+    },
+    "trusted_evidence": {
+      "sanctions_screening": {
+        "status": "CLEAR",
+        "captured_at": "2026-09-22T08:00:00Z",
+        "max_age_seconds": 3600,
+        "source": "SCREENING-SERVICE-01"
+      }
+    },
+    "requested_execution_time": "2026-09-22T08:15:00Z"
+  },
+  "expected": {
+    "decision": "ALLOW",
+    "execution_status": "PERMITTED",
+    "reason_code": "AUTHORITY_ESTABLISHED"
+  }
+}

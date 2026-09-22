@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import hashlib, json, math, unicodedata, uuid
+import math, unicodedata, uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 
 from app.engines.authority_store import (
-    get_authoritative_mandate_limit,
+    get_authoritative_mandate,
     get_authority_state_version,
 )
+from app.engines.action_binding import EC009_MANDATE_ID, action_binding_hash
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
 from app.engines.receipt_integrity import compute_receipt_hmac
 
@@ -16,23 +17,6 @@ def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
-
-
-def _binding(req: FinancialAuthorityRequest) -> str:
-    payload = {
-        "actor_id": req.actor_id,
-        "principal_id": req.principal_id,
-        "action": req.action,
-        "target": req.target,
-        "amount": req.amount,
-        "currency": req.currency,
-        "source_account": req.source_account,
-        "beneficiary": req.beneficiary,
-        "purpose": req.purpose,
-        "mandate_id": req.mandate_id,
-    }
-    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(raw).hexdigest()
 
 
 def _check(name, passed, fail_outcome, reason=None, evidence_ref=None):
@@ -130,9 +114,11 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     if not _request_shape_valid(req):
         return _malformed_response(req, sealed_at=sealed_at)
 
-    authoritative_limit = get_authoritative_mandate_limit(req.mandate_id)
-    mandate_resolved = authoritative_limit is not None
+    authoritative_mandate = get_authoritative_mandate(req.mandate_id)
+    mandate_resolved = authoritative_mandate is not None
+    authoritative_limit = authoritative_mandate.max_amount if authoritative_mandate else None
     effective_limit = authoritative_limit if authoritative_limit is not None else 0.0
+    is_ec009 = req.mandate_id == EC009_MANDATE_ID
 
     now = _aware(sealed_at or req.requested_execution_time)
     expiry = _aware(req.mandate_valid_until)
@@ -156,12 +142,12 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         _check("kya_verified", req.kya_status.upper() == "VERIFIED", "REFUSE", f"KYA status is '{req.kya_status}'", "kya"),
         _check("mandate_active", req.mandate_status.upper() == "ACTIVE", "REFUSE", f"Mandate status is '{req.mandate_status}'", req.mandate_id),
         _check("mandate_not_expired", now <= expiry, "REFUSE", "Delegated mandate has expired", req.mandate_id),
-        _check("action_permitted", req.action == "payment.release", "REFUSE", f"Action '{req.action}' is not permitted", req.mandate_id),
-        _check("target_permitted", req.target == "TREASURY_PAYMENT_GATEWAY", "REFUSE", f"Target '{req.target}' is not permitted", req.mandate_id),
+        _check("action_permitted", authoritative_mandate is not None and req.action in authoritative_mandate.actions, "REFUSE", f"Action '{req.action}' is not permitted", req.mandate_id),
+        _check("target_permitted", authoritative_mandate is not None and req.target in authoritative_mandate.targets, "REFUSE", f"Target '{req.target}' is not permitted", req.mandate_id),
         _check("amount_valid", amount_valid, "REFUSE", "Payment amount must be finite and greater than zero", req.mandate_id),
         _check("amount_within_limit", amount_valid and req.amount <= effective_limit, "ESCALATE", "Amount exceeds autonomous mandate limit", req.mandate_id),
-        _check("currency_permitted", req.currency.upper() == req.mandate_currency.upper(), "REFUSE", f"Currency '{req.currency}' is outside mandate currency '{req.mandate_currency}'", req.mandate_id),
-        _check("source_account_permitted", req.source_account in req.permitted_source_accounts, "REFUSE", f"Source account '{req.source_account}' is outside the delegated mandate", req.mandate_id),
+        _check("currency_permitted", authoritative_mandate is not None and req.currency.upper() == authoritative_mandate.currency and req.mandate_currency == authoritative_mandate.currency, "REFUSE", f"Currency '{req.currency}' is outside the authoritative mandate currency", req.mandate_id),
+        _check("source_account_permitted", authoritative_mandate is not None and req.source_account in authoritative_mandate.source_accounts and req.source_account in req.permitted_source_accounts and (not is_ec009 or set(req.permitted_source_accounts) == set(authoritative_mandate.source_accounts)), "REFUSE", f"Source account '{req.source_account}' is outside the delegated mandate", req.mandate_id),
         _check("counterparty_approved", req.counterparty_status.upper() == "APPROVED", "REFUSE", f"Counterparty status is '{req.counterparty_status}'", "counterparty-status"),
         _check("account_active", req.account_status.upper() == "ACTIVE", "REFUSE", f"Account status is '{req.account_status}'", "account-status"),
         _check("risk_state_permits_execution", req.risk_state.upper() == "NORMAL", "ESCALATE", f"Risk state is '{req.risk_state}'", "risk-state"),
@@ -171,6 +157,12 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         _check("screening_policy_valid", req.screening_max_age_seconds >= 0, "ESCALATE", "Screening freshness policy cannot be negative", req.screening_source),
         _check("screening_fresh", raw_screening_age >= 0 and req.screening_max_age_seconds >= 0 and screening_age <= req.screening_max_age_seconds, "ESCALATE", f"Screening evidence age {int(screening_age)}s exceeds maximum age {req.screening_max_age_seconds}s", req.screening_source),
     ]
+
+    if is_ec009:
+        checks.extend([
+            _check("counterparty_class_permitted", authoritative_mandate is not None and req.permitted_counterparty_class == authoritative_mandate.counterparty_class, "REFUSE", "Presented counterparty class does not match the authoritative mandate", req.mandate_id),
+            _check("beneficiary_permitted", authoritative_mandate is not None and req.beneficiary in authoritative_mandate.beneficiaries, "REFUSE", f"Beneficiary '{req.beneficiary}' is outside the delegated mandate", req.mandate_id),
+        ])
 
     failed = [c for c in checks if not c.passed]
     if any(c.outcome_on_failure == "REFUSE" for c in failed):
@@ -199,12 +191,12 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     receipt_hmac = compute_receipt_hmac(
         receipt_id=rid, scenario_id=req.scenario_id, decision=decision,
         reason_code=reason_code, sealed_at=now, valid_until=valid_until,
-        action_binding_hash=_binding(req), authority_state_version=authority_state_version,
+        action_binding_hash=action_binding_hash(req), authority_state_version=authority_state_version,
         request_snapshot=snapshot, checks=checks, evidence_references=evidence_references,
     )
     receipt = AuthorityReceipt(
         id=rid, scenario_id=req.scenario_id, decision=decision, reason_code=reason_code,
-        sealed_at=now, valid_until=valid_until, action_binding_hash=_binding(req),
+        sealed_at=now, valid_until=valid_until, action_binding_hash=action_binding_hash(req),
         authority_state_version=authority_state_version, receipt_hmac=receipt_hmac,
         request_snapshot=snapshot, checks=checks, evidence_references=evidence_references,
     )

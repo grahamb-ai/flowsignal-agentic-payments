@@ -1,12 +1,11 @@
 from __future__ import annotations
-import hashlib
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.engines.financial_types import AuthorityReceipt
 from app.engines.receipt_integrity import verify_receipt_hmac
 from app.engines.authority_store import get_authority_state_version
+from app.engines.action_binding import action_binding_hash
 from app.engines.permit_authority import (
     ExecutionPermit,
     _GATEWAY_MINT_CAPABILITY,
@@ -42,23 +41,6 @@ def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
-
-
-def action_binding_hash(attempt: ExecutionAttempt) -> str:
-    payload = {
-        "actor_id": attempt.actor_id,
-        "principal_id": attempt.principal_id,
-        "action": attempt.action,
-        "target": attempt.target,
-        "amount": attempt.amount,
-        "currency": attempt.currency,
-        "source_account": attempt.source_account,
-        "beneficiary": attempt.beneficiary,
-        "purpose": attempt.purpose,
-        "mandate_id": attempt.mandate_id,
-    }
-    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
 
 
 def validate_execution(
