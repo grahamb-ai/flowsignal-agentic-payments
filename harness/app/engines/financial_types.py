@@ -65,6 +65,8 @@ class AuthorityReceipt:
     action_binding_hash: str
     authority_state_version: int
     authority_snapshot_id: str
+    authority_subject_principal_id: str
+    authority_subject_mandate_id: str
     authority_epoch_id: str
     authority_fence_scope_key: str
     authority_fence: int
