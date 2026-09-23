@@ -2,6 +2,7 @@ from __future__ import annotations
 import argparse, json
 from dataclasses import asdict
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from app.engines.financial_runtime import evaluate_financial
 from app.engines.financial_types import FinancialAuthorityRequest
@@ -50,11 +51,11 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
         actor_authenticated=actor["authenticated"], kya_status=actor["kya_status"],
         principal_id=principal["id"], principal_name=principal["name"],
         mandate_id=mandate["id"], mandate_status=mandate["status"],
-        mandate_max_amount=float(mandate["max_amount"]), mandate_currency=mandate["currency"],
+        mandate_max_amount=Decimal(str(mandate["max_amount"])), mandate_currency=mandate["currency"],
         permitted_source_accounts=list(mandate["source_accounts"]),
         permitted_counterparty_class=mandate["counterparty_class"],
         mandate_valid_until=mandate_valid_until,
-        amount=float(pa["amount"]), currency=pa["currency"], source_account=pa["source_account"],
+        amount=Decimal(str(pa["amount"])), currency=pa["currency"], source_account=pa["source_account"],
         beneficiary=pa["beneficiary"], purpose=pa["purpose"],
         counterparty_status=ctx["counterparty_status"], account_status=ctx["account_status"],
         risk_state=ctx["risk_state"], approval_required=bool(ctx["approval_required"]),
@@ -68,6 +69,7 @@ def _ser(obj):
     d = asdict(obj)
     def conv(v):
         if isinstance(v, datetime): return v.isoformat()
+        if isinstance(v, Decimal): return format(v, ".2f")
         if isinstance(v, list): return [conv(x) for x in v]
         if isinstance(v, dict): return {k: conv(x) for k, x in v.items()}
         return v
