@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 @dataclass
@@ -17,12 +18,12 @@ class FinancialAuthorityRequest:
     principal_name: str
     mandate_id: str
     mandate_status: str
-    mandate_max_amount: float
+    mandate_max_amount: Decimal
     mandate_currency: str
     permitted_source_accounts: list[str]
     permitted_counterparty_class: str
     mandate_valid_until: datetime
-    amount: float
+    amount: Decimal
     currency: str
     source_account: str
     beneficiary: str
