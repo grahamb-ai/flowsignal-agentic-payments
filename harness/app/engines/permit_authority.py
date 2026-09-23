@@ -20,6 +20,8 @@ class ExecutionPermit:
     action_binding_hash: str
     authority_state_version: int
     authority_snapshot_id: str
+    authority_subject_principal_id: str
+    authority_subject_mandate_id: str
     authority_epoch_id: str
     authority_fence_scope_key: str
     authority_fence: int
@@ -47,6 +49,8 @@ def issue_execution_permit(
     authority_state_version: int,
     *,
     authority_snapshot_id: str,
+    authority_subject_principal_id: str,
+    authority_subject_mandate_id: str,
     authority_epoch_id: str,
     authority_fence_scope_key: str,
     authority_fence: int,
@@ -66,6 +70,8 @@ def issue_execution_permit(
         action_binding_hash=action_binding_hash,
         authority_state_version=authority_state_version,
         authority_snapshot_id=authority_snapshot_id,
+        authority_subject_principal_id=authority_subject_principal_id,
+        authority_subject_mandate_id=authority_subject_mandate_id,
         authority_epoch_id=authority_epoch_id,
         authority_fence_scope_key=authority_fence_scope_key,
         authority_fence=authority_fence,
@@ -85,7 +91,8 @@ def verify_execution_permit(permit: ExecutionPermit) -> bool:
         k: getattr(permit, k)
         for k in (
             "authority_receipt_id", "action_binding_hash", "authority_state_version",
-            "authority_snapshot_id", "authority_epoch_id", "authority_fence_scope_key",
+            "authority_snapshot_id", "authority_subject_principal_id", "authority_subject_mandate_id",
+            "authority_epoch_id", "authority_fence_scope_key",
             "authority_fence", "authoritative_source_id", "source_competence_root_id",
             "authority_semantics_version", "authority_semantics_definition_id",
             "authority_semantics_source_id", "issued_at", "valid_until"
