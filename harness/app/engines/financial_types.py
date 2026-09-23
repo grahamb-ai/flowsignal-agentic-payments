@@ -64,6 +64,15 @@ class AuthorityReceipt:
     valid_until: datetime | None
     action_binding_hash: str
     authority_state_version: int
+    authority_snapshot_id: str
+    authority_epoch_id: str
+    authority_fence_scope_key: str
+    authority_fence: int
+    authoritative_source_id: str
+    source_competence_root_id: str
+    authority_semantics_version: str
+    authority_semantics_definition_id: str
+    authority_semantics_source_id: str
     receipt_hmac: str
     request_snapshot: dict[str, Any]
     checks: list[FinancialCheck] = field(default_factory=list)
