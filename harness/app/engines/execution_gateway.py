@@ -3,10 +3,12 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from app.engines.financial_types import AuthorityReceipt
 from app.engines.receipt_integrity import verify_receipt_hmac
 from app.engines.authority_store import get_authority_state_version
+from app.engines.money import canonical_money_text
 from app.engines.permit_authority import (
     ExecutionPermit,
     _GATEWAY_MINT_CAPABILITY,
@@ -19,7 +21,7 @@ class ExecutionAttempt:
     principal_id: str
     action: str
     target: str
-    amount: float
+    amount: Decimal
     currency: str
     source_account: str
     beneficiary: str
@@ -50,7 +52,7 @@ def action_binding_hash(attempt: ExecutionAttempt) -> str:
         "principal_id": attempt.principal_id,
         "action": attempt.action,
         "target": attempt.target,
-        "amount": attempt.amount,
+        "amount": canonical_money_text(attempt.amount),
         "currency": attempt.currency,
         "source_account": attempt.source_account,
         "beneficiary": attempt.beneficiary,
