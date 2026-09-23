@@ -120,6 +120,8 @@ def validate_execution(
         action_binding_hash=attempted_hash,
         authority_state_version=current_authority_state_version,
         authority_snapshot_id=receipt.authority_snapshot_id,
+        authority_subject_principal_id=receipt.authority_subject_principal_id,
+        authority_subject_mandate_id=receipt.authority_subject_mandate_id,
         authority_epoch_id=receipt.authority_epoch_id,
         authority_fence_scope_key=receipt.authority_fence_scope_key,
         authority_fence=receipt.authority_fence,
