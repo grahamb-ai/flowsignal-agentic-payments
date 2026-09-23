@@ -85,10 +85,13 @@ def execute_protected_consequence(
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
 
-        mandate_id = permit.authority_fence_scope_key.split(":", 1)[1] if ":" in permit.authority_fence_scope_key else ""
-        current_snapshot = get_authority_snapshot(mandate_id)
+        current_snapshot = get_authority_snapshot(permit.authority_subject_mandate_id)
         if current_snapshot is None:
             return "DENIED_AUTHORITATIVE_STATE_MISSING"
+        if permit.authority_subject_principal_id != current_snapshot.mandate.principal_id:
+            return "DENIED_AUTHORITY_SUBJECT_PRINCIPAL_MISMATCH"
+        if permit.authority_subject_mandate_id != current_snapshot.mandate.mandate_id:
+            return "DENIED_AUTHORITY_SUBJECT_MANDATE_MISMATCH"
         if permit.authority_snapshot_id != current_snapshot.snapshot_id:
             return "DENIED_AUTHORITY_SNAPSHOT_STALE"
         if permit.authority_epoch_id != current_snapshot.authority_epoch_id:
