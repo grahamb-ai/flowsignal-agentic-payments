@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib, json, uuid
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from app.engines.authority_store import (
     get_authoritative_mandate_limit,
@@ -90,6 +91,8 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     for k, v in list(snapshot.items()):
         if isinstance(v, datetime):
             snapshot[k] = _aware(v).isoformat()
+        elif isinstance(v, Decimal):
+            snapshot[k] = canonical_money_text(v)
 
         evidence_references = [{
         "type": "sanctions_screening",
