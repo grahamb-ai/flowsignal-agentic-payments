@@ -15,6 +15,7 @@ from app.engines.consequence_receipt import (
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
 from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
 from app.engines.rollback_anchor_store import claim_execution_anchor_once
+from app.engines.institutional_authority import get_authority_snapshot
 
 
 def _aware(dt: datetime) -> datetime:
@@ -83,6 +84,29 @@ def execute_protected_consequence(
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
+
+        mandate_id = permit.authority_fence_scope_key.split(":", 1)[1] if ":" in permit.authority_fence_scope_key else ""
+        current_snapshot = get_authority_snapshot(mandate_id)
+        if current_snapshot is None:
+            return "DENIED_AUTHORITATIVE_STATE_MISSING"
+        if permit.authority_snapshot_id != current_snapshot.snapshot_id:
+            return "DENIED_AUTHORITY_SNAPSHOT_STALE"
+        if permit.authority_epoch_id != current_snapshot.authority_epoch_id:
+            return "DENIED_AUTHORITY_EPOCH_MISMATCH"
+        if permit.authority_fence_scope_key != current_snapshot.authority_fence_scope_key:
+            return "DENIED_AUTHORITY_FENCE_SCOPE_MISMATCH"
+        if permit.authority_fence != current_snapshot.authority_fence:
+            return "DENIED_AUTHORITY_FENCE_STALE"
+        if permit.authoritative_source_id != current_snapshot.authoritative_source_id:
+            return "DENIED_AUTHORITY_SOURCE_MISMATCH"
+        if permit.source_competence_root_id != current_snapshot.source_competence_root_id:
+            return "DENIED_SOURCE_COMPETENCE_MISMATCH"
+        if permit.authority_semantics_version != current_snapshot.semantics.version:
+            return "DENIED_AUTHORITY_SEMANTICS_VERSION_MISMATCH"
+        if permit.authority_semantics_definition_id != current_snapshot.semantics.definition_id:
+            return "DENIED_AUTHORITY_SEMANTICS_DEFINITION_MISMATCH"
+        if permit.authority_semantics_source_id != current_snapshot.semantics.source_id:
+            return "DENIED_AUTHORITY_SEMANTICS_SOURCE_MISMATCH"
 
         anchor_was_new = claim_execution_anchor_once(
             permit_signature=permit.signature,
