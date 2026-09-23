@@ -12,6 +12,7 @@ from app.engines.authority_store import (
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
 from app.engines.receipt_integrity import compute_receipt_hmac
 from app.engines.money import canonical_money_text
+from app.engines.institutional_authority import get_authority_snapshot
 
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -55,12 +56,12 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     checks = [
         _check("actor_authenticated", req.actor_authenticated, "REFUSE", "Actor authentication is not established", "authentication"),
         _check("kya_verified", req.kya_status.upper() == "VERIFIED", "REFUSE", f"KYA status is '{req.kya_status}'", "kya"),
-        _check("mandate_active", req.mandate_status.upper() == "ACTIVE", "REFUSE", f"Mandate status is '{req.mandate_status}'", req.mandate_id),
+        _check("mandate_active", authority_snapshot is not None and authority_snapshot.mandate.status == "ACTIVE", "REFUSE", "Authoritative mandate is absent or inactive", req.mandate_id),
         _check("mandate_not_expired", now <= expiry, "REFUSE", "Delegated mandate has expired", req.mandate_id),
-        _check("action_permitted", req.action == "payment.release", "REFUSE", f"Action '{req.action}' is not permitted", req.mandate_id),
-        _check("amount_within_limit", req.amount <=  authoritative_limit, "ESCALATE", f"Amount {canonical_money_text(req.amount)} exceeds autonomous mandate limit {canonical_money_text(authoritative_limit)}", req.mandate_id),
-        _check("currency_permitted", req.currency.upper() == req.mandate_currency.upper(), "REFUSE", f"Currency '{req.currency}' is outside mandate currency '{req.mandate_currency}'", req.mandate_id),
-        _check("source_account_permitted", req.source_account in req.permitted_source_accounts, "REFUSE", f"Source account '{req.source_account}' is outside the delegated mandate", req.mandate_id),
+        _check("action_permitted", authority_snapshot is not None and req.action == authority_snapshot.mandate.action, "REFUSE", f"Action '{req.action}' is not permitted by authoritative mandate", req.mandate_id),
+        _check("amount_within_limit", authority_snapshot is not None and req.amount <= authoritative_limit, "ESCALATE", "Amount exceeds or lacks an authoritative mandate limit", req.mandate_id),
+        _check("currency_permitted", authority_snapshot is not None and req.currency.upper() == authority_snapshot.mandate.currency.upper(), "REFUSE", f"Currency '{req.currency}' is outside authoritative mandate currency", req.mandate_id),
+        _check("source_account_permitted", authority_snapshot is not None and req.source_account in authority_snapshot.mandate.source_accounts, "REFUSE", f"Source account '{req.source_account}' is outside the authoritative mandate", req.mandate_id),
         _check("counterparty_approved", req.counterparty_status.upper() == "APPROVED", "REFUSE", f"Counterparty status is '{req.counterparty_status}'", "counterparty-status"),
         _check("account_active", req.account_status.upper() == "ACTIVE", "REFUSE", f"Account status is '{req.account_status}'", "account-status"),
         _check("risk_state_permits_execution", req.risk_state.upper() == "NORMAL", "ESCALATE", f"Risk state is '{req.risk_state}'", "risk-state"),
@@ -87,6 +88,7 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     snapshot = asdict(req)
     snapshot["presented_mandate_max_amount"] = req.mandate_max_amount
     snapshot["authoritative_mandate_max_amount"] = authoritative_limit
+    snapshot["authority_snapshot_id"] = authority_snapshot.snapshot_id if authority_snapshot else None
 
     for k, v in list(snapshot.items()):
         if isinstance(v, datetime):
