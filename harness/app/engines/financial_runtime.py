@@ -10,6 +10,7 @@ from app.engines.authority_store import (
 )
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
 from app.engines.receipt_integrity import compute_receipt_hmac
+from app.engines.money import canonical_money_text
 
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -22,7 +23,7 @@ def _binding(req: FinancialAuthorityRequest) -> str:
         "principal_id": req.principal_id,
         "action": req.action,
         "target": req.target,
-        "amount": req.amount,
+        "amount": canonical_money_text(req.amount),
         "currency": req.currency,
         "source_account": req.source_account,
         "beneficiary": req.beneficiary,
@@ -56,7 +57,7 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         _check("mandate_active", req.mandate_status.upper() == "ACTIVE", "REFUSE", f"Mandate status is '{req.mandate_status}'", req.mandate_id),
         _check("mandate_not_expired", now <= expiry, "REFUSE", "Delegated mandate has expired", req.mandate_id),
         _check("action_permitted", req.action == "payment.release", "REFUSE", f"Action '{req.action}' is not permitted", req.mandate_id),
-        _check("amount_within_limit", req.amount <=  authoritative_limit, "ESCALATE", f"Amount {req.amount:g} exceeds autonomous mandate limit {authoritative_limit:g}", req.mandate_id),
+        _check("amount_within_limit", req.amount <=  authoritative_limit, "ESCALATE", f"Amount {canonical_money_text(req.amount)} exceeds autonomous mandate limit {canonical_money_text(authoritative_limit)}", req.mandate_id),
         _check("currency_permitted", req.currency.upper() == req.mandate_currency.upper(), "REFUSE", f"Currency '{req.currency}' is outside mandate currency '{req.mandate_currency}'", req.mandate_id),
         _check("source_account_permitted", req.source_account in req.permitted_source_accounts, "REFUSE", f"Source account '{req.source_account}' is outside the delegated mandate", req.mandate_id),
         _check("counterparty_approved", req.counterparty_status.upper() == "APPROVED", "REFUSE", f"Counterparty status is '{req.counterparty_status}'", "counterparty-status"),
