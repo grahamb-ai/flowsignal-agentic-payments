@@ -799,3 +799,39 @@ def test_explicit_final_supersession_can_resolve_prior_provisional_disagreement(
         action_binding_hash=binding,
     )
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
+
+
+def test_final_evidence_cannot_supersede_observation_from_different_execution():
+    """Supersession correspondence must remain inside the exact execution."""
+    import pytest
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    prior = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:OTHER-EXEC", "PERMIT:A", "ACTION:A", "FORMATION", source, competence, finality_state="PROVISIONAL")
+    register_competent_outcome_evidence(prior)
+    successor = CompetentOutcomeEvidence("EVIDENCE:FINAL:CROSS-EXEC", "PERMIT:B", "ACTION:B", "NON_FORMATION", source, competence, finality_state="FINAL", supersedes_evidence_ids=(prior.evidence_id,))
+    with pytest.raises(ValueError, match="exact execution|supersession"):
+        register_competent_outcome_evidence(successor)
+
+
+def test_final_outcome_evidence_cannot_be_superseded():
+    """Final evidence is not silently demoted by another observation."""
+    import pytest
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    prior = CompetentOutcomeEvidence("EVIDENCE:FINAL:IMMUTABLE", "PERMIT:FINALITY", "ACTION:FINALITY", "FORMATION", source, competence, finality_state="FINAL")
+    register_competent_outcome_evidence(prior)
+    successor = CompetentOutcomeEvidence("EVIDENCE:FINAL:REPLACEMENT", "PERMIT:FINALITY", "ACTION:FINALITY", "NON_FORMATION", source, competence, finality_state="FINAL", supersedes_evidence_ids=(prior.evidence_id,))
+    with pytest.raises(ValueError, match="provisional|supersed"):
+        register_competent_outcome_evidence(successor)
+
+
+def test_provisional_outcome_evidence_cannot_supersede_prior_observation():
+    """Only final evidence may perform explicit supersession."""
+    import pytest
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    prior = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:PRIOR", "PERMIT:PROV", "ACTION:PROV", "FORMATION", source, competence, finality_state="PROVISIONAL")
+    register_competent_outcome_evidence(prior)
+    successor = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:SUCCESSOR", "PERMIT:PROV", "ACTION:PROV", "NON_FORMATION", source, competence, finality_state="PROVISIONAL", supersedes_evidence_ids=(prior.evidence_id,))
+    with pytest.raises(ValueError, match="final|supersed"):
+        register_competent_outcome_evidence(successor)
