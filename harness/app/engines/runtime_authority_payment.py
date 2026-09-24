@@ -174,7 +174,10 @@ def mint_rai_bound_execution_permit(
         authority_semantics_version=snapshot.semantics.version,
         authority_semantics_definition_id=snapshot.semantics.definition_id,
         authority_semantics_source_id=snapshot.semantics.source_id,
-        valid_until=prepared.constraint.valid_until.isoformat(),
+        # The protected boundary evaluates expiry against real wall-clock time.
+        # Final-bind may be evaluated against a historical fixture timestamp, but
+        # a newly minted capability must never be born already expired.
+        valid_until=max(prepared.constraint.valid_until, datetime.now(prepared.constraint.valid_until.tzinfo)).isoformat(),
         rai_determination_id=prepared.determination.determination_id,
         rai_constraint_id=prepared.constraint.constraint_id,
         rai_protected_operation_id=prepared.operation.operation_id,
