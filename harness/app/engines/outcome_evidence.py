@@ -65,14 +65,24 @@ def verify_competent_outcome_evidence(
     if not evidence_ids:
         return False
     with _LOCK:
-        applicable = [
+        observed = [
             evidence for evidence in _EVIDENCE.values()
             if evidence.permit_signature == permit_signature
             and evidence.action_binding_hash == action_binding_hash
-            and (evidence.authoritative_source_id, evidence.source_competence_id) in _ALLOWED_SOURCES
         ]
-        if not applicable:
+        if not observed:
             return False
+
+        # An observation that is preserved for this exact execution but whose
+        # source competence is unresolved cannot itself resolve the outcome;
+        # nor may it be silently discarded to manufacture certainty.
+        if any(
+            (evidence.authoritative_source_id, evidence.source_competence_id) not in _ALLOWED_SOURCES
+            for evidence in observed
+        ):
+            return False
+
+        applicable = observed
 
         # A FINAL observation may resolve an already-disagreeing provisional
         # evidence set only by explicitly superseding the whole active
