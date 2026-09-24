@@ -106,3 +106,20 @@ def advance_authority_fence() -> int:
     with _LOCK:
         _FENCE += 1
         return _FENCE
+
+
+def advance_authority_epoch_for_test() -> str:
+    """Advance the synthetic authority epoch without changing mandate economics.
+
+    Test/reference-harness support only. A new authority-state epoch must not,
+    by itself, imply replenishment of an aggregate mandate amount.
+    """
+    global _EPOCH_ID, _FENCE
+    with _LOCK:
+        try:
+            prefix, raw = _EPOCH_ID.rsplit("-", 1)
+            _EPOCH_ID = f"{prefix}-{int(raw) + 1:03d}"
+        except (ValueError, TypeError):
+            _EPOCH_ID = f"{_EPOCH_ID}-NEXT"
+        _FENCE += 1
+        return _EPOCH_ID
