@@ -456,10 +456,28 @@ def test_quarantined_usage_can_be_released_only_by_competent_nonformation_resolu
         evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
     )
 
+    from app.engines.outcome_evidence import (
+        CompetentOutcomeEvidence,
+        register_competent_outcome_evidence,
+    )
+    attempted_hash = action_binding_hash(_attempt(req))
+    evidence_id = "EVIDENCE:NONFORMATION:EXACT-EXECUTION"
+    register_competent_outcome_evidence(
+        CompetentOutcomeEvidence(
+            evidence_id=evidence_id,
+            permit_signature="REFERENCE-PERMIT:NON_FORMATION",
+            action_binding_hash=attempted_hash,
+            outcome="NON_FORMATION",
+            authoritative_source_id="REFERENCE-CONSEQUENCE-OBSERVER-001",
+            source_competence_id="REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+        )
+    )
     resolve_quarantined_authority_usage(
         prepared.usage_reservation_id,
         resolution="NON_FORMATION",
-        evidence_ids=("COMPETENT-NONFORMATION:EXACT-EXECUTION",),
+        evidence_ids=(evidence_id,),
+        permit_signature="REFERENCE-PERMIT:NON_FORMATION",
+        action_binding_hash=attempted_hash,
     )
 
     after = get_usage_reservation(prepared.usage_reservation_id)
@@ -485,10 +503,28 @@ def test_quarantined_usage_can_be_consumed_only_by_competent_formation_resolutio
         evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
     )
 
+    from app.engines.outcome_evidence import (
+        CompetentOutcomeEvidence,
+        register_competent_outcome_evidence,
+    )
+    attempted_hash = action_binding_hash(_attempt(req))
+    evidence_id = "EVIDENCE:FORMATION:EXACT-EXECUTION"
+    register_competent_outcome_evidence(
+        CompetentOutcomeEvidence(
+            evidence_id=evidence_id,
+            permit_signature="REFERENCE-PERMIT:FORMATION",
+            action_binding_hash=attempted_hash,
+            outcome="FORMATION",
+            authoritative_source_id="REFERENCE-CONSEQUENCE-OBSERVER-001",
+            source_competence_id="REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+        )
+    )
     resolve_quarantined_authority_usage(
         prepared.usage_reservation_id,
         resolution="FORMATION",
-        evidence_ids=("COMPETENT-FORMATION:EXACT-EXECUTION",),
+        evidence_ids=(evidence_id,),
+        permit_signature="REFERENCE-PERMIT:FORMATION",
+        action_binding_hash=attempted_hash,
     )
 
     after = get_usage_reservation(prepared.usage_reservation_id)
@@ -521,6 +557,8 @@ def test_quarantine_resolution_rejects_forged_competence_prefix():
             prepared.usage_reservation_id,
             resolution="NON_FORMATION",
             evidence_ids=(forged,),
+            permit_signature="ATTACKER-PERMIT",
+            action_binding_hash=action_binding_hash(_attempt(req)),
         )
 
     after = get_usage_reservation(prepared.usage_reservation_id)
