@@ -899,3 +899,31 @@ def test_final_supersession_cannot_omit_same_outcome_member_of_prior_contradicto
             permit_signature=sig, action_binding_hash=binding,
         )
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
+
+
+def test_two_final_observations_with_opposite_outcomes_preserve_quarantine():
+    """Conflicting FINAL evidence has no precedence rule and must remain unresolved."""
+    import pytest
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:FINAL-DISAGREEMENT"
+    binding = action_binding_hash(_attempt(req))
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    formed = CompetentOutcomeEvidence("EVIDENCE:FINAL:FORMED:FINAL-DISAGREEMENT", sig, binding, "FORMATION", source, competence, finality_state="FINAL")
+    not_formed = CompetentOutcomeEvidence("EVIDENCE:FINAL:NOT-FORMED:FINAL-DISAGREEMENT", sig, binding, "NON_FORMATION", source, competence, finality_state="FINAL")
+    register_competent_outcome_evidence(formed)
+    register_competent_outcome_evidence(not_formed)
+
+    with pytest.raises(ValueError):
+        resolve_quarantined_authority_usage(
+            prepared.usage_reservation_id,
+            resolution="NON_FORMATION",
+            evidence_ids=(not_formed.evidence_id,),
+            permit_signature=sig,
+            action_binding_hash=binding,
+        )
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
