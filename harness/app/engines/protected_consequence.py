@@ -86,14 +86,6 @@ def execute_protected_consequence(
     binding = get_rai_execution_binding(permit.signature)
     if binding is None:
         return "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
-    usage_reservation = get_usage_reservation(binding.usage_reservation_id)
-    if (
-        usage_reservation is None
-        or usage_reservation.state != AuthorityUsageState.RESERVED
-        or usage_reservation.authority_exercise_id != permit.rai_authority_exercise_id
-        or usage_reservation.execution_attempt_id != permit.rai_execution_attempt_id
-    ):
-        return "DENIED_AUTHORITY_USAGE_RESERVATION_INVALID"
 
     if permit.valid_until is None:
         return "DENIED_EXECUTION_PERMIT_EXPIRY_MISSING"
@@ -113,6 +105,34 @@ def execute_protected_consequence(
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
+
+        # Replay classification must remain authoritative for an already-consumed
+        # capability. Usage state is checked only after durable permit consumption
+        # establishes that this is a new commitment attempt.
+        anchor_was_new = claim_execution_anchor_once(
+            permit_signature=permit.signature,
+            action_binding_hash=attempted_action_binding_hash,
+        )
+
+        consumption_was_new = consume_execution_permit_and_begin_outcome_once(
+            permit.signature,
+            attempted_action_binding_hash,
+        )
+
+        if not consumption_was_new:
+            return "DENIED_EXECUTION_PERMIT_REPLAY"
+
+        if not anchor_was_new:
+            return "DENIED_EXECUTION_STATE_ROLLBACK_OR_REPLAY"
+
+        usage_reservation = get_usage_reservation(binding.usage_reservation_id)
+        if (
+            usage_reservation is None
+            or usage_reservation.state != AuthorityUsageState.RESERVED
+            or usage_reservation.authority_exercise_id != permit.rai_authority_exercise_id
+            or usage_reservation.execution_attempt_id != permit.rai_execution_attempt_id
+        ):
+            return "DENIED_AUTHORITY_USAGE_RESERVATION_INVALID"
 
         current_snapshot = get_authority_snapshot(permit.authority_subject_mandate_id)
         if current_snapshot is None:
@@ -139,26 +159,6 @@ def execute_protected_consequence(
             return "DENIED_AUTHORITY_SEMANTICS_DEFINITION_MISMATCH"
         if permit.authority_semantics_source_id != current_snapshot.semantics.source_id:
             return "DENIED_AUTHORITY_SEMANTICS_SOURCE_MISMATCH"
-
-        anchor_was_new = claim_execution_anchor_once(
-            permit_signature=permit.signature,
-            action_binding_hash=attempted_action_binding_hash,
-        )
-
-        consumption_was_new = consume_execution_permit_and_begin_outcome_once(
-            permit.signature,
-            attempted_action_binding_hash,
-        )
-
-        if not consumption_was_new:
-            return "DENIED_EXECUTION_PERMIT_REPLAY"
-
-        if not anchor_was_new:
-            # The separate anchor remembers this execution while the restored
-            # execution-state stores have accepted it as new. The consumption
-            # transaction has safely re-established an unresolved record, but
-            # represented consequence formation must stop here.
-            return "DENIED_EXECUTION_STATE_ROLLBACK_OR_REPLAY"
 
         if before_formation_hook is not None:
             try:
