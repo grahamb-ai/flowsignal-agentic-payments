@@ -21,6 +21,7 @@ class RAIExecutionBinding:
     authority_exercise_id: str
     execution_attempt_id: str
     action_binding_hash: str
+    usage_reservation_id: str
 
 
 _LOCK = RLock()
@@ -36,6 +37,7 @@ def register_rai_execution_binding(
     authority_exercise_id: str,
     execution_attempt_id: str,
     action_binding_hash: str,
+    usage_reservation_id: str,
 ) -> RAIExecutionBinding:
     proposed = RAIExecutionBinding(
         permit_signature=permit_signature,
@@ -45,6 +47,7 @@ def register_rai_execution_binding(
         authority_exercise_id=authority_exercise_id,
         execution_attempt_id=execution_attempt_id,
         action_binding_hash=action_binding_hash,
+        usage_reservation_id=usage_reservation_id,
     )
     with _LOCK:
         existing = _BINDINGS.get(permit_signature)
@@ -83,3 +86,8 @@ def verify_rai_execution_binding(
             and binding.execution_attempt_id == execution_attempt_id
             and binding.action_binding_hash == action_binding_hash
         )
+
+
+def get_rai_execution_binding(permit_signature: str) -> RAIExecutionBinding | None:
+    with _LOCK:
+        return _BINDINGS.get(permit_signature)
