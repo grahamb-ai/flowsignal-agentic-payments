@@ -8,6 +8,7 @@ from app.engines.authority_determination import (
     materialise_protected_operation,
 )
 from app.engines.authority_resolution import resolve_payment_authority
+from app.engines.authority_lineage import create_authority_exercise, create_execution_attempt
 from harness.runner import load_scenario
 
 
@@ -24,12 +25,28 @@ def _resolved():
 
 def test_slice_d_binds_exact_operation_to_context_and_scope():
     req, scope, context = _resolved()
+    exercise = create_authority_exercise(
+            resolution_context_id=context.context_id,
+            effective_authority_scope_id=scope.scope_id,
+            protected_operation_class=context.protected_operation_class,
+            created_at=req.requested_execution_time,
+            authority_exercise_id="EX-001",
+        )
+
+    attempt = create_execution_attempt(
+            authority_exercise_id=exercise.authority_exercise_id,
+            route_id="R1",
+            executor_id="PAYMENT-EXECUTOR-1",
+            created_at=req.requested_execution_time,
+            execution_attempt_id="ATT-001",
+        )
+
     operation = materialise_protected_operation(
-        req,
+            req,
         route_id="R1",
         executor_id="PAYMENT-EXECUTOR-1",
-        authority_exercise_id="EX-001",
-        execution_attempt_id="ATT-001",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=attempt.execution_attempt_id,
     )
     binding = bind_authority_to_operation(scope, operation)
     determination, constraint = issue_authorised_execution_constraint(
@@ -38,8 +55,8 @@ def test_slice_d_binds_exact_operation_to_context_and_scope():
         operation=operation,
         binding=binding,
         resolved_at=req.requested_execution_time,
-        authority_exercise_id="EX-001",
-        execution_attempt_id="ATT-001",
+        authority_exercise=exercise,
+        execution_attempt=attempt,
     )
 
     assert determination.resolution_context_id == context.context_id
