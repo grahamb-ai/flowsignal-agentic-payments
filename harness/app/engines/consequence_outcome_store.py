@@ -62,3 +62,26 @@ def record_consequence_outcome(
         )
     finally:
         connection.close()
+
+
+def get_consequence_outcome(
+    permit_signature: str,
+    action_binding_hash: str,
+):
+    """Read the currently represented outcome for one exact execution."""
+    connection = _connect()
+    try:
+        row = connection.execute(
+            """
+            SELECT outcome
+            FROM consequence_outcomes
+            WHERE permit_signature = ? AND action_binding_hash = ?
+            """,
+            (permit_signature, action_binding_hash),
+        ).fetchone()
+        if row is None:
+            return None
+        from types import SimpleNamespace
+        return SimpleNamespace(outcome=row[0])
+    finally:
+        connection.close()
