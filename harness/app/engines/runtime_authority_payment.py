@@ -80,12 +80,12 @@ def prepare_payment_execution(
     if snapshot is None:
         raise AuthorityResolutionError("authoritative mandate snapshot unavailable")
     policy = AuthorityUsagePolicy(
-        usage_policy_id=f"USAGE-POLICY:MANDATE:{snapshot.mandate.mandate_id}:{snapshot.authority_epoch_id}",
+        usage_policy_id=f"USAGE-POLICY:MANDATE:{snapshot.mandate.principal_id}:{snapshot.mandate.mandate_id}:NORM-PAY-001:aggregate-amount:v1",
         authority_scope_id=scope.scope_id,
         mode=AuthorityUsageMode.AGGREGATE,
-        scope_key=f"MANDATE:{snapshot.mandate.principal_id}:{snapshot.mandate.mandate_id}:{snapshot.authority_epoch_id}",
+        scope_key=f"MANDATE:{snapshot.mandate.principal_id}:{snapshot.mandate.mandate_id}:NORM-PAY-001:aggregate-amount:v1",
         capacity=snapshot.mandate.max_amount,
-        window_id=snapshot.authority_epoch_id,
+        window_id="NORM-PAY-001:aggregate-amount:v1",
         disposition_rule_id="NORM-PAY-001:aggregate-amount:v1",
     )
     register_usage_policy(policy)
