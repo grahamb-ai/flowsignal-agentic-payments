@@ -30,4 +30,5 @@ jobs:
             tests/test_fs_rai_r5_lineage.py \
             tests/test_fs_rai_r3_approval.py \
             tests/test_fs_rai_r4_authority_usage.py \
-            tests/test_fs_rai_integrated_payment_path.py
+            tests/test_fs_rai_integrated_payment_path.py \
+            tests/test_fs_rai_execution_boundary_integration.py
