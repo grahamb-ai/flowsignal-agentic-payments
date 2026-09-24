@@ -26,6 +26,10 @@ from app.engines.authority_lineage import create_authority_exercise, create_exec
 from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
 from app.engines.authority_usage import register_usage_policy, reserve_authority_usage
 from app.engines.final_bind import FinalBindResult, revalidate_at_final_bind
+from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+from app.engines.authority_store import get_authority_state_version
+from app.engines.institutional_authority import get_authority_snapshot
+from app.engines.permit_authority import ExecutionPermit, _GATEWAY_MINT_CAPABILITY, issue_execution_permit
 
 
 @dataclass(frozen=True)
@@ -119,4 +123,62 @@ def final_bind_payment(
         determination=prepared.determination,
         constraint=prepared.constraint,
         bind_at=bind_at,
+    )
+
+
+def mint_rai_bound_execution_permit(
+    req,
+    prepared: PreparedAuthorityExecution,
+    *,
+    bind_at: datetime,
+) -> ExecutionPermit | None:
+    """Mint the existing hardened execution capability only after exact RAI final-bind.
+
+    This adapter does not bypass the legacy permit/consequence controls. It makes
+    successful RAI final-bind a causal prerequisite of the capability they consume.
+    """
+    final = final_bind_payment(req, prepared, bind_at=bind_at)
+    if final.status != "PERMITTED":
+        return None
+
+    snapshot = get_authority_snapshot(req.mandate_id)
+    if snapshot is None:
+        return None
+
+    attempt = ExecutionAttempt(
+        actor_id=req.actor_id,
+        principal_id=req.principal_id,
+        action=req.action,
+        target=req.target,
+        amount=req.amount,
+        currency=req.currency,
+        source_account=req.source_account,
+        beneficiary=req.beneficiary,
+        purpose=req.purpose,
+        mandate_id=req.mandate_id,
+        attempted_at=bind_at,
+    )
+    attempted_hash = action_binding_hash(attempt)
+    return issue_execution_permit(
+        authority_receipt_id=prepared.determination.determination_id,
+        action_binding_hash=attempted_hash,
+        authority_state_version=get_authority_state_version(),
+        authority_snapshot_id=snapshot.snapshot_id,
+        authority_subject_principal_id=snapshot.mandate.principal_id,
+        authority_subject_mandate_id=snapshot.mandate.mandate_id,
+        authority_epoch_id=snapshot.authority_epoch_id,
+        authority_fence_scope_key=snapshot.authority_fence_scope_key,
+        authority_fence=snapshot.authority_fence,
+        authoritative_source_id=snapshot.authoritative_source_id,
+        source_competence_root_id=snapshot.source_competence_root_id,
+        authority_semantics_version=snapshot.semantics.version,
+        authority_semantics_definition_id=snapshot.semantics.definition_id,
+        authority_semantics_source_id=snapshot.semantics.source_id,
+        valid_until=prepared.constraint.valid_until.isoformat(),
+        rai_determination_id=prepared.determination.determination_id,
+        rai_constraint_id=prepared.constraint.constraint_id,
+        rai_protected_operation_id=prepared.operation.operation_id,
+        rai_authority_exercise_id=prepared.determination.authority_exercise_id,
+        rai_execution_attempt_id=prepared.determination.execution_attempt_id,
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
     )
