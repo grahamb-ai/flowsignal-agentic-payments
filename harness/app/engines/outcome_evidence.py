@@ -74,6 +74,19 @@ def verify_competent_outcome_evidence(
         if not applicable:
             return False
 
+        # A FINAL observation may resolve an already-disagreeing provisional
+        # evidence set only by explicitly superseding the whole active
+        # provisional set for that exact execution.  Selective pruning must
+        # not manufacture apparent coherence.
+        provisional = [e for e in applicable if e.finality_state == "PROVISIONAL"]
+        provisional_outcomes = {e.outcome for e in provisional}
+        if len(provisional_outcomes) > 1:
+            provisional_ids = {e.evidence_id for e in provisional}
+            for final_evidence in (e for e in applicable if e.finality_state == "FINAL" and e.supersedes_evidence_ids):
+                claimed = set(final_evidence.supersedes_evidence_ids)
+                if claimed & provisional_ids and claimed != provisional_ids:
+                    return False
+
         superseded_ids = {
             predecessor_id
             for evidence in applicable
