@@ -157,6 +157,7 @@ class AuthorityUsageDisposition:
 @dataclass(frozen=True)
 class ProtectedOperation:
     operation_id: str
+    institutional_operation_id: str
     operation_class: str
     principal_id: str
     actor_id: str
