@@ -981,5 +981,5 @@ def test_agreeing_unknown_source_observation_does_not_veto_competent_final_resol
         permit_signature=sig,
         action_binding_hash=binding,
     )
-    assert resolved.state.value == "released"
+    assert resolved.to_state.value == "released"
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
