@@ -100,18 +100,17 @@ def revalidate_at_final_bind(
     if determination.protected_operation_id != original_operation.operation_id:
         return blocked("PROTECTED_OPERATION_IDENTITY_MISMATCH")
 
-    # Validate the stored operation object against its own identity before
-    # comparing the bind-time request.  This distinguishes tampering with the
-    # authorised operation/envelope (identity mismatch) from a changed proposal
-    # presented at bind (PROTECTED_OPERATION_CHANGED).
-    stored_operation_identity = materialise_protected_operation(
-        original_operation,
-        route_id=original_operation.route_id or "",
-        executor_id=original_operation.executor_id or "",
-        authority_exercise_id=determination.authority_exercise_id,
-        execution_attempt_id=determination.execution_attempt_id,
-    )
-    if stored_operation_identity.operation_id != original_operation.operation_id:
+    # Validate the stored operation object's route/executor correspondence
+    # independently of the current request. The full operation_id is already
+    # bound by the determination above; route/executor are additionally bound
+    # into lineage and must not be mutable while retaining that identity.
+    from app.engines.authority_lineage import get_execution_attempt
+    stored_attempt = get_execution_attempt(determination.execution_attempt_id)
+    if (
+        stored_attempt is None
+        or stored_attempt.route_id != (original_operation.route_id or "")
+        or stored_attempt.executor_id != (original_operation.executor_id or "")
+    ):
         return blocked("PROTECTED_OPERATION_IDENTITY_MISMATCH")
 
     if not verify_lineage(
