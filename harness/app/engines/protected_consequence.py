@@ -164,11 +164,11 @@ def execute_protected_consequence(
             try:
                 before_formation_hook()
             except Exception:
-                record_consequence_outcome(
-                    permit_signature=permit.signature,
-                    action_binding_hash=attempted_action_binding_hash,
-                    outcome="CONSEQUENCE_NOT_FORMED",
-                )
+                # A local interruption inside the commitment interval is not
+                # competent evidence that the represented consequence did not
+                # form. The durable unresolved outcome established with permit
+                # consumption therefore remains authoritative until stronger
+                # outcome evidence resolves it.
                 quarantine_authority_usage(
                     binding.usage_reservation_id,
                     evidence_ids=(f"COMMITMENT-INTERVAL-FAILURE:{permit.signature}",),
