@@ -62,6 +62,7 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
         screening_status=scr["status"], screening_captured_at=screening_captured_at,
         screening_max_age_seconds=int(scr["max_age_seconds"]), screening_source=scr["source"],
         requested_execution_time=requested_execution_time,
+        institutional_operation_id=a.get("institutional_operation_id") or f"{d['scenario_id']}:institutional-operation",
     )
 
 
