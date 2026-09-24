@@ -30,6 +30,7 @@ class AuthoritySemantics:
 class AuthoritySnapshot:
     snapshot_id: str
     authority_epoch_id: str
+    usage_window_id: str
     authority_fence_scope_key: str
     authority_fence: int
     authoritative_source_id: str
@@ -40,6 +41,7 @@ class AuthoritySnapshot:
 
 _LOCK = RLock()
 _EPOCH_ID = "AUTH-EPOCH-001"
+_USAGE_WINDOW_ID = "DAY-001"
 _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
 _SEMANTICS = AuthoritySemantics(
@@ -65,6 +67,7 @@ _MANDATES = {
 def _snapshot_id(mandate: AuthoritativeMandate, fence: int) -> str:
     payload = {
         "authority_epoch_id": _EPOCH_ID,
+        "usage_window_id": _USAGE_WINDOW_ID,
         "authority_fence": fence,
         "authoritative_source_id": _SOURCE_ID,
         "source_competence_root_id": _COMPETENCE_ROOT,
@@ -92,6 +95,7 @@ def get_authority_snapshot(mandate_id: str) -> AuthoritySnapshot | None:
         return AuthoritySnapshot(
             snapshot_id=_snapshot_id(mandate, fence),
             authority_epoch_id=_EPOCH_ID,
+            usage_window_id=_USAGE_WINDOW_ID,
             authority_fence_scope_key=f"{mandate.principal_id}:{mandate.mandate_id}",
             authority_fence=fence,
             authoritative_source_id=_SOURCE_ID,
@@ -123,3 +127,22 @@ def advance_authority_epoch_for_test() -> str:
             _EPOCH_ID = f"{_EPOCH_ID}-NEXT"
         _FENCE += 1
         return _EPOCH_ID
+
+
+def advance_usage_window_for_test() -> str:
+    """Advance the authoritative synthetic NORM-PAY-001 usage window.
+
+    Test/reference-harness support only. This models a competent normative
+    window transition separately from generic authority epoch/fence movement.
+    """
+    global _USAGE_WINDOW_ID, _FENCE
+    with _LOCK:
+        try:
+            prefix, raw = _USAGE_WINDOW_ID.rsplit("-", 1)
+            _USAGE_WINDOW_ID = f"{prefix}-{int(raw) + 1:03d}"
+        except (ValueError, TypeError):
+            _USAGE_WINDOW_ID = f"{_USAGE_WINDOW_ID}-NEXT"
+        # Window transition is authority-material state and advances the
+        # authoritative fence; it does not alter the generic authority epoch.
+        _FENCE += 1
+        return _USAGE_WINDOW_ID
