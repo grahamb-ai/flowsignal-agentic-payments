@@ -177,25 +177,23 @@ def resolve_quarantined_authority_usage(
     *,
     resolution: str,
     evidence_ids: tuple[str, ...],
+    permit_signature: str | None = None,
+    action_binding_hash: str | None = None,
 ) -> AuthorityUsageDisposition:
-    """Resolve post-commit uncertainty through an explicit evidence-bearing path.
+    """Resolve quarantine only with independently registered exact outcome evidence."""
+    from app.engines.outcome_evidence import verify_competent_outcome_evidence
 
-    This reference-harness API deliberately separates resolution of QUARANTINED
-    usage from ordinary RESERVED disposition. Evidence identifiers remain a
-    bounded synthetic competence model; production competence/provenance is not
-    claimed here.
-    """
-    if not evidence_ids:
-        raise ValueError("quarantine resolution requires competent outcome evidence")
-
-    expected_prefix = {
-        "NON_FORMATION": "COMPETENT-NONFORMATION:",
-        "FORMATION": "COMPETENT-FORMATION:",
-    }.get(resolution)
-    if expected_prefix is None:
+    if resolution not in ("NON_FORMATION", "FORMATION"):
         raise ValueError("unknown quarantine resolution")
-    if not all(evidence_id.startswith(expected_prefix) for evidence_id in evidence_ids):
-        raise ValueError("quarantine resolution evidence is not competent for claimed outcome")
+    if permit_signature is None or action_binding_hash is None:
+        raise ValueError("quarantine resolution requires exact execution evidence binding")
+    if not verify_competent_outcome_evidence(
+        evidence_ids,
+        permit_signature=permit_signature,
+        action_binding_hash=action_binding_hash,
+        outcome=resolution,
+    ):
+        raise ValueError("quarantine resolution evidence is not competent for exact execution")
 
     with _LOCK:
         current = _RESERVATIONS.get(reservation_id)
