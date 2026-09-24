@@ -835,3 +835,37 @@ def test_provisional_outcome_evidence_cannot_supersede_prior_observation():
     successor = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:SUCCESSOR", "PERMIT:PROV", "ACTION:PROV", "NON_FORMATION", source, competence, finality_state="PROVISIONAL", supersedes_evidence_ids=(prior.evidence_id,))
     with pytest.raises(ValueError, match="final|supersed"):
         register_competent_outcome_evidence(successor)
+
+
+def test_final_evidence_cannot_selectively_supersede_only_one_side_of_disagreement():
+    """Failure-first: final supersession must not manufacture coherence by pruning only one conflicting predecessor."""
+    import pytest
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:SELECTIVE-SUPERSESSION"
+    binding = action_binding_hash(_attempt(req))
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    formed = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:SELECTIVE", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
+    not_formed = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:NOT-FORMED:SELECTIVE", sig, binding, "NON_FORMATION", source, competence, finality_state="PROVISIONAL")
+    for evidence in (formed, not_formed):
+        register_competent_outcome_evidence(evidence)
+
+    selective_final = CompetentOutcomeEvidence(
+        "EVIDENCE:FINAL:NOT-FORMED:SELECTIVE", sig, binding, "NON_FORMATION", source, competence,
+        finality_state="FINAL", supersedes_evidence_ids=(formed.evidence_id,),
+    )
+    register_competent_outcome_evidence(selective_final)
+
+    with pytest.raises(ValueError):
+        resolve_quarantined_authority_usage(
+            prepared.usage_reservation_id,
+            resolution="NON_FORMATION",
+            evidence_ids=(selective_final.evidence_id,),
+            permit_signature=sig,
+            action_binding_hash=binding,
+        )
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
