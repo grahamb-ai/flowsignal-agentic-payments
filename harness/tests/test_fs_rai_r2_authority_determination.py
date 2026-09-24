@@ -113,9 +113,24 @@ def test_amount_substitution_outside_scope_is_rejected():
 
 def test_scope_from_one_context_cannot_be_silently_rebound_to_other_derivation():
     req, scope, context = _resolved()
+    exercise = create_authority_exercise(
+        resolution_context_id=context.context_id,
+        effective_authority_scope_id=scope.scope_id,
+        protected_operation_class=context.protected_operation_class,
+        created_at=req.requested_execution_time,
+        authority_exercise_id="EX-DERIVATION",
+    )
+    attempt = create_execution_attempt(
+        authority_exercise_id=exercise.authority_exercise_id,
+        route_id="R1",
+        executor_id="EXEC-1",
+        created_at=req.requested_execution_time,
+        execution_attempt_id="ATT-DERIVATION",
+    )
     operation = materialise_protected_operation(
         req, route_id="R1", executor_id="EXEC-1",
-        authority_exercise_id="EX-1", execution_attempt_id="ATT-1"
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=attempt.execution_attempt_id,
     )
     binding = bind_authority_to_operation(scope, operation)
     from dataclasses import replace
@@ -127,6 +142,6 @@ def test_scope_from_one_context_cannot_be_silently_rebound_to_other_derivation()
             operation=operation,
             binding=binding,
             resolved_at=req.requested_execution_time,
-            authority_exercise_id="EX-1",
-            execution_attempt_id="ATT-1",
+            authority_exercise=exercise,
+            execution_attempt=attempt,
         )
