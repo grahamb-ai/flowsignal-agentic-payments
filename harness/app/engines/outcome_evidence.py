@@ -49,6 +49,21 @@ def register_competent_outcome_evidence(evidence: CompetentOutcomeEvidence) -> N
                 raise ValueError("only provisional outcome evidence may be superseded")
         if evidence.supersedes_evidence_ids and evidence.finality_state != "FINAL":
             raise ValueError("only final outcome evidence may supersede prior observations")
+
+        # FINAL evidence closes the outcome direction for this exact execution.
+        # Once a competent FINAL observation exists, later competent evidence
+        # may corroborate it but may not reopen the execution with the opposite
+        # outcome after authority-usage disposition may already have occurred.
+        prior_final = [
+            prior for prior in _EVIDENCE.values()
+            if prior.permit_signature == evidence.permit_signature
+            and prior.action_binding_hash == evidence.action_binding_hash
+            and prior.finality_state == "FINAL"
+            and (prior.authoritative_source_id, prior.source_competence_id) in _ALLOWED_SOURCES
+        ]
+        if any(prior.outcome != evidence.outcome for prior in prior_final):
+            raise ValueError("outcome evidence contradicts existing final outcome for exact execution")
+
         existing = _EVIDENCE.get(evidence.evidence_id)
         if existing is not None and existing != evidence:
             raise ValueError("outcome evidence identity already bound differently")
