@@ -983,3 +983,33 @@ def test_agreeing_unknown_source_observation_does_not_veto_competent_final_resol
     )
     assert resolved.to_state.value == "released"
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
+
+
+def test_unknown_source_cannot_match_callers_requested_outcome_to_veto_opposite_competent_final():
+    """Unknown-source evidence is compared with the competent evidence set, not trusted caller-selected resolution."""
+    import pytest
+    import app.engines.outcome_evidence as oe
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:CALLER-SELECTED-UNKNOWN-OUTCOME"
+    binding = action_binding_hash(_attempt(req))
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    formed = CompetentOutcomeEvidence("EVIDENCE:FINAL:FORMED:CALLER-SELECTED", sig, binding, "FORMATION", source, competence, finality_state="FINAL")
+    register_competent_outcome_evidence(formed)
+    unknown = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:UNKNOWN:CALLER-NON-FORMATION", sig, binding, "NON_FORMATION", "UNKNOWN-OBSERVER", "UNKNOWN-COMPETENCE", finality_state="PROVISIONAL")
+    with oe._LOCK:
+        oe._EVIDENCE[unknown.evidence_id] = unknown
+
+    with pytest.raises(ValueError):
+        resolve_quarantined_authority_usage(
+            prepared.usage_reservation_id,
+            resolution="NON_FORMATION",
+            evidence_ids=(unknown.evidence_id,),
+            permit_signature=sig,
+            action_binding_hash=binding,
+        )
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
