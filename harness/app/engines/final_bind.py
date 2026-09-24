@@ -100,18 +100,18 @@ def revalidate_at_final_bind(
     if determination.protected_operation_id != original_operation.operation_id:
         return blocked("PROTECTED_OPERATION_IDENTITY_MISMATCH")
 
-    # The immutable operation identity is a digest of its authority-material
-    # fields. A caller must not be able to mutate one of those fields while
-    # retaining the original operation_id and have the mismatch classified
-    # only as a downstream lineage failure.
-    rematerialised_identity = materialise_protected_operation(
-        req,
+    # Validate the stored operation object against its own identity before
+    # comparing the bind-time request.  This distinguishes tampering with the
+    # authorised operation/envelope (identity mismatch) from a changed proposal
+    # presented at bind (PROTECTED_OPERATION_CHANGED).
+    stored_operation_identity = materialise_protected_operation(
+        original_operation,
         route_id=original_operation.route_id or "",
         executor_id=original_operation.executor_id or "",
         authority_exercise_id=determination.authority_exercise_id,
         execution_attempt_id=determination.execution_attempt_id,
     )
-    if rematerialised_identity.operation_id != original_operation.operation_id:
+    if stored_operation_identity.operation_id != original_operation.operation_id:
         return blocked("PROTECTED_OPERATION_IDENTITY_MISMATCH")
 
     if not verify_lineage(
