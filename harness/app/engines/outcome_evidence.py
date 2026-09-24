@@ -51,16 +51,23 @@ def verify_competent_outcome_evidence(
     if not evidence_ids:
         return False
     with _LOCK:
+        applicable = [
+            evidence for evidence in _EVIDENCE.values()
+            if evidence.permit_signature == permit_signature
+            and evidence.action_binding_hash == action_binding_hash
+            and (evidence.authoritative_source_id, evidence.source_competence_id) in _ALLOWED_SOURCES
+        ]
+        if not applicable:
+            return False
+
+        # Resolution cannot be obtained by selecting only the favourable member
+        # of a disagreeing competent evidence set for the exact execution.
+        applicable_outcomes = {evidence.outcome for evidence in applicable}
+        if len(applicable_outcomes) != 1 or outcome not in applicable_outcomes:
+            return False
+
         for evidence_id in evidence_ids:
             evidence = _EVIDENCE.get(evidence_id)
-            if evidence is None:
-                return False
-            if evidence.permit_signature != permit_signature:
-                return False
-            if evidence.action_binding_hash != action_binding_hash:
-                return False
-            if evidence.outcome != outcome:
-                return False
-            if (evidence.authoritative_source_id, evidence.source_competence_id) not in _ALLOWED_SOURCES:
+            if evidence is None or evidence not in applicable or evidence.outcome != outcome:
                 return False
         return True
