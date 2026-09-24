@@ -174,3 +174,33 @@ def test_retry_preserves_stable_institutional_operation_identity_across_attempt_
     assert first.operation_id != retry.operation_id
     assert first.materialization_id != retry.materialization_id
     assert first.institutional_operation_id == retry.institutional_operation_id
+
+
+def test_two_distinct_identical_payment_instructions_must_not_collapse_to_same_institutional_operation():
+    """Failure-first: content equality is not institutional identity.
+
+    Two separately initiated institutional acts may intentionally carry identical
+    payment fields. They must remain distinguishable as institutional operations.
+    """
+    req, _, _ = _resolved()
+
+    first = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="EXEC-1",
+        authority_exercise_id="EX-DISTINCT-PAYMENT-1",
+        execution_attempt_id="ATT-DISTINCT-PAYMENT-1",
+    )
+    second = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="EXEC-1",
+        authority_exercise_id="EX-DISTINCT-PAYMENT-2",
+        execution_attempt_id="ATT-DISTINCT-PAYMENT-2",
+    )
+
+    assert first.operation_id != second.operation_id
+    assert first.institutional_operation_id != second.institutional_operation_id, (
+        "INSTITUTIONAL IDENTITY FAILURE: two distinct institutional payment acts "
+        "with identical content collapsed to the same institutional_operation_id"
+    )
