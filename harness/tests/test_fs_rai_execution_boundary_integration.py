@@ -1033,5 +1033,19 @@ def test_later_contradictory_observation_cannot_arrive_after_final_resolution_an
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
 
     later_formed = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMATION:AFTER-FINAL", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
+    register_competent_outcome_evidence(later_formed)
+
+    from app.engines.outcome_evidence import get_closed_outcome_disposition
+    assert get_closed_outcome_disposition(permit_signature=sig, action_binding_hash=binding) == "NON_FORMATION"
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
+
+    # The contradictory observation is preserved; it does not silently rewrite
+    # the already-relied-upon disposition or masquerade as a new resolution.
     with pytest.raises(ValueError):
-        register_competent_outcome_evidence(later_formed)
+        resolve_quarantined_authority_usage(
+            prepared.usage_reservation_id,
+            resolution="FORMATION",
+            evidence_ids=(later_formed.evidence_id,),
+            permit_signature=sig,
+            action_binding_hash=binding,
+        )
