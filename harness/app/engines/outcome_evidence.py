@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+"""Bounded reference model for post-commit outcome-evidence competence.
+
+Evidence competence is established by this module's registry, not by caller-
+controlled identifier syntax. This is still a process-local reference harness
+and does not claim production external attestation, IAM, KMS/HSM, or durable
+cross-system provenance.
+"""
+
+from dataclasses import dataclass
+from threading import RLock
+
+
+@dataclass(frozen=True)
+class CompetentOutcomeEvidence:
+    evidence_id: str
+    permit_signature: str
+    action_binding_hash: str
+    outcome: str
+    authoritative_source_id: str
+    source_competence_id: str
+
+
+_LOCK = RLock()
+_EVIDENCE: dict[str, CompetentOutcomeEvidence] = {}
+_ALLOWED_SOURCES = {
+    ("REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"),
+}
+
+
+def register_competent_outcome_evidence(evidence: CompetentOutcomeEvidence) -> None:
+    if (evidence.authoritative_source_id, evidence.source_competence_id) not in _ALLOWED_SOURCES:
+        raise ValueError("outcome evidence source is not competent")
+    if evidence.outcome not in ("FORMATION", "NON_FORMATION"):
+        raise ValueError("unsupported outcome evidence")
+    with _LOCK:
+        existing = _EVIDENCE.get(evidence.evidence_id)
+        if existing is not None and existing != evidence:
+            raise ValueError("outcome evidence identity already bound differently")
+        _EVIDENCE[evidence.evidence_id] = evidence
+
+
+def verify_competent_outcome_evidence(
+    evidence_ids: tuple[str, ...],
+    *,
+    permit_signature: str,
+    action_binding_hash: str,
+    outcome: str,
+) -> bool:
+    if not evidence_ids:
+        return False
+    with _LOCK:
+        for evidence_id in evidence_ids:
+            evidence = _EVIDENCE.get(evidence_id)
+            if evidence is None:
+                return False
+            if evidence.permit_signature != permit_signature:
+                return False
+            if evidence.action_binding_hash != action_binding_hash:
+                return False
+            if evidence.outcome != outcome:
+                return False
+            if (evidence.authoritative_source_id, evidence.source_competence_id) not in _ALLOWED_SOURCES:
+                return False
+        return True
