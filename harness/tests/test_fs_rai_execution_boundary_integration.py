@@ -759,3 +759,43 @@ def test_later_agreeing_observation_does_not_silently_override_prior_disagreemen
     with pytest.raises(ValueError):
         resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=("EVIDENCE:NOT-FORMED:LATER",), permit_signature=sig, action_binding_hash=binding)
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
+
+
+def test_explicit_final_supersession_can_resolve_prior_provisional_disagreement():
+    """Positive control for an explicit evidence lifecycle; registration order alone is insufficient."""
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:EXPLICIT-SUPERSESSION"
+    binding = action_binding_hash(_attempt(req))
+
+    provisional_formed = CompetentOutcomeEvidence(
+        "EVIDENCE:PROVISIONAL:FORMED", sig, binding, "FORMATION",
+        "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+        finality_state="PROVISIONAL",
+    )
+    provisional_not_formed = CompetentOutcomeEvidence(
+        "EVIDENCE:PROVISIONAL:NOT-FORMED", sig, binding, "NON_FORMATION",
+        "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+        finality_state="PROVISIONAL",
+    )
+    final_not_formed = CompetentOutcomeEvidence(
+        "EVIDENCE:FINAL:NOT-FORMED", sig, binding, "NON_FORMATION",
+        "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+        finality_state="FINAL",
+        supersedes_evidence_ids=(provisional_formed.evidence_id, provisional_not_formed.evidence_id),
+    )
+    for evidence in (provisional_formed, provisional_not_formed, final_not_formed):
+        register_competent_outcome_evidence(evidence)
+
+    resolve_quarantined_authority_usage(
+        prepared.usage_reservation_id,
+        resolution="NON_FORMATION",
+        evidence_ids=(final_not_formed.evidence_id,),
+        permit_signature=sig,
+        action_binding_hash=binding,
+    )
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
