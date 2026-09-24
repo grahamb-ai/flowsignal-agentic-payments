@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import replace
 
 import pytest
 
@@ -184,15 +185,17 @@ def test_two_distinct_identical_payment_instructions_must_not_collapse_to_same_i
     """
     req, _, _ = _resolved()
 
+    first_req = replace(req, institutional_operation_id="PAYMENT-INSTRUCTION-001")
+    second_req = replace(req, institutional_operation_id="PAYMENT-INSTRUCTION-002")
     first = materialise_protected_operation(
-        req,
+        first_req,
         route_id="R1",
         executor_id="EXEC-1",
         authority_exercise_id="EX-DISTINCT-PAYMENT-1",
         execution_attempt_id="ATT-DISTINCT-PAYMENT-1",
     )
     second = materialise_protected_operation(
-        req,
+        second_req,
         route_id="R1",
         executor_id="EXEC-1",
         authority_exercise_id="EX-DISTINCT-PAYMENT-2",
