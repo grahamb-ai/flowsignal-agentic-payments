@@ -5,6 +5,7 @@ import pytest
 
 from app.engines.authority_domain import AuthorityUsageMode, AuthorityUsagePolicy
 from app.engines.authority_usage import (
+    _POLICY_REGISTRATION_CAPABILITY,
     consume_authority_usage,
     get_usage_reservation,
     quarantine_authority_usage,
@@ -24,7 +25,7 @@ def test_single_use_authority_cannot_multiply_across_attempts():
         mode=AuthorityUsageMode.SINGLE, scope_key=_id("SINGLE"),
         capacity=1, window_id=None, disposition_rule_id="RULE-SINGLE"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     reserve_authority_usage(
         reservation_id=_id("RES"), usage_policy_id=policy.usage_policy_id,
         authority_exercise_id="EX-1", execution_attempt_id="ATT-1", amount_or_units=1
@@ -44,7 +45,7 @@ def test_aggregate_reservations_cannot_oversubscribe_capacity():
         capacity=Decimal("1000000.00"), window_id="DAY-1",
         disposition_rule_id="RULE-AGG"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     reserve_authority_usage(
         reservation_id=_id("RES"), usage_policy_id=policy.usage_policy_id,
         authority_exercise_id="EX-A", execution_attempt_id="ATT-A",
@@ -65,7 +66,7 @@ def test_unresolved_outcome_quarantines_and_does_not_refund_authority():
         mode=AuthorityUsageMode.SINGLE, scope_key=scope_key,
         capacity=1, window_id=None, disposition_rule_id="RULE-U"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     rid = _id("RES")
     reserve_authority_usage(
         reservation_id=rid, usage_policy_id=policy.usage_policy_id,
@@ -86,7 +87,7 @@ def test_release_requires_positive_nonformation_evidence():
         mode=AuthorityUsageMode.SINGLE, scope_key=_id("REL"),
         capacity=1, window_id=None, disposition_rule_id="RULE-R"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     rid = _id("RES")
     reserve_authority_usage(
         reservation_id=rid, usage_policy_id=policy.usage_policy_id,
@@ -103,7 +104,7 @@ def test_demonstrable_nonformation_can_release_then_allow_new_reservation():
         mode=AuthorityUsageMode.SINGLE, scope_key=scope_key,
         capacity=1, window_id=None, disposition_rule_id="RULE-R2"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     first = _id("RES")
     reserve_authority_usage(
         reservation_id=first, usage_policy_id=policy.usage_policy_id,
@@ -123,7 +124,7 @@ def test_formed_commitment_consumes_authority():
         mode=AuthorityUsageMode.SINGLE, scope_key=_id("CONSUME"),
         capacity=1, window_id=None, disposition_rule_id="RULE-C"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     rid = _id("RES")
     reserve_authority_usage(
         reservation_id=rid, usage_policy_id=policy.usage_policy_id,
@@ -142,7 +143,7 @@ def test_quarantined_aggregate_usage_remains_capacity_consuming_until_resolved()
         capacity=Decimal("1000000.00"), window_id="DAY-U",
         disposition_rule_id="RULE-AGG-U"
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     first = _id("RES")
     reserve_authority_usage(
         reservation_id=first, usage_policy_id=policy.usage_policy_id,
