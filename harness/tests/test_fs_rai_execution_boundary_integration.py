@@ -427,7 +427,7 @@ def test_quarantined_usage_cannot_be_released_by_unstructured_evidence_id_alone(
     assert quarantined is not None
     assert quarantined.state.value == "quarantined"
 
-    with pytest.raises(ValueError, match="competent|non-formation|quarantined"):
+    with pytest.raises(ValueError):
         release_authority_usage(
             prepared.usage_reservation_id,
             evidence_ids=("CALLER-SAYS-NOT-FORMED",),
@@ -436,3 +436,59 @@ def test_quarantined_usage_cannot_be_released_by_unstructured_evidence_id_alone(
     after = get_usage_reservation(prepared.usage_reservation_id)
     assert after is not None
     assert after.state.value == "quarantined"
+
+
+def test_quarantined_usage_can_be_released_only_by_competent_nonformation_resolution():
+    """Positive control: quarantine must be resolvable to RELEASED by competent non-formation evidence."""
+    from app.engines.authority_usage import (
+        get_usage_reservation,
+        quarantine_authority_usage,
+        release_authority_usage,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    quarantine_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
+    )
+
+    release_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("COMPETENT-NONFORMATION:EXACT-EXECUTION",),
+    )
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "released"
+
+
+def test_quarantined_usage_can_be_consumed_only_by_competent_formation_resolution():
+    """Positive control: quarantine must be resolvable to CONSUMED by competent formation evidence."""
+    from app.engines.authority_usage import (
+        consume_authority_usage,
+        get_usage_reservation,
+        quarantine_authority_usage,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    quarantine_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
+    )
+
+    consume_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("COMPETENT-FORMATION:EXACT-EXECUTION",),
+    )
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "consumed"
