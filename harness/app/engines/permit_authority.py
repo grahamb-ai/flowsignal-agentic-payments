@@ -33,6 +33,11 @@ class ExecutionPermit:
     issued_at: str
     signature: str
     valid_until: str | None = None
+    rai_determination_id: str | None = None
+    rai_constraint_id: str | None = None
+    rai_protected_operation_id: str | None = None
+    rai_authority_exercise_id: str | None = None
+    rai_execution_attempt_id: str | None = None
 
 
 def _payload(**fields) -> bytes:
@@ -60,6 +65,11 @@ def issue_execution_permit(
     authority_semantics_definition_id: str,
     authority_semantics_source_id: str,
     valid_until: str | None = None,
+    rai_determination_id: str | None = None,
+    rai_constraint_id: str | None = None,
+    rai_protected_operation_id: str | None = None,
+    rai_authority_exercise_id: str | None = None,
+    rai_execution_attempt_id: str | None = None,
     mint_capability: object | None = None,
 ) -> ExecutionPermit | None:
     if mint_capability is not _GATEWAY_MINT_CAPABILITY or valid_until is None:
@@ -82,6 +92,11 @@ def issue_execution_permit(
         authority_semantics_source_id=authority_semantics_source_id,
         issued_at=issued_at,
         valid_until=valid_until,
+        rai_determination_id=rai_determination_id,
+        rai_constraint_id=rai_constraint_id,
+        rai_protected_operation_id=rai_protected_operation_id,
+        rai_authority_exercise_id=rai_authority_exercise_id,
+        rai_execution_attempt_id=rai_execution_attempt_id,
     )
     return ExecutionPermit(**fields, signature=_sign(**fields))
 
@@ -95,7 +110,9 @@ def verify_execution_permit(permit: ExecutionPermit) -> bool:
             "authority_epoch_id", "authority_fence_scope_key",
             "authority_fence", "authoritative_source_id", "source_competence_root_id",
             "authority_semantics_version", "authority_semantics_definition_id",
-            "authority_semantics_source_id", "issued_at", "valid_until"
+            "authority_semantics_source_id", "issued_at", "valid_until",
+            "rai_determination_id", "rai_constraint_id", "rai_protected_operation_id",
+            "rai_authority_exercise_id", "rai_execution_attempt_id"
         )
     }
     return hmac.compare_digest(_sign(**fields), permit.signature)
