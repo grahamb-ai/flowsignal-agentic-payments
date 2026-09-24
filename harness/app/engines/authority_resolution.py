@@ -28,6 +28,7 @@ from app.engines.authority_evidence_adapters import (
     get_operational_authority_evidence,
 )
 from app.engines.institutional_authority import get_authority_snapshot
+from app.engines.approval_authority import resolve_approval
 
 
 _REQUIRED_PROPOSITIONS = (
@@ -187,6 +188,10 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         raise AuthorityResolutionError("amount outside effective mandate")
 
     semantics = _semantics(snapshot)
+    try:
+        approval = resolve_approval(req, operation_class="treasury.payment", resolved_at=at)
+    except ValueError as exc:
+        raise AuthorityResolutionError(str(exc)) from exc
     root_id = f"ROOT:{req.principal_id}:{req.mandate_id}"
     subject_id = f"SUBJECT:{req.actor_id}"
     scope_payload = {
@@ -196,6 +201,8 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         "target": req.target,
         "mandate": req.mandate_id,
         "snapshot": snapshot.snapshot_id,
+        "approval_binding_id": approval.approval_binding_id,
+        "approval_rule_id": approval.approval_rule_id,
     }
     scope_id = _stable_id("SCOPE", scope_payload)
     graph = AuthorityDerivationGraph(
@@ -205,6 +212,7 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         edges=(
             AuthorityDerivationEdge(root_id, subject_id, "NORM-PAY-001:delegation:v1"),
             AuthorityDerivationEdge(subject_id, scope_id, "NORM-PAY-001:scope:v1"),
+            AuthorityDerivationEdge(root_id, scope_id, approval.approval_rule_id),
         ),
         dependency_closure_id=_stable_id(
             "DEPS", {"evidence": sorted(item.evidence_id for item in evidence)}
@@ -233,6 +241,8 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         "graph": graph.graph_id,
         "epoch": snapshot.authority_epoch_id,
         "fence": snapshot.authority_fence,
+        "approval_binding_id": approval.approval_binding_id,
+        "approval_rule_id": approval.approval_rule_id,
     }
     context = AuthorityResolutionContext(
         context_id=_stable_id("CTX", context_payload),
