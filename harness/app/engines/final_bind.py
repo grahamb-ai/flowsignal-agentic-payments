@@ -20,6 +20,7 @@ from app.engines.authority_determination import (
 )
 from app.engines.authority_domain import AuthorisedExecutionConstraint, ProtectedOperation
 from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
+from app.engines.authority_lineage import verify_lineage
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,16 @@ def revalidate_at_final_bind(
         return blocked("EXECUTION_ATTEMPT_MISMATCH")
     if determination.protected_operation_id != original_operation.operation_id:
         return blocked("PROTECTED_OPERATION_IDENTITY_MISMATCH")
+    if not verify_lineage(
+        authority_exercise_id=determination.authority_exercise_id,
+        execution_attempt_id=determination.execution_attempt_id,
+        protected_operation_id=original_operation.operation_id,
+        resolution_context_id=determination.resolution_context_id,
+        effective_authority_scope_id=determination.effective_authority_scope_id,
+        route_id=original_operation.route_id or "",
+        executor_id=original_operation.executor_id or "",
+    ):
+        return blocked("AUTHORITY_LINEAGE_INVALID")
 
     # Re-materialise the operation from the bind-time proposal.  Route/executor
     # are taken from the original authorised operation; changing either requires
