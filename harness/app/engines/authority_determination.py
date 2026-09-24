@@ -124,7 +124,22 @@ def materialise_protected_operation(
         "purpose": req.purpose,
         "mandate_id": req.mandate_id,
     }
-    institutional_operation_id = _stable_id("INST-OP", institutional_payload)
+    # Institutional identity must originate at the institutional-act boundary,
+    # not be inferred from content equality. The content-derived fallback is
+    # retained only for older callers that have not yet supplied that identity.
+    source_institutional_operation_id = getattr(req, "institutional_operation_id", None)
+    institutional_operation_id = (
+        _stable_id(
+            "INST-OP",
+            {
+                "source_institutional_operation_id": source_institutional_operation_id,
+                "principal_id": req.principal_id,
+                "operation_class": "treasury.payment",
+            },
+        )
+        if source_institutional_operation_id
+        else _stable_id("INST-OP", institutional_payload)
+    )
     operation_id = _stable_id("OP", payload)
     return ProtectedOperation(
         operation_id=operation_id,
