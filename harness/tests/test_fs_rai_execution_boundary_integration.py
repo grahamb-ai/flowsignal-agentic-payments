@@ -883,13 +883,13 @@ def test_final_supersession_cannot_omit_same_outcome_member_of_prior_contradicto
     sig = "REFERENCE-PERMIT:INCOMPLETE-WHOLE-SET"
     binding = action_binding_hash(_attempt(req))
     source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
-    a = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:A", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
-    b = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:B", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
-    n = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:NOT-FORMED:INCOMPLETE-SET", sig, binding, "NON_FORMATION", source, competence, finality_state="PROVISIONAL")
+    a = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:A:INCOMPLETE-WHOLE-SET", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
+    b = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:B:INCOMPLETE-WHOLE-SET", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
+    n = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:NOT-FORMED:INCOMPLETE-WHOLE-SET", sig, binding, "NON_FORMATION", source, competence, finality_state="PROVISIONAL")
     for evidence in (a, b, n):
         register_competent_outcome_evidence(evidence)
     final = CompetentOutcomeEvidence(
-        "EVIDENCE:FINAL:NOT-FORMED:INCOMPLETE", sig, binding, "NON_FORMATION", source, competence,
+        "EVIDENCE:FINAL:NOT-FORMED:INCOMPLETE-WHOLE-SET", sig, binding, "NON_FORMATION", source, competence,
         finality_state="FINAL", supersedes_evidence_ids=(a.evidence_id, n.evidence_id),
     )
     register_competent_outcome_evidence(final)
