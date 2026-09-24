@@ -1258,3 +1258,28 @@ def test_usage_window_rollover_does_not_refund_unresolved_prior_window_authority
     assert prior.state.value == "quarantined"
     assert prior.reserved_amount_or_units == Decimal("600000.00")
     assert second.usage_policy_id != first.usage_policy_id
+
+
+def test_usage_window_transition_cannot_be_replayed_back_to_prior_window():
+    """Second-order failure-first: authoritative usage-window state must be monotonic; prior window identity cannot be replayed."""
+    from app.engines.institutional_authority import (
+        advance_usage_window_for_test,
+        get_authority_snapshot,
+        set_usage_window_for_test,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+    prior_window = before.usage_window_id
+
+    next_window = advance_usage_window_for_test()
+    assert next_window != prior_window
+
+    # A stale/replayed transition must not be able to move authoritative state
+    # backwards to the prior economic window.
+    with pytest.raises(ValueError, match="usage window"):
+        set_usage_window_for_test(prior_window)
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert after.usage_window_id == next_window
