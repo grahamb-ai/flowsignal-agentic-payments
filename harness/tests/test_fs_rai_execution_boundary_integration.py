@@ -735,3 +735,27 @@ def test_duplicate_consistent_competent_outcome_evidence_can_resolve_quarantine(
 
     resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=(first_id,), permit_signature=sig, action_binding_hash=binding)
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
+
+
+def test_later_agreeing_observation_does_not_silently_override_prior_disagreement():
+    """No implicit latest-wins rule: disagreement remains unresolved absent explicit supersession semantics."""
+    import pytest
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:NO-LATEST-WINS"
+    binding = action_binding_hash(_attempt(req))
+    observations = (
+        ("EVIDENCE:FORMED:EARLY", "FORMATION"),
+        ("EVIDENCE:NOT-FORMED:EARLY", "NON_FORMATION"),
+        ("EVIDENCE:NOT-FORMED:LATER", "NON_FORMATION"),
+    )
+    for evidence_id, outcome in observations:
+        register_competent_outcome_evidence(CompetentOutcomeEvidence(evidence_id, sig, binding, outcome, "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"))
+
+    with pytest.raises(ValueError):
+        resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=("EVIDENCE:NOT-FORMED:LATER",), permit_signature=sig, action_binding_hash=binding)
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
