@@ -37,6 +37,7 @@ class FinancialAuthorityRequest:
     screening_max_age_seconds: int
     screening_source: str
     requested_execution_time: datetime
+    institutional_operation_id: str | None = None
 
 @dataclass
 class FinancialCheck:
