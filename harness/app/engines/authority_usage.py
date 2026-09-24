@@ -170,3 +170,63 @@ def quarantine_authority_usage(
 def get_usage_reservation(reservation_id: str) -> AuthorityUsageReservation | None:
     with _LOCK:
         return _RESERVATIONS.get(reservation_id)
+
+
+def resolve_quarantined_authority_usage(
+    reservation_id: str,
+    *,
+    resolution: str,
+    evidence_ids: tuple[str, ...],
+) -> AuthorityUsageDisposition:
+    """Resolve post-commit uncertainty through an explicit evidence-bearing path.
+
+    This reference-harness API deliberately separates resolution of QUARANTINED
+    usage from ordinary RESERVED disposition. Evidence identifiers remain a
+    bounded synthetic competence model; production competence/provenance is not
+    claimed here.
+    """
+    if not evidence_ids:
+        raise ValueError("quarantine resolution requires competent outcome evidence")
+
+    expected_prefix = {
+        "NON_FORMATION": "COMPETENT-NONFORMATION:",
+        "FORMATION": "COMPETENT-FORMATION:",
+    }.get(resolution)
+    if expected_prefix is None:
+        raise ValueError("unknown quarantine resolution")
+    if not all(evidence_id.startswith(expected_prefix) for evidence_id in evidence_ids):
+        raise ValueError("quarantine resolution evidence is not competent for claimed outcome")
+
+    with _LOCK:
+        current = _RESERVATIONS.get(reservation_id)
+        if current is None:
+            raise ValueError("unknown authority usage reservation")
+        if current.state != AuthorityUsageState.QUARANTINED:
+            raise ValueError("only quarantined authority may use quarantine resolution")
+
+        to_state = (
+            AuthorityUsageState.RELEASED
+            if resolution == "NON_FORMATION"
+            else AuthorityUsageState.CONSUMED
+        )
+        updated = AuthorityUsageReservation(
+            reservation_id=current.reservation_id,
+            usage_policy_id=current.usage_policy_id,
+            authority_exercise_id=current.authority_exercise_id,
+            execution_attempt_id=current.execution_attempt_id,
+            reserved_amount_or_units=current.reserved_amount_or_units,
+            state=to_state,
+        )
+        _RESERVATIONS[reservation_id] = updated
+        return AuthorityUsageDisposition(
+            disposition_id=f"DISP:{reservation_id}:{to_state.value}",
+            reservation_id=reservation_id,
+            from_state=current.state,
+            to_state=to_state,
+            disposition_rule_id=(
+                "USAGE:QUARANTINE-RESOLVED-NOT-FORMED"
+                if resolution == "NON_FORMATION"
+                else "USAGE:QUARANTINE-RESOLVED-FORMED"
+            ),
+            evidence_ids=evidence_ids,
+        )
