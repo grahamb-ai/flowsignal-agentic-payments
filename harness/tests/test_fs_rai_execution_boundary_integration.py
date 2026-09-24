@@ -1155,3 +1155,42 @@ def test_authority_epoch_change_does_not_resurrect_aggregate_mandate_capacity():
             req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
             resolved_at=req_b.requested_execution_time,
         )
+
+
+def test_caller_cannot_self_issue_fresh_aggregate_window_to_replenish_mandate_capacity():
+    """Failure-first: caller-chosen usage-window identity must not manufacture fresh mandate capacity."""
+    from dataclasses import replace
+    from decimal import Decimal
+    from app.engines.authority_domain import AuthorityUsageMode, AuthorityUsagePolicy
+    from app.engines.authority_usage import register_usage_policy, reserve_authority_usage
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    req_a = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-WINDOW-A")
+    first = prepare_payment_execution(
+        req_a, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_a.requested_execution_time,
+    )
+    assert first is not None
+
+    # A caller now attempts to manufacture a fresh economic window for the
+    # unchanged governing mandate. No authoritative replenishment event or
+    # competent evidence exists for this new window.
+    forged_policy = AuthorityUsagePolicy(
+        usage_policy_id="USAGE-POLICY:MANDATE:institution-001:MANDATE-TREASURY-001:CALLER-WINDOW-002",
+        authority_scope_id=first.determination.effective_authority_scope_id,
+        mode=AuthorityUsageMode.AGGREGATE,
+        scope_key="MANDATE:institution-001:MANDATE-TREASURY-001:CALLER-WINDOW-002",
+        capacity=Decimal("1000000.00"),
+        window_id="CALLER-WINDOW-002",
+        disposition_rule_id="NORM-PAY-001:aggregate-amount:v1",
+    )
+    register_usage_policy(forged_policy)
+
+    with pytest.raises(ValueError):
+        reserve_authority_usage(
+            reservation_id="USAGE-RES:CALLER-WINDOW-002",
+            usage_policy_id=forged_policy.usage_policy_id,
+            authority_exercise_id=first.determination.authority_exercise_id,
+            execution_attempt_id=first.determination.execution_attempt_id,
+            amount_or_units=Decimal("600000.00"),
+        )
