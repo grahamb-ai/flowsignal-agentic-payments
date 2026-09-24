@@ -255,3 +255,37 @@ def test_genuine_registered_rai_capability_is_single_use_at_commit_boundary():
 
     assert first == "CONSEQUENCE_FORMED"
     assert second == "DENIED_EXECUTION_PERMIT_REPLAY"
+
+
+def test_protected_consequence_cannot_form_if_prepared_usage_reservation_is_not_currently_reserved():
+    """Failure-first: usage reservation must be a causal commitment prerequisite.
+
+    A genuine RAI final-bind/permit must not remain sufficient if the authority
+    usage reservation that justified this exact attempt has already been
+    dispositioned before protected consequence formation.
+    """
+    from app.engines.authority_usage import release_authority_usage
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+
+    release_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("COMPETENT-NONFORMATION-BEFORE-COMMIT",),
+    )
+
+    outcome = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=action_binding_hash(_attempt(req)),
+    )
+    assert outcome != "CONSEQUENCE_FORMED", (
+        "USAGE CAUSALITY FAILURE: protected consequence formed even though the "
+        "exact prepared authority-usage reservation was no longer RESERVED"
+    )
