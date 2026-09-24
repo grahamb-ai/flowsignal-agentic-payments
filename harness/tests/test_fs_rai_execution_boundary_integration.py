@@ -443,7 +443,7 @@ def test_quarantined_usage_can_be_released_only_by_competent_nonformation_resolu
     from app.engines.authority_usage import (
         get_usage_reservation,
         quarantine_authority_usage,
-        release_authority_usage,
+        resolve_quarantined_authority_usage,
     )
 
     req = load_scenario(SCENARIO, rebase_to_now=False)
@@ -470,9 +470,9 @@ def test_quarantined_usage_can_be_released_only_by_competent_nonformation_resolu
 def test_quarantined_usage_can_be_consumed_only_by_competent_formation_resolution():
     """Positive control: quarantine must be resolvable to CONSUMED by competent formation evidence."""
     from app.engines.authority_usage import (
-        consume_authority_usage,
         get_usage_reservation,
         quarantine_authority_usage,
+        resolve_quarantined_authority_usage,
     )
 
     req = load_scenario(SCENARIO, rebase_to_now=False)
