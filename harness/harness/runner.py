@@ -28,7 +28,7 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
     Tests that need the literal historical fixture clock may pass
     ``rebase_to_now=False`` and explicitly control ``sealed_at``.
     """
-    d = json.loads(path.read_text(encoding="utf-8"))
+    d = json.loads(path.read_text(encoding="utf-8"), parse_float=Decimal)
     a = d["authority_request"]
     actor, principal, mandate = a["actor"], a["principal"], a["mandate"]
     pa, ctx = a["proposed_action"], a["runtime_context"]
