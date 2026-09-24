@@ -13,6 +13,7 @@ from app.engines.consequence_receipt import (
     create_consequence_outcome_receipt,
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
+from app.engines.rai_execution_registry import verify_rai_execution_binding
 from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
 from app.engines.rollback_anchor_store import claim_execution_anchor_once
 from app.engines.institutional_authority import get_authority_snapshot
@@ -65,6 +66,20 @@ def execute_protected_consequence(
 
     if permit.action_binding_hash != attempted_action_binding_hash:
         return "DENIED_ACTION_BINDING_MISMATCH"
+
+    # For this RAI-protected consequence boundary, signed RAI-looking fields are
+    # not sufficient. The permit must correspond to a capability registered by
+    # the successful final-bind mint path for this exact lineage and action.
+    if not verify_rai_execution_binding(
+        permit_signature=permit.signature,
+        determination_id=permit.rai_determination_id,
+        constraint_id=permit.rai_constraint_id,
+        protected_operation_id=permit.rai_protected_operation_id,
+        authority_exercise_id=permit.rai_authority_exercise_id,
+        execution_attempt_id=permit.rai_execution_attempt_id,
+        action_binding_hash=attempted_action_binding_hash,
+    ):
+        return "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
 
     if permit.valid_until is None:
         return "DENIED_EXECUTION_PERMIT_EXPIRY_MISSING"
