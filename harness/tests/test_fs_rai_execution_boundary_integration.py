@@ -494,3 +494,38 @@ def test_quarantined_usage_can_be_consumed_only_by_competent_formation_resolutio
     after = get_usage_reservation(prepared.usage_reservation_id)
     assert after is not None
     assert after.state.value == "consumed"
+
+
+def test_quarantine_resolution_rejects_forged_competence_prefix():
+    """Failure-first: caller-controlled syntax must not manufacture evidence competence."""
+    import pytest
+    from app.engines.authority_usage import (
+        get_usage_reservation,
+        quarantine_authority_usage,
+        resolve_quarantined_authority_usage,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    quarantine_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
+    )
+
+    forged = "COMPETENT-NONFORMATION:ATTACKER-CONTROLLED-ASSERTION"
+    with pytest.raises(ValueError, match="competent|evidence|provenance"):
+        resolve_quarantined_authority_usage(
+            prepared.usage_reservation_id,
+            resolution="NON_FORMATION",
+            evidence_ids=(forged,),
+        )
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "quarantined", (
+        "EVIDENCE COMPETENCE FAILURE: caller-manufactured prefix released "
+        "quarantined authority without independently grounded outcome evidence"
+    )
