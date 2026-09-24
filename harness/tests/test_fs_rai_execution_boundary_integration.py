@@ -180,3 +180,52 @@ def test_signed_rai_labels_without_registered_final_bind_cannot_form_consequence
         attempted_action_binding_hash=attempted_hash,
     )
     assert outcome == "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
+
+
+def test_registered_rai_capability_cannot_be_rebound_to_different_action():
+    """Third-order correspondence challenge against a genuine registered permit."""
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+
+    substituted = _attempt(req)
+    substituted.amount = substituted.amount + 1
+    substituted_hash = action_binding_hash(substituted)
+    assert substituted_hash != permit.action_binding_hash
+
+    outcome = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=substituted_hash,
+    )
+    assert outcome == "DENIED_ACTION_BINDING_MISMATCH"
+
+
+def test_registered_rai_capability_signature_copy_with_changed_lineage_is_rejected():
+    """Third-order challenge: genuine registry entry cannot bless altered lineage."""
+    from dataclasses import replace as dc_replace
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+
+    altered = dc_replace(
+        permit,
+        rai_execution_attempt_id="ATT-SUBSTITUTED-AFTER-MINT",
+    )
+    outcome = execute_protected_consequence(
+        permit=altered,
+        attempted_action_binding_hash=permit.action_binding_hash,
+    )
+    assert outcome == "DENIED_INVALID_EXECUTION_PERMIT"
