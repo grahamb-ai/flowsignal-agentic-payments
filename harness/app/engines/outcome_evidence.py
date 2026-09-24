@@ -26,6 +26,10 @@ class CompetentOutcomeEvidence:
 
 _LOCK = RLock()
 _EVIDENCE: dict[str, CompetentOutcomeEvidence] = {}
+# Exact executions whose evidence set has already been relied upon for an
+# irreversible authority-usage disposition.  This closes disposition, not
+# observation: later evidence may still be preserved.
+_DISPOSED_OUTCOMES: dict[tuple[str, str], str] = {}
 _ALLOWED_SOURCES = {
     ("REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"),
 }
@@ -126,3 +130,25 @@ def verify_competent_outcome_evidence(
             if evidence is None or evidence not in applicable or evidence.outcome != outcome:
                 return False
         return True
+
+
+def close_outcome_disposition(
+    *,
+    permit_signature: str,
+    action_binding_hash: str,
+    outcome: str,
+) -> None:
+    """Record the outcome direction relied upon for irreversible usage disposition."""
+    if outcome not in ("FORMATION", "NON_FORMATION"):
+        raise ValueError("unsupported disposed outcome")
+    key = (permit_signature, action_binding_hash)
+    with _LOCK:
+        existing = _DISPOSED_OUTCOMES.get(key)
+        if existing is not None and existing != outcome:
+            raise ValueError("exact execution disposition already closed to opposite outcome")
+        _DISPOSED_OUTCOMES[key] = outcome
+
+
+def get_closed_outcome_disposition(*, permit_signature: str, action_binding_hash: str) -> str | None:
+    with _LOCK:
+        return _DISPOSED_OUTCOMES.get((permit_signature, action_binding_hash))
