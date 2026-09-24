@@ -397,3 +397,42 @@ def test_commitment_interval_failure_must_not_claim_competent_nonformation():
         "OUTCOME EVIDENCE FAILURE: local commitment-interval interruption was "
         "recorded as competent non-formation rather than preserved as unresolved"
     )
+
+
+def test_quarantined_usage_cannot_be_released_by_unstructured_evidence_id_alone():
+    """Failure-first: release requires competent outcome evidence, not a string.
+
+    A quarantined reservation represents unresolved post-commit consequence
+    state. An arbitrary caller-supplied evidence identifier must not be enough
+    to turn that uncertainty into reusable authority capacity.
+    """
+    import pytest
+    from app.engines.authority_usage import (
+        get_usage_reservation,
+        quarantine_authority_usage,
+        release_authority_usage,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+
+    quarantine_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("SYNTHETIC-UNRESOLVED-EVIDENCE",),
+    )
+    quarantined = get_usage_reservation(prepared.usage_reservation_id)
+    assert quarantined is not None
+    assert quarantined.state.value == "quarantined"
+
+    with pytest.raises(ValueError, match="competent|non-formation|quarantined"):
+        release_authority_usage(
+            prepared.usage_reservation_id,
+            evidence_ids=("CALLER-SAYS-NOT-FORMED",),
+        )
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "quarantined"
