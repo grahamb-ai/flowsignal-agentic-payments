@@ -1,6 +1,9 @@
 from pathlib import Path
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 
-from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash, validate_execution
+from app.engines.financial_runtime import evaluate_financial
 from app.engines.protected_consequence import execute_protected_consequence
 from app.engines.runtime_authority_payment import (
     prepare_payment_execution,
@@ -62,3 +65,50 @@ def test_rai_bound_permit_is_not_minted_when_final_bind_blocks():
     req.amount = req.amount + 1
     permit = mint_rai_bound_execution_permit(req, prepared, bind_at=req.requested_execution_time)
     assert permit is None
+
+
+def test_legacy_gateway_cannot_form_protected_consequence_without_rai_chain():
+    """Failure-first route-closure challenge.
+
+    The legacy receipt/gateway path must not retain an independent route to the
+    protected consequence once RAI is claimed as mandatory for this operation.
+    """
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    now = datetime.now(timezone.utc)
+    req = replace(
+        req,
+        requested_execution_time=now,
+        screening_captured_at=now,
+        mandate_valid_until=now + timedelta(hours=1),
+    )
+
+    response, receipt = evaluate_financial(req, sealed_at=now)
+    assert response.decision == "ALLOW"
+
+    attempt = ExecutionAttempt(
+        actor_id=req.actor_id,
+        principal_id=req.principal_id,
+        action=req.action,
+        target=req.target,
+        amount=req.amount,
+        currency=req.currency,
+        source_account=req.source_account,
+        beneficiary=req.beneficiary,
+        purpose=req.purpose,
+        mandate_id=req.mandate_id,
+        attempted_at=now,
+    )
+    gateway = validate_execution(receipt, attempt)
+    assert gateway.status == "PERMITTED"
+    assert gateway.execution_permit is not None
+    assert gateway.execution_permit.rai_determination_id is None
+
+    outcome = execute_protected_consequence(
+        permit=gateway.execution_permit,
+        attempted_action_binding_hash=action_binding_hash(attempt),
+    )
+
+    assert outcome != "CONSEQUENCE_FORMED", (
+        "ROUTE CLOSURE FAILURE: legacy gateway formed the protected consequence "
+        "without the mandatory RAI determination/final-bind chain"
+    )
