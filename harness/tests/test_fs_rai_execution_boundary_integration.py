@@ -16,6 +16,19 @@ from harness.runner import load_scenario
 SCENARIO = Path(__file__).parents[1] / "harness" / "scenarios" / "AP-001_allow.json"
 
 
+import pytest
+from app.engines.authority_usage import reset_authority_usage_reference_state_for_test
+
+
+@pytest.fixture(autouse=True)
+def _isolate_authority_usage_reference_state():
+    # Independent tests must not inherit process-local aggregate reservations.
+    # Multiple exercises inside one test still share the same state.
+    reset_authority_usage_reference_state_for_test()
+    yield
+    reset_authority_usage_reference_state_for_test()
+
+
 def _attempt(req):
     return ExecutionAttempt(
         actor_id=req.actor_id,
