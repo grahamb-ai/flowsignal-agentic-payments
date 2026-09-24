@@ -616,3 +616,53 @@ def test_quarantine_resolution_rejects_competent_evidence_for_different_executio
     after = get_usage_reservation(prepared.usage_reservation_id)
     assert after is not None
     assert after.state.value == "quarantined"
+
+
+def test_quarantine_resolution_rejects_competent_evidence_with_opposite_outcome():
+    """Outcome correspondence: competent FORMATION evidence cannot resolve as NON_FORMATION."""
+    import pytest
+    from app.engines.authority_usage import (
+        get_usage_reservation,
+        quarantine_authority_usage,
+        resolve_quarantined_authority_usage,
+    )
+    from app.engines.outcome_evidence import (
+        CompetentOutcomeEvidence,
+        register_competent_outcome_evidence,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    quarantine_authority_usage(
+        prepared.usage_reservation_id,
+        evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
+    )
+    permit_signature = "REFERENCE-PERMIT:OUTCOME-MISMATCH"
+    attempted_hash = action_binding_hash(_attempt(req))
+    evidence_id = "EVIDENCE:FORMATION:OUTCOME-MISMATCH"
+    register_competent_outcome_evidence(
+        CompetentOutcomeEvidence(
+            evidence_id=evidence_id,
+            permit_signature=permit_signature,
+            action_binding_hash=attempted_hash,
+            outcome="FORMATION",
+            authoritative_source_id="REFERENCE-CONSEQUENCE-OBSERVER-001",
+            source_competence_id="REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+        )
+    )
+
+    with pytest.raises(ValueError, match="competent|exact execution|evidence"):
+        resolve_quarantined_authority_usage(
+            prepared.usage_reservation_id,
+            resolution="NON_FORMATION",
+            evidence_ids=(evidence_id,),
+            permit_signature=permit_signature,
+            action_binding_hash=attempted_hash,
+        )
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "quarantined"
