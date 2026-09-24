@@ -1188,3 +1188,36 @@ def test_caller_cannot_self_issue_fresh_aggregate_window_to_replenish_mandate_ca
     # untrusted caller cannot register the fresh economic scope at all.
     with pytest.raises(ValueError, match="authoritative derivation"):
         register_usage_policy(forged_policy)
+
+
+def test_authoritative_usage_window_rollover_can_establish_fresh_normative_capacity():
+    """Failure-first positive mirror: a competent normative window transition must be able to establish the next aggregate pool."""
+    from dataclasses import replace
+    from decimal import Decimal
+    from app.engines.authority_usage import consume_authority_usage
+    from app.engines.institutional_authority import advance_usage_window_for_test
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    req_a = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-WINDOW-ROLLOVER-A")
+    req_b = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-WINDOW-ROLLOVER-B")
+
+    first = prepare_payment_execution(
+        req_a, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_a.requested_execution_time,
+    )
+    consume_authority_usage(
+        first.usage_reservation_id,
+        evidence_ids=("REFERENCE:COMMITMENT-FORMED:WINDOW-1",),
+    )
+
+    # This is intentionally an authoritative reference-state transition, not a
+    # caller-selected window string. The fixture requires frozen usage-window
+    # semantics; the implementation does not yet expose this transition.
+    advance_usage_window_for_test()
+
+    second = prepare_payment_execution(
+        req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_b.requested_execution_time,
+    )
+    assert second is not None
+    assert second.usage_policy_id != first.usage_policy_id
