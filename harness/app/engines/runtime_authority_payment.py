@@ -7,7 +7,7 @@ operation binding/final-bind revalidation without claiming downstream success.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from app.engines.authority_determination import (
@@ -177,7 +177,10 @@ def mint_rai_bound_execution_permit(
         # The protected boundary evaluates expiry against real wall-clock time.
         # Final-bind may be evaluated against a historical fixture timestamp, but
         # a newly minted capability must never be born already expired.
-        valid_until=max(prepared.constraint.valid_until, datetime.now(prepared.constraint.valid_until.tzinfo)).isoformat(),
+        valid_until=max(
+            prepared.constraint.valid_until,
+            datetime.now(prepared.constraint.valid_until.tzinfo) + timedelta(seconds=60),
+        ).isoformat(),
         rai_determination_id=prepared.determination.determination_id,
         rai_constraint_id=prepared.constraint.constraint_id,
         rai_protected_operation_id=prepared.operation.operation_id,
