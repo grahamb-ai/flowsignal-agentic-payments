@@ -29,6 +29,7 @@ class ApprovalRule:
 @dataclass(frozen=True)
 class ApprovalGrant:
     approval_grant_id: str
+    approval_rule_id: str
     authority_subject_id: str
     role_id: str
     principal_id: str
@@ -120,6 +121,8 @@ def resolve_approval(req, *, operation_class: str, resolved_at: datetime) -> App
 
         candidates = []
         for grant in _GRANTS.values():
+            if grant.approval_rule_id != rule.approval_rule_id:
+                continue
             if not (_aware(grant.approved_at) <= at <= _aware(grant.valid_until)):
                 continue
             if grant.role_id not in rule.eligible_role_ids:
