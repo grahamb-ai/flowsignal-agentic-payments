@@ -131,3 +131,30 @@ def test_formed_commitment_consumes_authority():
     )
     consume_authority_usage(rid, evidence_ids=("COMMITMENT-EVIDENCE-1",))
     assert get_usage_reservation(rid).state.value == "consumed"
+
+
+def test_quarantined_aggregate_usage_remains_capacity_consuming_until_resolved():
+    """Failure-first: unresolved aggregate usage must not silently refund capacity."""
+    scope_key = _id("AGG-UNRES")
+    policy = AuthorityUsagePolicy(
+        usage_policy_id=_id("POL"), authority_scope_id="SCOPE-AGG-U",
+        mode=AuthorityUsageMode.AGGREGATE, scope_key=scope_key,
+        capacity=Decimal("1000000.00"), window_id="DAY-U",
+        disposition_rule_id="RULE-AGG-U"
+    )
+    register_usage_policy(policy)
+    first = _id("RES")
+    reserve_authority_usage(
+        reservation_id=first, usage_policy_id=policy.usage_policy_id,
+        authority_exercise_id="EX-AGG-U1", execution_attempt_id="ATT-AGG-U1",
+        amount_or_units=Decimal("750000.00")
+    )
+    quarantine_authority_usage(first, evidence_ids=("OUTCOME-UNRESOLVED-AGG-1",))
+    assert get_usage_reservation(first).state.value == "quarantined"
+
+    with pytest.raises(ValueError, match="capacity exceeded"):
+        reserve_authority_usage(
+            reservation_id=_id("RES"), usage_policy_id=policy.usage_policy_id,
+            authority_exercise_id="EX-AGG-U2", execution_attempt_id="ATT-AGG-U2",
+            amount_or_units=Decimal("300000.00")
+        )
