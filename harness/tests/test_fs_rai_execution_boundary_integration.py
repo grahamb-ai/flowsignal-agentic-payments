@@ -927,3 +927,30 @@ def test_two_final_observations_with_opposite_outcomes_preserve_quarantine():
             action_binding_hash=binding,
         )
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
+
+
+def test_final_evidence_cannot_supersede_provisional_set_that_includes_unknown_source_observation():
+    """Supersession cannot erase uncertainty by excluding an observation merely because its source is not competent for resolution."""
+    import pytest
+    import app.engines.outcome_evidence as oe
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:UNKNOWN-SOURCE-DISAGREEMENT"
+    binding = action_binding_hash(_attempt(req))
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    competent = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:KNOWN:UNKNOWN-SOURCE-CASE", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
+    register_competent_outcome_evidence(competent)
+    # Simulate preserved external observation not admitted as competent resolution evidence.
+    unknown = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:UNKNOWN-SOURCE", sig, binding, "NON_FORMATION", "UNKNOWN-OBSERVER", "UNKNOWN-COMPETENCE", finality_state="PROVISIONAL")
+    with oe._LOCK:
+        oe._EVIDENCE[unknown.evidence_id] = unknown
+    final = CompetentOutcomeEvidence("EVIDENCE:FINAL:KNOWN:UNKNOWN-SOURCE-CASE", sig, binding, "FORMATION", source, competence, finality_state="FINAL", supersedes_evidence_ids=(competent.evidence_id,))
+    register_competent_outcome_evidence(final)
+
+    with pytest.raises(ValueError):
+        resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="FORMATION", evidence_ids=(final.evidence_id,), permit_signature=sig, action_binding_hash=binding)
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
