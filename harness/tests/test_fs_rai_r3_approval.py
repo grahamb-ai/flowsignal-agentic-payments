@@ -63,7 +63,7 @@ def test_request_boolean_does_not_create_approval():
 
 
 def test_two_artifacts_from_same_subject_do_not_satisfy_distinct_quorum():
-    rule = replace(_rule(), operation_class="treasury.payment.test-r3-alias")
+    rule = replace(_rule(), operation_class="treasury.payment.test-r3-alias", approval_rule_id="TEST:approval:2of2:alias")
     register_approval_rule(rule)
     register_approval_grant(_grant("G-A1", "PERSON-A", "TREASURY_APPROVER", rule.approval_rule_id))
     register_approval_grant(_grant("G-A2", "PERSON-A", "RISK_APPROVER", rule.approval_rule_id))
@@ -72,7 +72,7 @@ def test_two_artifacts_from_same_subject_do_not_satisfy_distinct_quorum():
 
 
 def test_correct_cardinality_without_required_role_composition_fails():
-    rule = replace(_rule(), operation_class="treasury.payment.test-r3-composition")
+    rule = replace(_rule(), operation_class="treasury.payment.test-r3-composition", approval_rule_id="TEST:approval:2of2:composition")
     register_approval_rule(rule)
     register_approval_grant(_grant("G-C1", "PERSON-C1", "TREASURY_APPROVER", rule.approval_rule_id))
     register_approval_grant(_grant("G-C2", "PERSON-C2", "TREASURY_APPROVER", rule.approval_rule_id))
@@ -81,7 +81,7 @@ def test_correct_cardinality_without_required_role_composition_fails():
 
 
 def test_approval_is_bound_to_exact_operation_scope():
-    rule = replace(_rule(), operation_class="treasury.payment.test-r3-scope")
+    rule = replace(_rule(), operation_class="treasury.payment.test-r3-scope", approval_rule_id="TEST:approval:2of2:scope")
     register_approval_rule(rule)
     register_approval_grant(_grant("G-S1", "PERSON-S1", "TREASURY_APPROVER", rule.approval_rule_id))
     register_approval_grant(_grant("G-S2", "PERSON-S2", "RISK_APPROVER", rule.approval_rule_id))
@@ -95,7 +95,7 @@ def test_approval_is_bound_to_exact_operation_scope():
 
 
 def test_expired_approval_does_not_survive_without_governing_rule_support():
-    rule = replace(_rule(), operation_class="treasury.payment.test-r3-expiry")
+    rule = replace(_rule(), operation_class="treasury.payment.test-r3-expiry", approval_rule_id="TEST:approval:2of2:expiry")
     register_approval_rule(rule)
     expired = NOW-timedelta(seconds=1)
     register_approval_grant(_grant("G-E1", "PERSON-E1", "TREASURY_APPROVER", rule.approval_rule_id, valid_until=expired))
