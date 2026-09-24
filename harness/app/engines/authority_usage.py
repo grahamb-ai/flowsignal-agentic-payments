@@ -25,8 +25,16 @@ _POLICIES: dict[str, AuthorityUsagePolicy] = {}
 _RESERVATIONS: dict[str, AuthorityUsageReservation] = {}
 _SCOPE_RESERVATIONS: dict[str, set[str]] = {}
 
+# Bounded reference authority for policy registration. Possession of a policy
+# object is not authority to create a new economic usage scope.
+_POLICY_REGISTRATION_CAPABILITY = object()
 
-def register_usage_policy(policy: AuthorityUsagePolicy) -> None:
+
+def register_usage_policy(
+    policy: AuthorityUsagePolicy, *, registration_capability: object | None = None
+) -> None:
+    if registration_capability is not _POLICY_REGISTRATION_CAPABILITY:
+        raise ValueError("usage policy registration requires authoritative derivation")
     with _LOCK:
         existing = _POLICIES.get(policy.usage_policy_id)
         if existing is not None and existing != policy:
