@@ -1049,3 +1049,25 @@ def test_later_contradictory_observation_cannot_arrive_after_final_resolution_an
             permit_signature=sig,
             action_binding_hash=binding,
         )
+
+
+def test_later_agreeing_competent_evidence_is_preserved_after_closed_disposition():
+    """Disposition closure must not become an evidence-ingestion freeze; later agreeing competent evidence may corroborate history."""
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence, get_closed_outcome_disposition
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:POST-DISPOSITION-CORROBORATION"
+    binding = action_binding_hash(_attempt(req))
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    final_nonformation = CompetentOutcomeEvidence("EVIDENCE:FINAL:NON-FORMATION:CORROBORATION-BASE", sig, binding, "NON_FORMATION", source, competence, finality_state="FINAL")
+    register_competent_outcome_evidence(final_nonformation)
+    resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=(final_nonformation.evidence_id,), permit_signature=sig, action_binding_hash=binding)
+
+    later_agreeing = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:NON-FORMATION:AFTER-DISPOSITION", sig, binding, "NON_FORMATION", source, competence, finality_state="PROVISIONAL")
+    register_competent_outcome_evidence(later_agreeing)
+
+    assert get_closed_outcome_disposition(permit_signature=sig, action_binding_hash=binding) == "NON_FORMATION"
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
