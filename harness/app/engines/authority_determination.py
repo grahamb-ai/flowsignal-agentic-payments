@@ -14,7 +14,6 @@ import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from uuid import uuid4
 
 from app.engines.authority_domain import (
     AuthorityOperationBinding,
@@ -22,6 +21,11 @@ from app.engines.authority_domain import (
     AuthorisedExecutionConstraint,
     EffectiveAuthorityScope,
     ProtectedOperation,
+)
+from app.engines.authority_lineage import (
+    AuthorityExercise,
+    ExecutionAttemptLineage,
+    bind_attempt_to_operation,
 )
 
 
@@ -181,8 +185,8 @@ def issue_authorised_execution_constraint(
     operation: ProtectedOperation,
     binding: AuthorityOperationBinding,
     resolved_at: datetime,
-    authority_exercise_id: str | None = None,
-    execution_attempt_id: str | None = None,
+    authority_exercise: AuthorityExercise,
+    execution_attempt: ExecutionAttemptLineage,
     lifetime_seconds: int = 60,
 ) -> tuple[AuthorityDetermination, AuthorisedExecutionConstraint]:
     if binding.effective_authority_scope_id != scope.scope_id:
@@ -194,8 +198,21 @@ def issue_authorised_execution_constraint(
 
     resolved = _aware(resolved_at)
     valid_until = resolved + timedelta(seconds=lifetime_seconds)
-    exercise_id = authority_exercise_id or f"EX-{uuid4()}"
-    attempt_id = execution_attempt_id or f"ATT-{uuid4()}"
+    exercise_id = authority_exercise.authority_exercise_id
+    attempt_id = execution_attempt.execution_attempt_id
+    if authority_exercise.resolution_context_id != context.context_id:
+        raise ValueError("authority exercise belongs to different resolution context")
+    if authority_exercise.effective_authority_scope_id != scope.scope_id:
+        raise ValueError("authority exercise belongs to different effective scope")
+    if execution_attempt.authority_exercise_id != exercise_id:
+        raise ValueError("execution attempt belongs to different authority exercise")
+    if execution_attempt.route_id != operation.route_id or execution_attempt.executor_id != operation.executor_id:
+        raise ValueError("execution attempt route/executor does not match protected operation")
+    bind_attempt_to_operation(
+        authority_exercise_id=exercise_id,
+        execution_attempt_id=attempt_id,
+        protected_operation_id=operation.operation_id,
+    )
 
     base = {
         "resolution_context_id": context.context_id,
