@@ -1013,3 +1013,25 @@ def test_unknown_source_cannot_match_callers_requested_outcome_to_veto_opposite_
             action_binding_hash=binding,
         )
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
+
+
+def test_later_contradictory_observation_cannot_arrive_after_final_resolution_and_release():
+    """Once FINAL evidence has caused irreversible usage disposition, later contradictory evidence must not reopen the execution history."""
+    import pytest
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:POST-FINAL-CONTRADICTION"
+    binding = action_binding_hash(_attempt(req))
+    source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
+    final_nonformation = CompetentOutcomeEvidence("EVIDENCE:FINAL:NON-FORMATION:POST-FINAL", sig, binding, "NON_FORMATION", source, competence, finality_state="FINAL")
+    register_competent_outcome_evidence(final_nonformation)
+    resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=(final_nonformation.evidence_id,), permit_signature=sig, action_binding_hash=binding)
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
+
+    later_formed = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMATION:AFTER-FINAL", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
+    with pytest.raises(ValueError):
+        register_competent_outcome_evidence(later_formed)
