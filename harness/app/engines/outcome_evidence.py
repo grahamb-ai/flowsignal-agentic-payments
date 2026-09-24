@@ -73,16 +73,23 @@ def verify_competent_outcome_evidence(
         if not observed:
             return False
 
-        # An observation that is preserved for this exact execution but whose
-        # source competence is unresolved cannot itself resolve the outcome;
-        # nor may it be silently discarded to manufacture certainty.
-        if any(
-            (evidence.authoritative_source_id, evidence.source_competence_id) not in _ALLOWED_SOURCES
-            for evidence in observed
-        ):
+        # Unresolved-source observations cannot establish an outcome. They
+        # preserve uncertainty only when their asserted outcome materially
+        # conflicts with the competent outcome being resolved; agreeing
+        # untrusted noise must not gain veto power.
+        unresolved_source = [
+            evidence for evidence in observed
+            if (evidence.authoritative_source_id, evidence.source_competence_id) not in _ALLOWED_SOURCES
+        ]
+        if any(evidence.outcome != outcome for evidence in unresolved_source):
             return False
 
-        applicable = observed
+        applicable = [
+            evidence for evidence in observed
+            if (evidence.authoritative_source_id, evidence.source_competence_id) in _ALLOWED_SOURCES
+        ]
+        if not applicable:
+            return False
 
         # A FINAL observation may resolve an already-disagreeing provisional
         # evidence set only by explicitly superseding the whole active
