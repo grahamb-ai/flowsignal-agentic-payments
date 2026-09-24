@@ -229,3 +229,29 @@ def test_registered_rai_capability_signature_copy_with_changed_lineage_is_reject
         attempted_action_binding_hash=permit.action_binding_hash,
     )
     assert outcome == "DENIED_INVALID_EXECUTION_PERMIT"
+
+
+def test_genuine_registered_rai_capability_is_single_use_at_commit_boundary():
+    """Fourth-order challenge: a genuine capability cannot be replayed."""
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+    attempted_hash = action_binding_hash(_attempt(req))
+
+    first = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=attempted_hash,
+    )
+    second = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=attempted_hash,
+    )
+
+    assert first == "CONSEQUENCE_FORMED"
+    assert second == "DENIED_EXECUTION_PERMIT_REPLAY"
