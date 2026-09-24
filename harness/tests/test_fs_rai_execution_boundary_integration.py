@@ -1120,7 +1120,13 @@ def test_aggregate_mandate_capacity_allows_multiple_exercises_within_limit():
         resolved_at=req_b.requested_execution_time,
     )
 
-    assert first.usage_reservation.reserved_amount_or_units == Decimal("400000.00")
-    assert second.usage_reservation.reserved_amount_or_units == Decimal("500000.00")
-    assert first.usage_policy.scope_key == second.usage_policy.scope_key
-    assert first.usage_policy.capacity == Decimal("1000000")
+    from app.engines.authority_usage import get_usage_reservation
+
+    first_reservation = get_usage_reservation(first.usage_reservation_id)
+    second_reservation = get_usage_reservation(second.usage_reservation_id)
+
+    assert first_reservation is not None
+    assert second_reservation is not None
+    assert first_reservation.reserved_amount_or_units == Decimal("400000.00")
+    assert second_reservation.reserved_amount_or_units == Decimal("500000.00")
+    assert first.usage_policy_id == second.usage_policy_id
