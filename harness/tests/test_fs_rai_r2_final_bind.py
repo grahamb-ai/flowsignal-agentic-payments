@@ -26,16 +26,14 @@ def _authorised_chain():
             effective_authority_scope_id=scope.scope_id,
             protected_operation_class=context.protected_operation_class,
             created_at=req.requested_execution_time,
-            authority_exercise_id="EX-001",
-        )
+            )
 
     attempt = create_execution_attempt(
             authority_exercise_id=exercise.authority_exercise_id,
             route_id="R1",
             executor_id="PAYMENT-EXECUTOR-1",
             created_at=req.requested_execution_time,
-            execution_attempt_id="ATT-001",
-        )
+            )
 
     operation = materialise_protected_operation(
             req,
