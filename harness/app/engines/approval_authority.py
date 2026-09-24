@@ -152,9 +152,35 @@ def resolve_approval(req, *, operation_class: str, resolved_at: datetime) -> App
         if missing_roles:
             raise ValueError("approval composition requirement not established")
 
-        selected = sorted(candidates, key=lambda g: g.approval_grant_id)
-        if rule.quorum:
-            selected = selected[:rule.quorum]
+        # Select a quorum that satisfies composition, rather than taking the
+        # lexicographically first N grants and checking composition only across
+        # the larger candidate pool.
+        selected = []
+        used_subjects = set()
+        for required_role in rule.required_role_ids:
+            match = next(
+                (
+                    g for g in sorted(candidates, key=lambda x: x.approval_grant_id)
+                    if g.role_id == required_role
+                    and (not rule.require_distinct_authority_subjects or g.authority_subject_id not in used_subjects)
+                ),
+                None,
+            )
+            if match is None:
+                raise ValueError("approval composition requirement not established")
+            selected.append(match)
+            used_subjects.add(match.authority_subject_id)
+        for grant in sorted(candidates, key=lambda x: x.approval_grant_id):
+            if len(selected) >= rule.quorum:
+                break
+            if grant in selected:
+                continue
+            if rule.require_distinct_authority_subjects and grant.authority_subject_id in used_subjects:
+                continue
+            selected.append(grant)
+            used_subjects.add(grant.authority_subject_id)
+        if len(selected) < rule.quorum:
+            raise ValueError("approval quorum not established")
         payload = {
             "rule": rule.approval_rule_id,
             "grants": [g.approval_grant_id for g in selected],
