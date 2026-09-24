@@ -72,17 +72,21 @@ def prepare_payment_execution(
     )
     binding = bind_authority_to_operation(scope, operation)
 
-    # NORM-PAY-001 reference usage: one authority exercise may reach one
-    # commitment attempt unless a later governing usage semantics explicitly
-    # permits more.  Retry requires a new attempt and fresh reservation.
+    # NORM-PAY-001 aggregate payment authority is governed by the
+    # authoritative mandate, not reset for each newly-created exercise.
+    # Distinct exercises under the same mandate therefore contend for the same
+    # bounded amount capacity.
+    snapshot = get_authority_snapshot(req.mandate_id)
+    if snapshot is None:
+        raise AuthorityResolutionError("authoritative mandate snapshot unavailable")
     policy = AuthorityUsagePolicy(
-        usage_policy_id=f"USAGE-POLICY:{exercise.authority_exercise_id}",
+        usage_policy_id=f"USAGE-POLICY:MANDATE:{snapshot.mandate.mandate_id}:{snapshot.authority_epoch_id}",
         authority_scope_id=scope.scope_id,
-        mode=AuthorityUsageMode.SINGLE,
-        scope_key=f"EXERCISE:{exercise.authority_exercise_id}",
-        capacity=1,
-        window_id=None,
-        disposition_rule_id="NORM-PAY-001:usage:v1",
+        mode=AuthorityUsageMode.AGGREGATE,
+        scope_key=f"MANDATE:{snapshot.mandate.principal_id}:{snapshot.mandate.mandate_id}:{snapshot.authority_epoch_id}",
+        capacity=snapshot.mandate.max_amount,
+        window_id=snapshot.authority_epoch_id,
+        disposition_rule_id="NORM-PAY-001:aggregate-amount:v1",
     )
     register_usage_policy(policy)
     reservation_id = f"USAGE-RES:{attempt.execution_attempt_id}"
@@ -91,7 +95,7 @@ def prepare_payment_execution(
         usage_policy_id=policy.usage_policy_id,
         authority_exercise_id=exercise.authority_exercise_id,
         execution_attempt_id=attempt.execution_attempt_id,
-        amount_or_units=1,
+        amount_or_units=req.amount,
     )
 
     determination, constraint = issue_authorised_execution_constraint(
