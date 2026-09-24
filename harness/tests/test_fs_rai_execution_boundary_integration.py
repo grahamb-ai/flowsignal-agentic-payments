@@ -1100,3 +1100,27 @@ def test_two_exercises_cannot_each_receive_fresh_capacity_from_same_governing_ma
     import pytest
     with pytest.raises(ValueError):
         prepare_payment_execution(req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req_b.requested_execution_time)
+
+
+def test_aggregate_mandate_capacity_allows_multiple_exercises_within_limit():
+    """IC-FAIL-005 positive control: shared aggregate scope must not become an always-deny gate."""
+    from dataclasses import replace
+    from decimal import Decimal
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    req_a = replace(req, amount=Decimal("400000.00"), institutional_operation_id="PAYMENT-AGGREGATE-POS-A")
+    req_b = replace(req, amount=Decimal("500000.00"), institutional_operation_id="PAYMENT-AGGREGATE-POS-B")
+
+    first = prepare_payment_execution(
+        req_a, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_a.requested_execution_time,
+    )
+    second = prepare_payment_execution(
+        req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_b.requested_execution_time,
+    )
+
+    assert first.usage_reservation.reserved_amount_or_units == Decimal("400000.00")
+    assert second.usage_reservation.reserved_amount_or_units == Decimal("500000.00")
+    assert first.usage_policy.scope_key == second.usage_policy.scope_key
+    assert first.usage_policy.capacity == Decimal("1000000")
