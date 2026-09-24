@@ -697,3 +697,23 @@ def test_competent_outcome_evidence_identity_cannot_be_rebound():
     )
     with pytest.raises(ValueError, match="identity|bound|evidence"):
         register_competent_outcome_evidence(rebound)
+
+
+def test_disagreeing_registered_outcomes_preserve_quarantine():
+    """Two registered outcomes for one execution must not be caller-selectable."""
+    import pytest
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:DISAGREEMENT"
+    binding = action_binding_hash(_attempt(req))
+    yes_id, no_id = "EVIDENCE:FORMED:D1", "EVIDENCE:NOT-FORMED:D2"
+    register_competent_outcome_evidence(CompetentOutcomeEvidence(yes_id, sig, binding, "FORMATION", "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"))
+    register_competent_outcome_evidence(CompetentOutcomeEvidence(no_id, sig, binding, "NON_FORMATION", "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"))
+
+    with pytest.raises(ValueError):
+        resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=(no_id,), permit_signature=sig, action_binding_hash=binding)
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
