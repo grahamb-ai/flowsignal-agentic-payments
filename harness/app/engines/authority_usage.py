@@ -234,3 +234,16 @@ def resolve_quarantined_authority_usage(
             ),
             evidence_ids=evidence_ids,
         )
+
+
+def reset_authority_usage_reference_state_for_test() -> None:
+    """Clear process-local R4 reference state between independent tests.
+
+    This is deliberately a test/reference-harness boundary only. It must not be
+    called between authority exercises that are intended to share one governing
+    mandate/epoch aggregate scope.
+    """
+    with _LOCK:
+        _POLICIES.clear()
+        _RESERVATIONS.clear()
+        _SCOPE_RESERVATIONS.clear()
