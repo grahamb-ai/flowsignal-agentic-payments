@@ -30,6 +30,7 @@ from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.authority_store import get_authority_state_version
 from app.engines.institutional_authority import get_authority_snapshot
 from app.engines.permit_authority import ExecutionPermit, _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+from app.engines.rai_execution_registry import register_rai_execution_binding
 
 
 @dataclass(frozen=True)
@@ -159,7 +160,7 @@ def mint_rai_bound_execution_permit(
         attempted_at=bind_at,
     )
     attempted_hash = action_binding_hash(attempt)
-    return issue_execution_permit(
+    permit = issue_execution_permit(
         authority_receipt_id=prepared.determination.determination_id,
         action_binding_hash=attempted_hash,
         authority_state_version=get_authority_state_version(),
@@ -188,3 +189,15 @@ def mint_rai_bound_execution_permit(
         rai_execution_attempt_id=prepared.determination.execution_attempt_id,
         mint_capability=_GATEWAY_MINT_CAPABILITY,
     )
+    if permit is None:
+        return None
+    register_rai_execution_binding(
+        permit_signature=permit.signature,
+        determination_id=prepared.determination.determination_id,
+        constraint_id=prepared.constraint.constraint_id,
+        protected_operation_id=prepared.operation.operation_id,
+        authority_exercise_id=prepared.determination.authority_exercise_id,
+        execution_attempt_id=prepared.determination.execution_attempt_id,
+        action_binding_hash=attempted_hash,
+    )
+    return permit
