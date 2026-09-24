@@ -45,6 +45,7 @@ def _check(name, passed, fail_outcome, reason=None, evidence_ref=None):
     )
 
 def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | None = None):
+    authority_snapshot = get_authority_snapshot(req.mandate_id)
     authoritative_limit = get_authoritative_mandate_limit(req.mandate_id)
     if authoritative_limit is None:
         authoritative_limit = req.mandate_max_amount
