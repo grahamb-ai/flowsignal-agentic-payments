@@ -1130,3 +1130,28 @@ def test_aggregate_mandate_capacity_allows_multiple_exercises_within_limit():
     assert first_reservation.reserved_amount_or_units == Decimal("400000.00")
     assert second_reservation.reserved_amount_or_units == Decimal("500000.00")
     assert first.usage_policy_id == second.usage_policy_id
+
+
+def test_authority_epoch_change_does_not_resurrect_aggregate_mandate_capacity():
+    """Failure-first: authority-state epoch change alone must not replenish mandate economics."""
+    from dataclasses import replace
+    from decimal import Decimal
+    from app.engines.institutional_authority import advance_authority_epoch_for_test
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    req_a = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-EPOCH-CAPACITY-A")
+    req_b = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-EPOCH-CAPACITY-B")
+
+    first = prepare_payment_execution(
+        req_a, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_a.requested_execution_time,
+    )
+    assert first is not None
+
+    advance_authority_epoch_for_test()
+
+    with pytest.raises(ValueError):
+        prepare_payment_execution(
+            req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+            resolved_at=req_b.requested_execution_time,
+        )
