@@ -216,6 +216,12 @@ def resolve_quarantined_authority_usage(
             state=to_state,
         )
         _RESERVATIONS[reservation_id] = updated
+        from app.engines.outcome_evidence import close_outcome_disposition
+        close_outcome_disposition(
+            permit_signature=permit_signature,
+            action_binding_hash=action_binding_hash,
+            outcome=resolution,
+        )
         return AuthorityUsageDisposition(
             disposition_id=f"DISP:{reservation_id}:{to_state.value}",
             reservation_id=reservation_id,
