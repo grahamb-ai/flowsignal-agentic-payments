@@ -456,8 +456,9 @@ def test_quarantined_usage_can_be_released_only_by_competent_nonformation_resolu
         evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
     )
 
-    release_authority_usage(
+    resolve_quarantined_authority_usage(
         prepared.usage_reservation_id,
+        resolution="NON_FORMATION",
         evidence_ids=("COMPETENT-NONFORMATION:EXACT-EXECUTION",),
     )
 
@@ -484,8 +485,9 @@ def test_quarantined_usage_can_be_consumed_only_by_competent_formation_resolutio
         evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",),
     )
 
-    consume_authority_usage(
+    resolve_quarantined_authority_usage(
         prepared.usage_reservation_id,
+        resolution="FORMATION",
         evidence_ids=("COMPETENT-FORMATION:EXACT-EXECUTION",),
     )
 
