@@ -24,7 +24,8 @@ from app.engines.authority_domain import (
 )
 from app.engines.authority_lineage import create_authority_exercise, create_execution_attempt
 from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
-from app.engines.authority_usage import register_usage_policy, reserve_authority_usage
+from app.engines.authority_usage import register_usage_policy,
+    _POLICY_REGISTRATION_CAPABILITY, reserve_authority_usage
 from app.engines.final_bind import FinalBindResult, revalidate_at_final_bind
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.authority_store import get_authority_state_version
@@ -88,7 +89,7 @@ def prepare_payment_execution(
         window_id="NORM-PAY-001:aggregate-amount:v1",
         disposition_rule_id="NORM-PAY-001:aggregate-amount:v1",
     )
-    register_usage_policy(policy)
+    register_usage_policy(policy, registration_capability=_POLICY_REGISTRATION_CAPABILITY)
     reservation_id = f"USAGE-RES:{attempt.execution_attempt_id}"
     reserve_authority_usage(
         reservation_id=reservation_id,
