@@ -1071,3 +1071,19 @@ def test_later_agreeing_competent_evidence_is_preserved_after_closed_disposition
 
     assert get_closed_outcome_disposition(permit_signature=sig, action_binding_hash=binding) == "NON_FORMATION"
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
+
+
+def test_two_exercises_cannot_each_receive_fresh_capacity_from_same_governing_mandate():
+    """IC-FAIL-005 failure-first: aggregate mandate capacity must span authority exercises, not reset per exercise."""
+    from dataclasses import replace
+    from decimal import Decimal
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    req_a = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-AGGREGATE-A")
+    req_b = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-AGGREGATE-B")
+
+    first = prepare_payment_execution(req_a, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req_a.requested_execution_time)
+
+    import pytest
+    with pytest.raises(ValueError):
+        prepare_payment_execution(req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req_b.requested_execution_time)
