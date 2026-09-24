@@ -1221,3 +1221,40 @@ def test_authoritative_usage_window_rollover_can_establish_fresh_normative_capac
     )
     assert second is not None
     assert second.usage_policy_id != first.usage_policy_id
+
+
+def test_usage_window_rollover_does_not_refund_unresolved_prior_window_authority():
+    """Second-order: rollover must not turn prior-window unresolved authority into reusable authority."""
+    from dataclasses import replace
+    from decimal import Decimal
+    from app.engines.authority_usage import quarantine_authority_usage, get_usage_reservation
+    from app.engines.institutional_authority import advance_usage_window_for_test
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    req_a = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-WINDOW-UNRESOLVED-A")
+    req_b = replace(req, amount=Decimal("600000.00"), institutional_operation_id="PAYMENT-WINDOW-UNRESOLVED-B")
+
+    first = prepare_payment_execution(
+        req_a, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_a.requested_execution_time,
+    )
+    quarantine_authority_usage(
+        first.usage_reservation_id,
+        evidence_ids=("UNRESOLVED:PRIOR-WINDOW-COMMITMENT",),
+    )
+    assert get_usage_reservation(first.usage_reservation_id).state.value == "quarantined"
+
+    advance_usage_window_for_test()
+
+    second = prepare_payment_execution(
+        req_b, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req_b.requested_execution_time,
+    )
+    assert second is not None
+
+    # The new window may have its own normative capacity, but rollover must not
+    # mutate/refund the unresolved reservation attributed to the prior window.
+    prior = get_usage_reservation(first.usage_reservation_id)
+    assert prior.state.value == "quarantined"
+    assert prior.reserved_amount_or_units == Decimal("600000.00")
+    assert second.usage_policy_id != first.usage_policy_id
