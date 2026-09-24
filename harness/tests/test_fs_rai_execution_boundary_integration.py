@@ -289,3 +289,33 @@ def test_protected_consequence_cannot_form_if_prepared_usage_reservation_is_not_
         "USAGE CAUSALITY FAILURE: protected consequence formed even though the "
         "exact prepared authority-usage reservation was no longer RESERVED"
     )
+
+
+def test_successful_protected_commitment_consumes_the_exact_authority_usage_reservation():
+    """Failure-first: commitment must disposition the exact supporting usage."""
+    from app.engines.authority_usage import get_usage_reservation
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+    before = get_usage_reservation(prepared.usage_reservation_id)
+    assert before is not None and before.state.value == "reserved"
+
+    outcome = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=action_binding_hash(_attempt(req)),
+    )
+    assert outcome == "CONSEQUENCE_FORMED"
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "consumed", (
+        "USAGE DISPOSITION FAILURE: protected commitment formed but the exact "
+        "supporting authority-usage reservation remained unconsumed"
+    )
