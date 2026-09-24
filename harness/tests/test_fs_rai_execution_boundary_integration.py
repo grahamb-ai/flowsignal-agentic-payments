@@ -666,3 +666,34 @@ def test_quarantine_resolution_rejects_competent_evidence_with_opposite_outcome(
     after = get_usage_reservation(prepared.usage_reservation_id)
     assert after is not None
     assert after.state.value == "quarantined"
+
+
+def test_competent_outcome_evidence_identity_cannot_be_rebound():
+    """Evidence identity must be immutable across execution and outcome bindings."""
+    import pytest
+    from app.engines.outcome_evidence import (
+        CompetentOutcomeEvidence,
+        register_competent_outcome_evidence,
+    )
+
+    evidence_id = "EVIDENCE:IMMUTABLE-IDENTITY-001"
+    original = CompetentOutcomeEvidence(
+        evidence_id=evidence_id,
+        permit_signature="PERMIT:ORIGINAL",
+        action_binding_hash="ACTION:ORIGINAL",
+        outcome="NON_FORMATION",
+        authoritative_source_id="REFERENCE-CONSEQUENCE-OBSERVER-001",
+        source_competence_id="REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+    )
+    register_competent_outcome_evidence(original)
+
+    rebound = CompetentOutcomeEvidence(
+        evidence_id=evidence_id,
+        permit_signature="PERMIT:REBOUND",
+        action_binding_hash="ACTION:REBOUND",
+        outcome="FORMATION",
+        authoritative_source_id="REFERENCE-CONSEQUENCE-OBSERVER-001",
+        source_competence_id="REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
+    )
+    with pytest.raises(ValueError, match="identity|bound|evidence"):
+        register_competent_outcome_evidence(rebound)
