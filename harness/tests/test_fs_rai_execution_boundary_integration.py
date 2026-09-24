@@ -717,3 +717,21 @@ def test_disagreeing_registered_outcomes_preserve_quarantine():
     with pytest.raises(ValueError):
         resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=(no_id,), permit_signature=sig, action_binding_hash=binding)
     assert get_usage_reservation(prepared.usage_reservation_id).state.value == "quarantined"
+
+
+def test_duplicate_consistent_competent_outcome_evidence_can_resolve_quarantine():
+    """Positive control: multiple agreeing competent observations must not create false conflict."""
+    from app.engines.authority_usage import get_usage_reservation, quarantine_authority_usage, resolve_quarantined_authority_usage
+    from app.engines.outcome_evidence import CompetentOutcomeEvidence, register_competent_outcome_evidence
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1", resolved_at=req.requested_execution_time)
+    quarantine_authority_usage(prepared.usage_reservation_id, evidence_ids=("UNRESOLVED:LOCAL-INTERRUPTION",))
+    sig = "REFERENCE-PERMIT:AGREEING-EVIDENCE"
+    binding = action_binding_hash(_attempt(req))
+    first_id, second_id = "EVIDENCE:NOT-FORMED:AGREE-1", "EVIDENCE:NOT-FORMED:AGREE-2"
+    for evidence_id in (first_id, second_id):
+        register_competent_outcome_evidence(CompetentOutcomeEvidence(evidence_id, sig, binding, "NON_FORMATION", "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"))
+
+    resolve_quarantined_authority_usage(prepared.usage_reservation_id, resolution="NON_FORMATION", evidence_ids=(first_id,), permit_signature=sig, action_binding_hash=binding)
+    assert get_usage_reservation(prepared.usage_reservation_id).state.value == "released"
