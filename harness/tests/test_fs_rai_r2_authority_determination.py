@@ -145,3 +145,32 @@ def test_scope_from_one_context_cannot_be_silently_rebound_to_other_derivation()
             authority_exercise=exercise,
             execution_attempt=attempt,
         )
+
+
+def test_retry_preserves_stable_institutional_operation_identity_across_attempt_materialisation():
+    """One institutional payment must remain the same act across retry attempts.
+
+    Attempt/materialisation identity may change; the institutional operation
+    identity must not. This deliberately tests the separation rather than
+    forcing attempt-specific route/executor identity to become the business
+    operation identity.
+    """
+    req, _, _ = _resolved()
+    first = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="EXEC-1",
+        authority_exercise_id="EX-STABLE-OP",
+        execution_attempt_id="ATT-STABLE-OP-1",
+    )
+    retry = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="EXEC-1",
+        authority_exercise_id="EX-STABLE-OP",
+        execution_attempt_id="ATT-STABLE-OP-2",
+    )
+
+    assert first.operation_id != retry.operation_id
+    assert first.materialization_id != retry.materialization_id
+    assert first.institutional_operation_id == retry.institutional_operation_id
