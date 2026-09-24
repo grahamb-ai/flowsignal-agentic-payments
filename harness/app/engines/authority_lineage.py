@@ -121,6 +121,12 @@ def create_execution_attempt(
         return attempt
 
 
+def get_execution_attempt(execution_attempt_id: str) -> ExecutionAttemptLineage | None:
+    """Return the immutable registered attempt for final-bind correspondence checks."""
+    with _LOCK:
+        return _ATTEMPTS.get(execution_attempt_id)
+
+
 def bind_attempt_to_operation(
     *,
     authority_exercise_id: str,
