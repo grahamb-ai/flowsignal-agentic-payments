@@ -13,7 +13,9 @@ from app.engines.consequence_receipt import (
     create_consequence_outcome_receipt,
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
-from app.engines.rai_execution_registry import verify_rai_execution_binding
+from app.engines.rai_execution_registry import get_rai_execution_binding, verify_rai_execution_binding
+from app.engines.authority_domain import AuthorityUsageState
+from app.engines.authority_usage import get_usage_reservation
 from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
 from app.engines.rollback_anchor_store import claim_execution_anchor_once
 from app.engines.institutional_authority import get_authority_snapshot
@@ -80,6 +82,18 @@ def execute_protected_consequence(
         action_binding_hash=attempted_action_binding_hash,
     ):
         return "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
+
+    binding = get_rai_execution_binding(permit.signature)
+    if binding is None:
+        return "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
+    usage_reservation = get_usage_reservation(binding.usage_reservation_id)
+    if (
+        usage_reservation is None
+        or usage_reservation.state != AuthorityUsageState.RESERVED
+        or usage_reservation.authority_exercise_id != permit.rai_authority_exercise_id
+        or usage_reservation.execution_attempt_id != permit.rai_execution_attempt_id
+    ):
+        return "DENIED_AUTHORITY_USAGE_RESERVATION_INVALID"
 
     if permit.valid_until is None:
         return "DENIED_EXECUTION_PERMIT_EXPIRY_MISSING"
