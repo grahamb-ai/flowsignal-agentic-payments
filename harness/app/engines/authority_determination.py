@@ -108,9 +108,27 @@ def materialise_protected_operation(
         "authority_exercise_id": authority_exercise_id,
         "execution_attempt_id": execution_attempt_id,
     }
+    # Stable institutional identity deliberately excludes execution-attempt,
+    # route and executor materialisation details. Those remain bound separately
+    # by operation_id/materialization_id and the execution lineage.
+    institutional_payload = {
+        "operation_class": "treasury.payment",
+        "principal_id": req.principal_id,
+        "actor_id": req.actor_id,
+        "action": req.action,
+        "target": req.target,
+        "source_account": req.source_account,
+        "beneficiary_id": req.beneficiary,
+        "amount": req.amount,
+        "currency": req.currency,
+        "purpose": req.purpose,
+        "mandate_id": req.mandate_id,
+    }
+    institutional_operation_id = _stable_id("INST-OP", institutional_payload)
     operation_id = _stable_id("OP", payload)
     return ProtectedOperation(
         operation_id=operation_id,
+        institutional_operation_id=institutional_operation_id,
         operation_class="treasury.payment",
         principal_id=req.principal_id,
         actor_id=req.actor_id,
