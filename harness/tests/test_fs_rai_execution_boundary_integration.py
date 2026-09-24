@@ -358,3 +358,42 @@ def test_failure_after_unresolved_commitment_entry_does_not_leave_usage_merely_r
         "failed before represented formation, but the exact authority usage "
         "reservation remained available as RESERVED rather than QUARANTINED"
     )
+
+
+def test_commitment_interval_failure_must_not_claim_competent_nonformation():
+    """Failure-first: local interruption is not proof of consequence non-formation.
+
+    After durable permit consumption and unresolved outcome creation, failure of
+    the local formation hook establishes uncertainty unless competent external
+    evidence proves non-formation. The stored outcome must not overclaim.
+    """
+    import pytest
+    from app.engines.consequence_outcome_store import get_consequence_outcome
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+    attempted_hash = action_binding_hash(_attempt(req))
+
+    def fail_inside_commitment_interval():
+        raise RuntimeError("synthetic unresolved commitment interval failure")
+
+    with pytest.raises(RuntimeError, match="synthetic unresolved"):
+        execute_protected_consequence(
+            permit=permit,
+            attempted_action_binding_hash=attempted_hash,
+            before_formation_hook=fail_inside_commitment_interval,
+        )
+
+    stored = get_consequence_outcome(permit.signature, attempted_hash)
+    assert stored is not None
+    assert stored.outcome == "CONSEQUENCE_OUTCOME_UNRESOLVED", (
+        "OUTCOME EVIDENCE FAILURE: local commitment-interval interruption was "
+        "recorded as competent non-formation rather than preserved as unresolved"
+    )
