@@ -112,3 +112,71 @@ def test_legacy_gateway_cannot_form_protected_consequence_without_rai_chain():
         "ROUTE CLOSURE FAILURE: legacy gateway formed the protected consequence "
         "without the mandatory RAI determination/final-bind chain"
     )
+
+
+def test_signed_rai_labels_without_registered_final_bind_cannot_form_consequence():
+    """Second-order route-closure challenge: labels are not provenance.
+
+    A caller that can reach the low-level permit signer must not be able to make
+    an execution capability acceptable merely by supplying plausible RAI IDs.
+    """
+    from app.engines.authority_store import get_authority_state_version
+    from app.engines.institutional_authority import get_authority_snapshot
+    from app.engines.permit_authority import _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    now = datetime.now(timezone.utc)
+    req = replace(
+        req,
+        requested_execution_time=now,
+        screening_captured_at=now,
+        mandate_valid_until=now + timedelta(hours=1),
+    )
+    attempt = ExecutionAttempt(
+        actor_id=req.actor_id,
+        principal_id=req.principal_id,
+        action=req.action,
+        target=req.target,
+        amount=req.amount,
+        currency=req.currency,
+        source_account=req.source_account,
+        beneficiary=req.beneficiary,
+        purpose=req.purpose,
+        mandate_id=req.mandate_id,
+        attempted_at=now,
+    )
+    attempted_hash = action_binding_hash(attempt)
+    snapshot = get_authority_snapshot(req.mandate_id)
+    assert snapshot is not None
+
+    permit = issue_execution_permit(
+        authority_receipt_id="FORGED-RAI-PROVENANCE",
+        action_binding_hash=attempted_hash,
+        authority_state_version=get_authority_state_version(),
+        authority_snapshot_id=snapshot.snapshot_id,
+        authority_subject_principal_id=snapshot.mandate.principal_id,
+        authority_subject_mandate_id=snapshot.mandate.mandate_id,
+        authority_epoch_id=snapshot.authority_epoch_id,
+        authority_fence_scope_key=snapshot.authority_fence_scope_key,
+        authority_fence=snapshot.authority_fence,
+        authoritative_source_id=snapshot.authoritative_source_id,
+        source_competence_root_id=snapshot.source_competence_root_id,
+        authority_semantics_version=snapshot.semantics.version,
+        authority_semantics_definition_id=snapshot.semantics.definition_id,
+        authority_semantics_source_id=snapshot.semantics.source_id,
+        valid_until=(now + timedelta(seconds=60)).isoformat(),
+        rai_determination_id="DET-ATTACKER-SUPPLIED",
+        rai_constraint_id="CONSTRAINT-ATTACKER-SUPPLIED",
+        rai_protected_operation_id="OP-ATTACKER-SUPPLIED",
+        rai_authority_exercise_id="EX-ATTACKER-SUPPLIED",
+        rai_execution_attempt_id="ATT-ATTACKER-SUPPLIED",
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
+    )
+    assert permit is not None
+    assert permit.rai_determination_id is not None
+
+    outcome = execute_protected_consequence(
+        permit=permit,
+        attempted_action_binding_hash=attempted_hash,
+    )
+    assert outcome == "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
