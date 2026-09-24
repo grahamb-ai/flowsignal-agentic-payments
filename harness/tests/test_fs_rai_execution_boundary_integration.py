@@ -1184,13 +1184,7 @@ def test_caller_cannot_self_issue_fresh_aggregate_window_to_replenish_mandate_ca
         window_id="CALLER-WINDOW-002",
         disposition_rule_id="NORM-PAY-001:aggregate-amount:v1",
     )
-    register_usage_policy(forged_policy)
-
-    with pytest.raises(ValueError):
-        reserve_authority_usage(
-            reservation_id="USAGE-RES:CALLER-WINDOW-002",
-            usage_policy_id=forged_policy.usage_policy_id,
-            authority_exercise_id=first.determination.authority_exercise_id,
-            execution_attempt_id=first.determination.execution_attempt_id,
-            amount_or_units=Decimal("600000.00"),
-        )
+    # The refusal now occurs at the earlier and stronger boundary: an
+    # untrusted caller cannot register the fresh economic scope at all.
+    with pytest.raises(ValueError, match="authoritative derivation"):
+        register_usage_policy(forged_policy)
