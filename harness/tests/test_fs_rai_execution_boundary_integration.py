@@ -319,3 +319,42 @@ def test_successful_protected_commitment_consumes_the_exact_authority_usage_rese
         "USAGE DISPOSITION FAILURE: protected commitment formed but the exact "
         "supporting authority-usage reservation remained unconsumed"
     )
+
+
+def test_failure_after_unresolved_commitment_entry_does_not_leave_usage_merely_reserved():
+    """Failure-first: uncertainty after commitment entry must quarantine usage.
+
+    Once the protected boundary has durably consumed the permit and opened an
+    unresolved outcome, an exception before represented formation must not leave
+    the exact authority usage reservation looking freely RESERVED.
+    """
+    import pytest
+    from app.engines.authority_usage import get_usage_reservation
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req, prepared, bind_at=req.requested_execution_time
+    )
+    assert permit is not None
+
+    def fail_inside_commitment_interval():
+        raise RuntimeError("synthetic failure after unresolved commitment entry")
+
+    with pytest.raises(RuntimeError, match="synthetic failure"):
+        execute_protected_consequence(
+            permit=permit,
+            attempted_action_binding_hash=action_binding_hash(_attempt(req)),
+            before_formation_hook=fail_inside_commitment_interval,
+        )
+
+    after = get_usage_reservation(prepared.usage_reservation_id)
+    assert after is not None
+    assert after.state.value == "quarantined", (
+        "USAGE UNCERTAINTY FAILURE: commitment interval was entered and execution "
+        "failed before represented formation, but the exact authority usage "
+        "reservation remained available as RESERVED rather than QUARANTINED"
+    )
