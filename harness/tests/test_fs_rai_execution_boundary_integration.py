@@ -778,7 +778,7 @@ def test_explicit_final_supersession_can_resolve_prior_provisional_disagreement(
         finality_state="PROVISIONAL",
     )
     provisional_not_formed = CompetentOutcomeEvidence(
-        "EVIDENCE:PROVISIONAL:NOT-FORMED", sig, binding, "NON_FORMATION",
+        "EVIDENCE:PROVISIONAL:NOT-FORMED:INCOMPLETE-SET", sig, binding, "NON_FORMATION",
         "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001",
         finality_state="PROVISIONAL",
     )
@@ -885,7 +885,7 @@ def test_final_supersession_cannot_omit_same_outcome_member_of_prior_contradicto
     source, competence = "REFERENCE-CONSEQUENCE-OBSERVER-001", "REFERENCE-OUTCOME-COMPETENCE-ROOT-001"
     a = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:A", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
     b = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:FORMED:B", sig, binding, "FORMATION", source, competence, finality_state="PROVISIONAL")
-    n = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:NOT-FORMED", sig, binding, "NON_FORMATION", source, competence, finality_state="PROVISIONAL")
+    n = CompetentOutcomeEvidence("EVIDENCE:PROVISIONAL:NOT-FORMED:INCOMPLETE-SET", sig, binding, "NON_FORMATION", source, competence, finality_state="PROVISIONAL")
     for evidence in (a, b, n):
         register_competent_outcome_evidence(evidence)
     final = CompetentOutcomeEvidence(
