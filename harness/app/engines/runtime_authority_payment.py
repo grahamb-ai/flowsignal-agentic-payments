@@ -24,8 +24,11 @@ from app.engines.authority_domain import (
 )
 from app.engines.authority_lineage import create_authority_exercise, create_execution_attempt
 from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
-from app.engines.authority_usage import register_usage_policy,
-    _POLICY_REGISTRATION_CAPABILITY, reserve_authority_usage
+from app.engines.authority_usage import (
+    _POLICY_REGISTRATION_CAPABILITY,
+    register_usage_policy,
+    reserve_authority_usage,
+)
 from app.engines.final_bind import FinalBindResult, revalidate_at_final_bind
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.authority_store import get_authority_state_version
