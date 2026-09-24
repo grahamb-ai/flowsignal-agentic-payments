@@ -108,6 +108,7 @@ def test_slice_a_models_are_immutable_and_identity_bearing():
     )
     operation = ProtectedOperation(
         operation_id="OP-1",
+        institutional_operation_id="INST-OP-1",
         operation_class="treasury.payment",
         principal_id="P-1",
         actor_id="ACTOR-1",
