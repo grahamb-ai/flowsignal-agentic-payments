@@ -38,7 +38,11 @@ def _active_amount(scope_key: str) -> Decimal:
     total = Decimal("0")
     for reservation_id in _SCOPE_RESERVATIONS.get(scope_key, set()):
         reservation = _RESERVATIONS[reservation_id]
-        if reservation.state in (AuthorityUsageState.RESERVED, AuthorityUsageState.CONSUMED):
+        if reservation.state in (
+            AuthorityUsageState.RESERVED,
+            AuthorityUsageState.CONSUMED,
+            AuthorityUsageState.QUARANTINED,
+        ):
             value = reservation.reserved_amount_or_units
             if value is not None:
                 total += Decimal(str(value))
