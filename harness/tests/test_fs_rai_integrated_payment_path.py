@@ -8,6 +8,19 @@ from harness.runner import load_scenario
 SCENARIO = Path(__file__).parents[1] / "harness" / "scenarios" / "AP-001_allow.json"
 
 
+import pytest
+from app.engines.authority_usage import reset_authority_usage_reference_state_for_test
+
+
+@pytest.fixture(autouse=True)
+def _isolate_authority_usage_reference_state():
+    # Independent tests must not inherit process-local aggregate reservations.
+    # Multiple exercises inside one test still share the same state.
+    reset_authority_usage_reference_state_for_test()
+    yield
+    reset_authority_usage_reference_state_for_test()
+
+
 def test_integrated_payment_path_reaches_final_bind_with_exact_lineage():
     req = load_scenario(SCENARIO, rebase_to_now=False)
     prepared = prepare_payment_execution(
