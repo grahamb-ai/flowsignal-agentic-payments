@@ -20,6 +20,8 @@ class CompetentOutcomeEvidence:
     outcome: str
     authoritative_source_id: str
     source_competence_id: str
+    finality_state: str = "FINAL"
+    supersedes_evidence_ids: tuple[str, ...] = ()
 
 
 _LOCK = RLock()
@@ -34,7 +36,19 @@ def register_competent_outcome_evidence(evidence: CompetentOutcomeEvidence) -> N
         raise ValueError("outcome evidence source is not competent")
     if evidence.outcome not in ("FORMATION", "NON_FORMATION"):
         raise ValueError("unsupported outcome evidence")
+    if evidence.finality_state not in ("PROVISIONAL", "FINAL"):
+        raise ValueError("unsupported outcome evidence finality")
     with _LOCK:
+        for predecessor_id in evidence.supersedes_evidence_ids:
+            predecessor = _EVIDENCE.get(predecessor_id)
+            if predecessor is None:
+                raise ValueError("superseded outcome evidence is unknown")
+            if predecessor.permit_signature != evidence.permit_signature or predecessor.action_binding_hash != evidence.action_binding_hash:
+                raise ValueError("supersession must remain within the exact execution")
+            if predecessor.finality_state != "PROVISIONAL":
+                raise ValueError("only provisional outcome evidence may be superseded")
+        if evidence.supersedes_evidence_ids and evidence.finality_state != "FINAL":
+            raise ValueError("only final outcome evidence may supersede prior observations")
         existing = _EVIDENCE.get(evidence.evidence_id)
         if existing is not None and existing != evidence:
             raise ValueError("outcome evidence identity already bound differently")
@@ -60,8 +74,18 @@ def verify_competent_outcome_evidence(
         if not applicable:
             return False
 
+        superseded_ids = {
+            predecessor_id
+            for evidence in applicable
+            if evidence.finality_state == "FINAL"
+            for predecessor_id in evidence.supersedes_evidence_ids
+        }
+        applicable = [evidence for evidence in applicable if evidence.evidence_id not in superseded_ids]
+        if not applicable:
+            return False
+
         # Resolution cannot be obtained by selecting only the favourable member
-        # of a disagreeing competent evidence set for the exact execution.
+        # of a disagreeing competent, non-superseded evidence set.
         applicable_outcomes = {evidence.outcome for evidence in applicable}
         if len(applicable_outcomes) != 1 or outcome not in applicable_outcomes:
             return False
