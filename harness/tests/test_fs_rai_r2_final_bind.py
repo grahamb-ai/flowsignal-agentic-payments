@@ -1023,3 +1023,116 @@ def test_r6_genuine_causal_grant_cannot_authorise_substituted_determination_and_
         "R6 causal-grant correspondence failure: a genuine final-bind grant "
         "authorised substituted determination/constraint identifiers"
     )
+
+
+def test_r6_wrong_causal_grant_correspondence_does_not_destroy_valid_grant():
+    """R6 availability seam: a mismatched claim must not burn a genuine grant.
+
+    One genuine successful final-bind grant is first presented with deliberately
+    wrong decision correspondence. That presentation must fail, but the same grant
+    must remain usable exactly once with its genuine final-bind correspondence.
+    """
+    from dataclasses import replace
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    import pytest
+
+    from app.engines.authority_store import get_authority_state_version
+    from app.engines.authority_usage import reset_authority_usage_reference_state_for_test
+    from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+    from app.engines.final_bind_provenance import (
+        _FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+        establish_final_bind_provenance,
+    )
+    from app.engines.institutional_authority import get_authority_snapshot
+    from app.engines.permit_authority import _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+    from app.engines.runtime_authority_payment import final_bind_payment, prepare_payment_execution
+
+    reset_authority_usage_reference_state_for_test()
+    req = replace(
+        load_scenario(SCENARIO, rebase_to_now=False),
+        amount=Decimal("100000.00"),
+        institutional_operation_id="R6-CAUSAL-GRANT-MISMATCH-PRESERVATION",
+    )
+    prepared = prepare_payment_execution(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    final = final_bind_payment(req, prepared, bind_at=req.requested_execution_time)
+    assert final.status == "PERMITTED"
+    assert final.causal_grant_id is not None
+
+    attempted_hash = action_binding_hash(
+        ExecutionAttempt(
+            actor_id=req.actor_id,
+            principal_id=req.principal_id,
+            action=req.action,
+            target=req.target,
+            amount=req.amount,
+            currency=req.currency,
+            source_account=req.source_account,
+            beneficiary=req.beneficiary,
+            beneficiary_account_reference=req.beneficiary_account_reference,
+            purpose=req.purpose,
+            mandate_id=req.mandate_id,
+            attempted_at=datetime.now(timezone.utc),
+        )
+    )
+    snapshot = get_authority_snapshot(req.mandate_id)
+    assert snapshot is not None
+
+    permit = issue_execution_permit(
+        authority_receipt_id="R6-GRANT-MISMATCH-PRESERVATION",
+        action_binding_hash=attempted_hash,
+        authority_state_version=get_authority_state_version(),
+        authority_snapshot_id=snapshot.snapshot_id,
+        authority_subject_principal_id=snapshot.mandate.principal_id,
+        authority_subject_mandate_id=snapshot.mandate.mandate_id,
+        authority_epoch_id=snapshot.authority_epoch_id,
+        authority_fence_scope_key=snapshot.authority_fence_scope_key,
+        authority_fence=snapshot.authority_fence,
+        authoritative_source_id=snapshot.authoritative_source_id,
+        source_competence_root_id=snapshot.source_competence_root_id,
+        authority_semantics_version=snapshot.semantics.version,
+        authority_semantics_definition_id=snapshot.semantics.definition_id,
+        authority_semantics_source_id=snapshot.semantics.source_id,
+        valid_until=prepared.constraint.valid_until.isoformat(),
+        rai_determination_id=prepared.determination.determination_id,
+        rai_constraint_id=prepared.constraint.constraint_id,
+        rai_protected_operation_id=prepared.operation.operation_id,
+        rai_authority_exercise_id=prepared.determination.authority_exercise_id,
+        rai_execution_attempt_id=prepared.determination.execution_attempt_id,
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
+    )
+    assert permit is not None
+
+    with pytest.raises(ValueError, match="successful causal final-bind grant required"):
+        establish_final_bind_provenance(
+            determination_id="R6-WRONG-DETERMINATION",
+            constraint_id=prepared.constraint.constraint_id,
+            protected_operation_id=prepared.operation.operation_id,
+            authority_exercise_id=prepared.determination.authority_exercise_id,
+            execution_attempt_id=prepared.determination.execution_attempt_id,
+            action_binding_hash=attempted_hash,
+            usage_reservation_id=prepared.usage_reservation_id,
+            permit_signature=permit.signature,
+            causal_grant_id=final.causal_grant_id,
+            issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+        )
+
+    provenance = establish_final_bind_provenance(
+        determination_id=prepared.determination.determination_id,
+        constraint_id=prepared.constraint.constraint_id,
+        protected_operation_id=prepared.operation.operation_id,
+        authority_exercise_id=prepared.determination.authority_exercise_id,
+        execution_attempt_id=prepared.determination.execution_attempt_id,
+        action_binding_hash=attempted_hash,
+        usage_reservation_id=prepared.usage_reservation_id,
+        permit_signature=permit.signature,
+        causal_grant_id=final.causal_grant_id,
+        issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+    )
+    assert provenance.determination_id == prepared.determination.determination_id
