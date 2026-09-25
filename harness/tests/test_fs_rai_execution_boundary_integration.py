@@ -1418,3 +1418,17 @@ def test_request_presented_target_cannot_define_effective_authority_scope():
     # semantics/evidence.
     with pytest.raises(AuthorityResolutionError, match="target|scope|authoritative"):
         resolve_payment_authority(forged, resolved_at=forged.requested_execution_time)
+
+
+def test_request_presented_purpose_cannot_define_effective_authority_scope():
+    """IC-FAIL-003 failure-first: proposal purpose is not independent authority evidence."""
+    from dataclasses import replace
+    from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    forged = replace(req, purpose="ATTACKER-CONTROLLED-PURPOSE")
+
+    # A caller-supplied purpose must not become an authority-scope dimension
+    # unless governing authority independently permits that purpose.
+    with pytest.raises(AuthorityResolutionError, match="purpose|scope|authoritative"):
+        resolve_payment_authority(forged, resolved_at=forged.requested_execution_time)
