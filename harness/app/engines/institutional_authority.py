@@ -44,6 +44,7 @@ _EPOCH_ID = "AUTH-EPOCH-001"
 _USAGE_WINDOW_ID = "DAY-001"
 _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
+_USAGE_WINDOW_TRANSITION_CAPABILITY = object()
 _SEMANTICS = AuthoritySemantics(
     version="NORM-PAY-001-v1.2",
     definition_id="FS-RAI-FX-001:NORM-PAY-001:v1.2",
@@ -148,7 +149,9 @@ def advance_usage_window_for_test() -> str:
         return _USAGE_WINDOW_ID
 
 
-def set_usage_window_for_test(window_id: str) -> str:
+def set_usage_window_for_test(
+    window_id: str, *, transition_capability: object | None = None
+) -> str:
     """Apply a presented synthetic usage-window transition with monotonic validation.
 
     Test/reference-harness support only. Canonical DAY-NNN window identities may
@@ -156,6 +159,8 @@ def set_usage_window_for_test(window_id: str) -> str:
     authoritative usage-window state.
     """
     global _USAGE_WINDOW_ID, _FENCE
+    if transition_capability is not _USAGE_WINDOW_TRANSITION_CAPABILITY:
+        raise ValueError("authoritative usage window transition required")
     if not window_id:
         raise ValueError("usage window identity required")
     with _LOCK:
