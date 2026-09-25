@@ -65,3 +65,33 @@ or mismatched correspondence should return false without removing the stored gra
 Only a matching claim should remove the grant and succeed.
 
 The existing one-shot property must remain intact after remediation.
+
+
+## Remediation
+
+Grant consumption was changed so that the stored grant is inspected and compared
+under the existing lock before it is removed. A missing or mismatched claim now
+returns false without consuming the grant. Only exact correspondence deletes the
+grant and succeeds.
+
+Remediation commit:
+
+- `ef911765ebcf1f756a576742db8d644647a7aac8` — consume causal grant only on exact correspondence.
+
+## Post-remediation verification
+
+The preserved mismatch case now rejects the deliberately incorrect presentation
+without destroying the genuine grant. The subsequent exact presentation succeeds,
+while the existing single-use regression continues to require that a successfully
+consumed grant cannot be reused.
+
+Full regression:
+
+```
+117 passed in 0.67s
+```
+
+This closes the specific reference-harness availability weakness demonstrated by
+this evidence. It does not extend the claim to production persistence,
+multi-process coordination, crash recovery, distributed atomicity or external
+credential storage.
