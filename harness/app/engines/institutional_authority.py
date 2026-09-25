@@ -45,6 +45,8 @@ _USAGE_WINDOW_ID = "DAY-001"
 _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
 _USAGE_WINDOW_TRANSITION_CAPABILITY = object()
+_COMPATIBILITY_CUT_REGISTRATION_CAPABILITY = object()
+_COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str]] = {("1", "1")}
 _SEMANTICS = AuthoritySemantics(
     version="NORM-PAY-001-v1.2",
     definition_id="FS-RAI-FX-001:NORM-PAY-001:v1.2",
@@ -204,11 +206,12 @@ def get_authority_compatibility_cut(
     if snapshot is None:
         return None
     mandate_version = f"{snapshot.authority_epoch_id}:{snapshot.authority_fence}"
-    # The canonical reference cut currently admits the frozen baseline source
-    # generations only. Independently advanced sources require a newly
-    # established cut rather than being silently combined.
-    if actor_source_version != "1" or operational_source_version != "1":
-        return None
+    # Compatibility is explicit reference state. Source generations do not
+    # become mutually compatible merely because they are individually current
+    # or can be named in a version vector.
+    with _LOCK:
+        if (actor_source_version, operational_source_version) not in _COMPATIBLE_SOURCE_GENERATIONS:
+            return None
     payload = {
         "authority_epoch_id": snapshot.authority_epoch_id,
         "mandate_source_version": mandate_version,
@@ -223,3 +226,24 @@ def get_authority_compatibility_cut(
         actor_source_version=actor_source_version,
         operational_source_version=operational_source_version,
     )
+
+
+def register_authority_compatibility_cut_for_test(
+    *,
+    actor_source_version: str,
+    operational_source_version: str,
+    registration_capability: object | None = None,
+) -> None:
+    """Establish a bounded reference compatibility relation for source generations.
+
+    Test/reference-harness support only. This models a competent compatibility
+    assertion separately from the source versions themselves.
+    """
+    if registration_capability is not _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY:
+        raise ValueError("authoritative compatibility-cut registration required")
+    if not actor_source_version or not operational_source_version:
+        raise ValueError("source generation identity required")
+    with _LOCK:
+        _COMPATIBLE_SOURCE_GENERATIONS.add(
+            (actor_source_version, operational_source_version)
+        )
