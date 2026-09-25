@@ -227,3 +227,42 @@ def test_competent_bounded_transition_can_advance_authority_fence():
     assert advanced == before.authority_fence + 1
     assert after.authority_fence == before.authority_fence + 1
     assert after.snapshot_id != before.snapshot_id
+
+
+def test_fence_transition_authority_must_be_scoped_to_authority_domain():
+    """IC-FAIL-008 second-order attack: a global transition key is not scoped authority.
+
+    A transition authority valid for one institutional authority domain must not
+    be sufficient to move a different domain merely because both share the same
+    process-local fence mechanism.
+    """
+    from app.engines.institutional_authority import (
+        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        advance_authority_fence,
+        get_authority_snapshot,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    # The current capability carries no principal/mandate/fence-scope identity.
+    # Present it while explicitly claiming a different authority domain. A
+    # conforming transition boundary must reject the mismatch rather than treat
+    # possession of one global object as authority over every scope.
+    foreign_scope = "institution-ATTACKER:MANDATE-ATTACKER"
+
+    try:
+        advance_authority_fence(
+            transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+            authority_fence_scope_key=foreign_scope,
+        )
+    except (PermissionError, ValueError, TypeError):
+        pass
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert after.authority_fence == before.authority_fence, (
+        "IC-FAIL-008: transition authority was not bound to the authority domain; "
+        "a foreign-scope transition changed the canonical fence"
+    )
+    assert after.snapshot_id == before.snapshot_id
