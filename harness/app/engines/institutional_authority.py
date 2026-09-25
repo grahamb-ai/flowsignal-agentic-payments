@@ -51,11 +51,28 @@ _USAGE_WINDOW_TRANSITION_CAPABILITY = object()
 @dataclass(frozen=True)
 class AuthorityFenceTransitionCapability:
     authority_fence_scope_key: str
+    source_fence: int
 
 
 _AUTHORITY_FENCE_TRANSITION_CAPABILITY = AuthorityFenceTransitionCapability(
-    authority_fence_scope_key="institution-001:MANDATE-TREASURY-001"
+    authority_fence_scope_key="institution-001:MANDATE-TREASURY-001",
+    source_fence=1,
 )
+
+
+def issue_authority_fence_transition_capability_for_test(
+    authority_fence_scope_key: str,
+) -> AuthorityFenceTransitionCapability:
+    """Issue bounded reference transition authority for the current fence state.
+
+    Test/reference-harness support only. This models competent establishment of
+    transition authority; it is not a production credential mechanism.
+    """
+    with _LOCK:
+        return AuthorityFenceTransitionCapability(
+            authority_fence_scope_key=authority_fence_scope_key,
+            source_fence=_FENCE,
+        )
 _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY = object()
 _COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str, str]] = {("MANDATE-SOURCE-001", "1", "1")}
 _SEMANTICS = AuthoritySemantics(
@@ -165,11 +182,11 @@ def advance_authority_fence(
     global _FENCE
     if not isinstance(transition_capability, AuthorityFenceTransitionCapability):
         raise PermissionError("authoritative fence transition required")
-    if transition_capability is not _AUTHORITY_FENCE_TRANSITION_CAPABILITY:
-        raise PermissionError("authoritative fence transition required")
     if transition_capability.authority_fence_scope_key != authority_fence_scope_key:
         raise PermissionError("authority fence transition scope mismatch")
     with _LOCK:
+        if transition_capability.source_fence != _FENCE:
+            raise PermissionError("authority fence transition source state stale")
         _FENCE += 1
         return _FENCE
 
