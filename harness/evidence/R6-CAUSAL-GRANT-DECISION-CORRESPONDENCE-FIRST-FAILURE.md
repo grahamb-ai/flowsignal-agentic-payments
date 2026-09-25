@@ -75,3 +75,43 @@ establishment must require those same identifiers when consuming the grant.
 
 Do not solve this by adding a caller-supplied boolean or another independently
 selectable label.
+
+
+## Remediation
+
+The preserved failure was remediated narrowly by extending the successful
+final-bind causal grant correspondence to include the exact:
+
+- determination ID;
+- constraint ID;
+- protected operation ID;
+- authority exercise ID; and
+- execution attempt ID.
+
+Provenance establishment now has to present all five exact identifiers when it
+consumes the one-shot causal grant.
+
+Relevant remediation commits:
+
+- `1d8ca3efbc672f120c379b39c412f612f282b123` — bind causal grant to exact decision artifacts.
+- `09671e40c74bb48e89f51b0b44d532adfc02f4c6` — require exact decision correspondence during provenance establishment.
+- `8af1bb072fec2b276bb0a2c9b0446732a653d9df` — retain the original challenge while accepting rejection at provenance establishment as the strengthened defensive outcome.
+
+## Post-remediation verification
+
+The same substituted determination/constraint case no longer reached the protected
+consequence boundary. Provenance establishment rejected it with:
+
+```
+ValueError: successful causal final-bind grant required
+```
+
+The full regression then completed:
+
+```
+116 passed in 0.56s
+```
+
+This demonstrates closure of the specific decision-artifact substitution route
+captured by this evidence. It does not assert global closure of R6 or production
+persistence, IAM, concurrency, crash-recovery or distributed-system properties.
