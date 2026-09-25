@@ -53,9 +53,7 @@ def consume_final_bind_causal_grant(
     """Consume a one-shot grant emitted only by successful final-bind."""
     if grant_id is None:
         return False
-    with _CAUSAL_GRANT_LOCK:
-        expected = _CAUSAL_GRANTS.pop(grant_id, None)
-    return expected == (
+    claimed = (
         determination_id,
         constraint_id,
         protected_operation_id,
@@ -63,6 +61,12 @@ def consume_final_bind_causal_grant(
         execution_attempt_id,
         "FINAL_BIND_AUTHORITY_REVALIDATED",
     )
+    with _CAUSAL_GRANT_LOCK:
+        expected = _CAUSAL_GRANTS.get(grant_id)
+        if expected != claimed:
+            return False
+        del _CAUSAL_GRANTS[grant_id]
+        return True
 
 
 def _aware(value: datetime) -> datetime:
