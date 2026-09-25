@@ -27,6 +27,11 @@ class RAIExecutionBinding:
 _LOCK = RLock()
 _BINDINGS: dict[str, RAIExecutionBinding] = {}
 
+# Reference-harness capability: only the integrated successful RAI final-bind/mint
+# path is competent to create an execution-authorising registry entry. Possession
+# of the public registration helper alone is deliberately insufficient.
+_RAI_BINDING_REGISTRATION_CAPABILITY = object()
+
 
 def register_rai_execution_binding(
     *,
@@ -38,7 +43,10 @@ def register_rai_execution_binding(
     execution_attempt_id: str,
     action_binding_hash: str,
     usage_reservation_id: str,
+    registration_capability: object | None = None,
 ) -> RAIExecutionBinding:
+    if registration_capability is not _RAI_BINDING_REGISTRATION_CAPABILITY:
+        raise ValueError("RAI execution binding registration requires successful final-bind provenance")
     proposed = RAIExecutionBinding(
         permit_signature=permit_signature,
         determination_id=determination_id,
