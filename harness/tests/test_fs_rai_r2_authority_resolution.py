@@ -135,3 +135,32 @@ def test_compatibility_cut_must_correspond_to_current_mandate_generation():
         # The hostile mutation is process-global reference state. Restore only the
         # canonical test cut so this test cannot poison unrelated later tests.
         restore_current_reference_compatibility_for_test()
+
+
+def test_semantic_definition_provenance_change_must_change_resolution_identity():
+    """IC-FAIL-007: semantic definition provenance must be authority-material.
+
+    A competent semantics-source change must not leave the resolved authority
+    context/scope identity unchanged merely because proposition values are equal.
+    """
+    from app.engines.institutional_authority import (
+        advance_authority_semantics_source_for_test,
+        restore_authority_semantics_for_test,
+    )
+
+    req = _request()
+    semantics_before, _, _, scope_before, context_before = resolve_payment_authority(
+        req, resolved_at=req.requested_execution_time
+    )
+
+    previous = advance_authority_semantics_source_for_test()
+    try:
+        semantics_after, _, _, scope_after, context_after = resolve_payment_authority(
+            req, resolved_at=req.requested_execution_time
+        )
+        assert semantics_after.definition_id != semantics_before.definition_id
+        assert semantics_after.source_id != semantics_before.source_id
+        assert context_after.context_id != context_before.context_id
+        assert scope_after.scope_id != scope_before.scope_id
+    finally:
+        restore_authority_semantics_for_test(previous)
