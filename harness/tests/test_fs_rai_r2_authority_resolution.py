@@ -251,13 +251,23 @@ def test_fence_transition_authority_must_be_scoped_to_authority_domain():
     # possession of one global object as authority over every scope.
     foreign_scope = "institution-ATTACKER:MANDATE-ATTACKER"
 
+    rejected_for_scope = False
     try:
         advance_authority_fence(
             transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
             authority_fence_scope_key=foreign_scope,
         )
-    except (PermissionError, ValueError, TypeError):
-        pass
+    except (PermissionError, ValueError):
+        rejected_for_scope = True
+    except TypeError as exc:
+        pytest.fail(
+            "IC-FAIL-008 unresolved: transition API has no authority-domain "
+            f"scope semantics; Python rejected the probe before scope was evaluated: {exc}"
+        )
+
+    assert rejected_for_scope, (
+        "IC-FAIL-008: foreign authority scope was not explicitly rejected"
+    )
 
     after = get_authority_snapshot("MANDATE-TREASURY-001")
     assert after is not None
