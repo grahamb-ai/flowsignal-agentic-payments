@@ -47,7 +47,7 @@ _EPOCH_ID = "AUTH-EPOCH-001"
 _USAGE_WINDOW_ID = "DAY-001"
 _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
-_USAGE_WINDOW_TRANSITION_CAPABILITY = object()
+_USAGE_WINDOW_TRANSITION_CAPABILITY = object()\n_AUTHORITY_FENCE_TRANSITION_CAPABILITY = object()
 _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY = object()
 _COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str, str]] = {("MANDATE-SOURCE-001", "1", "1")}
 _SEMANTICS = AuthoritySemantics(
@@ -143,9 +143,16 @@ def restore_authority_semantics_for_test(previous: AuthoritySemantics) -> None:
         _SEMANTICS = previous
         _FENCE += 1
 
-def advance_authority_fence() -> int:
-    """Advance generic authority state without changing the mandate source generation."""
+def advance_authority_fence(*, transition_capability: object | None = None) -> int:
+    """Advance generic authority state only for a competent bounded transition.
+
+    Reference-harness mechanism: call reachability is not transition authority.
+    The private capability represents the trusted transition boundary here; it
+    is not a claim of a production credential or distributed trust mechanism.
+    """
     global _FENCE
+    if transition_capability is not _AUTHORITY_FENCE_TRANSITION_CAPABILITY:
+        raise PermissionError("authoritative fence transition required")
     with _LOCK:
         _FENCE += 1
         return _FENCE
