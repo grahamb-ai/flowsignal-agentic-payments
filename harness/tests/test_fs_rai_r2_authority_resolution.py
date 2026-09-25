@@ -354,3 +354,40 @@ def test_fence_transition_capability_cannot_be_replayed_across_successive_states
         "to manufacture another authoritative fence generation"
     )
     assert after_replay.snapshot_id == once.snapshot_id
+
+
+def test_fresh_transition_authority_for_new_state_can_advance_again():
+    """IC-FAIL-008 positive control: stale rejection must not prevent lawful continuation."""
+    from app.engines.institutional_authority import (
+        advance_authority_fence,
+        get_authority_snapshot,
+        issue_authority_fence_transition_capability_for_test,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    first = issue_authority_fence_transition_capability_for_test(
+        before.authority_fence_scope_key
+    )
+    advance_authority_fence(
+        transition_capability=first,
+        authority_fence_scope_key=before.authority_fence_scope_key,
+    )
+
+    middle = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert middle is not None
+    assert middle.authority_fence == before.authority_fence + 1
+
+    fresh = issue_authority_fence_transition_capability_for_test(
+        middle.authority_fence_scope_key
+    )
+    advance_authority_fence(
+        transition_capability=fresh,
+        authority_fence_scope_key=middle.authority_fence_scope_key,
+    )
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert after.authority_fence == middle.authority_fence + 1
+    assert after.snapshot_id != middle.snapshot_id
