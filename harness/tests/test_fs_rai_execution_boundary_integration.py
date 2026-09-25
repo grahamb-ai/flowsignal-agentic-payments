@@ -1403,3 +1403,18 @@ def test_explicitly_established_newer_source_generations_can_form_sufficient_con
     assert context.compatibility_rule_id == "NORM-PAY-001:compatibility:v1"
     assert any(item.source_version == actor_generation for item in evidence)
     assert any(item.source_version == operational_generation for item in evidence)
+
+
+def test_request_presented_target_cannot_define_effective_authority_scope():
+    """IC-FAIL-003 failure-first: proposal target is not independent authority evidence."""
+    from dataclasses import replace
+    from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    forged = replace(req, target="ATTACKER-CONTROLLED-TARGET")
+
+    # The request may propose a target, but that value must not become the
+    # effective authority scope unless independently grounded by authoritative
+    # semantics/evidence.
+    with pytest.raises(AuthorityResolutionError, match="target|scope|authoritative"):
+        resolve_payment_authority(forged, resolved_at=forged.requested_execution_time)
