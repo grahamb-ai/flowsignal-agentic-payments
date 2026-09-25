@@ -38,12 +38,14 @@ class FinalBindResult:
 
 
 _CAUSAL_GRANT_LOCK = RLock()
-_CAUSAL_GRANTS: dict[str, tuple[str, str, str, str]] = {}
+_CAUSAL_GRANTS: dict[str, tuple[str, str, str, str, str, str]] = {}
 
 
 def consume_final_bind_causal_grant(
     grant_id: str | None,
     *,
+    determination_id: str,
+    constraint_id: str,
     protected_operation_id: str,
     authority_exercise_id: str,
     execution_attempt_id: str,
@@ -54,6 +56,8 @@ def consume_final_bind_causal_grant(
     with _CAUSAL_GRANT_LOCK:
         expected = _CAUSAL_GRANTS.pop(grant_id, None)
     return expected == (
+        determination_id,
+        constraint_id,
         protected_operation_id,
         authority_exercise_id,
         execution_attempt_id,
@@ -186,6 +190,8 @@ def revalidate_at_final_bind(
     grant_id = f"FBG:{uuid4()}"
     with _CAUSAL_GRANT_LOCK:
         _CAUSAL_GRANTS[grant_id] = (
+            determination.determination_id,
+            constraint.constraint_id,
             original_operation.operation_id,
             determination.authority_exercise_id,
             determination.execution_attempt_id,
