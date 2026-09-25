@@ -34,6 +34,7 @@ class AuthoritativeOperationalStanding:
     counterparty_status: str
     account_status: str
     risk_state: str
+    authorised_account_references: tuple[str, ...]
     source_version: str
 
 
@@ -60,6 +61,7 @@ _OPERATIONAL = {
         counterparty_status="APPROVED",
         account_status="ACTIVE",
         risk_state="NORMAL",
+        authorised_account_references=("ACCT-SUPPLIER-X-001",),
         source_version="1",
     )
 }
@@ -164,6 +166,7 @@ def get_operational_authority_evidence(beneficiary_id: str, *,
             ("counterparty.status", standing.counterparty_status),
             ("account.status", standing.account_status),
             ("risk.state", standing.risk_state),
+            ("beneficiary.account_references", standing.authorised_account_references),
         )
         return tuple(
             _evidence(
@@ -210,6 +213,7 @@ def set_operational_source_version_for_test(beneficiary_id: str, source_version:
             counterparty_status=standing.counterparty_status,
             account_status=standing.account_status,
             risk_state=standing.risk_state,
+            authorised_account_references=standing.authorised_account_references,
             source_version=source_version,
         )
 
@@ -221,6 +225,7 @@ def register_operational_standing_for_test(
     account_status: str = "ACTIVE",
     risk_state: str = "NORMAL",
     source_version: str = "1",
+    authorised_account_references: tuple[str, ...] = (),
 ) -> None:
     """Test/reference-harness support for an independently known beneficiary."""
     with _LOCK:
@@ -229,5 +234,6 @@ def register_operational_standing_for_test(
             counterparty_status=counterparty_status,
             account_status=account_status,
             risk_state=risk_state,
+            authorised_account_references=authorised_account_references,
             source_version=source_version,
         )
