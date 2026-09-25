@@ -1468,24 +1468,29 @@ def test_caller_cannot_self_register_forged_rai_binding_to_form_protected_conseq
     )
     assert permit is not None
 
-    # Deliberately simulate a wrapper/direct path that writes the same shape of
-    # registry record without traversing mint_rai_bound_execution_permit.
-    register_rai_execution_binding(
-        permit_signature=permit.signature,
-        determination_id=prepared.determination.determination_id,
-        constraint_id=prepared.constraint.constraint_id,
-        protected_operation_id=prepared.operation.operation_id,
-        authority_exercise_id=prepared.determination.authority_exercise_id,
-        execution_attempt_id=prepared.determination.execution_attempt_id,
-        action_binding_hash=attempted_hash,
-        usage_reservation_id=prepared.usage_reservation_id,
-    )
+    # Deliberately simulate a wrapper/direct path that attempts to write the
+    # same shape of registry record without traversing the successful final-bind
+    # provenance path. The hardened registry must reject the write itself.
+    with pytest.raises(
+        ValueError,
+        match="RAI execution binding registration requires successful final-bind provenance",
+    ):
+        register_rai_execution_binding(
+            permit_signature=permit.signature,
+            determination_id=prepared.determination.determination_id,
+            constraint_id=prepared.constraint.constraint_id,
+            protected_operation_id=prepared.operation.operation_id,
+            authority_exercise_id=prepared.determination.authority_exercise_id,
+            execution_attempt_id=prepared.determination.execution_attempt_id,
+            action_binding_hash=attempted_hash,
+            usage_reservation_id=prepared.usage_reservation_id,
+        )
 
     outcome = execute_protected_consequence(
         permit=permit,
         attempted_action_binding_hash=attempted_hash,
     )
     assert outcome != "CONSEQUENCE_FORMED", (
-        "ROUTE CLOSURE FAILURE: caller-created permit plus caller-created registry "
-        "binding formed the protected consequence without the mandatory RAI mint path"
+        "ROUTE CLOSURE FAILURE: caller-created permit formed the protected "
+        "consequence after forged RAI binding registration was rejected"
     )
