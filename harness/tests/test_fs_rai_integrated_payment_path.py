@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from app.engines.institutional_authority import advance_authority_fence
+from app.engines.institutional_authority import (
+    _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+    advance_authority_fence,
+)
 from app.engines.runtime_authority_payment import final_bind_payment, prepare_payment_execution
 from harness.runner import load_scenario
 
@@ -39,7 +42,9 @@ def test_integrated_path_blocks_when_authority_changes_before_bind():
         req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
         resolved_at=req.requested_execution_time
     )
-    advance_authority_fence()
+    advance_authority_fence(
+        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+    )
     result = final_bind_payment(req, prepared, bind_at=req.requested_execution_time)
     assert result.status == "BLOCKED"
     assert result.reason_code == "AUTHORITY_CONTEXT_CHANGED"
