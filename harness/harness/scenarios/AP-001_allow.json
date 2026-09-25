@@ -32,6 +32,7 @@
       "currency": "GBP",
       "source_account": "TREASURY-001",
       "beneficiary": "SUPPLIER-X",
+      "beneficiary_account_reference": "ACCT-SUPPLIER-X-001",
       "purpose": "Invoice 78431"
     },
     "runtime_context": {
