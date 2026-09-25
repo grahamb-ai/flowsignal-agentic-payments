@@ -416,6 +416,7 @@ def test_r6_low_level_capabilities_plus_forged_usage_cannot_form_consequence():
         execution_attempt_id=attempt_id,
         action_binding_hash=attempted_hash,
         usage_reservation_id=reservation_id,
+        final_bind_provenance_id="FORGED-R6-FINAL-BIND-PROVENANCE",
         registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
     )
 
@@ -424,3 +425,4 @@ def test_r6_low_level_capabilities_plus_forged_usage_cannot_form_consequence():
         "R6 route closure failure: low-level capabilities plus caller-manufactured "
         "usage state formed the protected consequence without causal RAI final-bind"
     )
+    assert result == "DENIED_FINAL_BIND_PROVENANCE_REQUIRED"
