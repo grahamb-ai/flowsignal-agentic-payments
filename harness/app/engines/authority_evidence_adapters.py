@@ -212,3 +212,22 @@ def set_operational_source_version_for_test(beneficiary_id: str, source_version:
             risk_state=standing.risk_state,
             source_version=source_version,
         )
+
+
+def register_operational_standing_for_test(
+    beneficiary_id: str,
+    *,
+    counterparty_status: str = "APPROVED",
+    account_status: str = "ACTIVE",
+    risk_state: str = "NORMAL",
+    source_version: str = "1",
+) -> None:
+    """Test/reference-harness support for an independently known beneficiary."""
+    with _LOCK:
+        _OPERATIONAL[beneficiary_id] = AuthoritativeOperationalStanding(
+            beneficiary_id=beneficiary_id,
+            counterparty_status=counterparty_status,
+            account_status=account_status,
+            risk_state=risk_state,
+            source_version=source_version,
+        )
