@@ -1368,3 +1368,38 @@ def test_incompatible_authority_source_generations_cannot_form_one_sufficient_co
 
     with pytest.raises(AuthorityResolutionError, match="compatible"):
         resolve_payment_authority(req, resolved_at=req.requested_execution_time)
+
+
+def test_explicitly_established_newer_source_generations_can_form_sufficient_context():
+    """IC-FAIL-004 positive mirror: compatibility control must not become version-1-only permanent denial."""
+    from app.engines.authority_evidence_adapters import (
+        set_actor_source_version_for_test,
+        set_operational_source_version_for_test,
+    )
+    from app.engines.institutional_authority import (
+        register_authority_compatibility_cut_for_test,
+        _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY,
+    )
+    from app.engines.authority_resolution import resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    actor_generation = "ACTOR-GEN-201"
+    operational_generation = "OPERATION-GEN-901"
+
+    set_actor_source_version_for_test(req.actor_id, actor_generation)
+    set_operational_source_version_for_test(req.beneficiary, operational_generation)
+
+    register_authority_compatibility_cut_for_test(
+        actor_source_version=actor_generation,
+        operational_source_version=operational_generation,
+        registration_capability=_COMPATIBILITY_CUT_REGISTRATION_CAPABILITY,
+    )
+
+    semantics, evidence, graph, scope, context = resolve_payment_authority(
+        req, resolved_at=req.requested_execution_time
+    )
+
+    assert context is not None
+    assert context.compatibility_rule_id == "NORM-PAY-001:compatibility:v1"
+    assert any(item.source_version == actor_generation for item in evidence)
+    assert any(item.source_version == operational_generation for item in evidence)
