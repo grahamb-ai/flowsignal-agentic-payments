@@ -795,7 +795,14 @@ def test_r6_successful_final_bind_causal_grant_is_single_use():
         prepare_payment_execution,
     )
 
-    req = load_scenario(SCENARIO, rebase_to_now=False)
+    from dataclasses import replace
+    from decimal import Decimal
+
+    req = replace(
+        load_scenario(SCENARIO, rebase_to_now=False),
+        amount=Decimal("100000.00"),
+        institutional_operation_id="R6-CAUSAL-GRANT-SINGLE-USE",
+    )
     prepared = prepare_payment_execution(
         req,
         route_id="R1",
