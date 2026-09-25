@@ -1730,3 +1730,52 @@ def test_caller_cannot_self_register_forged_rai_binding_to_form_protected_conseq
         "ROUTE CLOSURE FAILURE: caller-created permit formed the protected "
         "consequence after forged RAI binding registration was rejected"
     )
+
+
+def test_semantic_provenance_change_after_permit_mint_cannot_form_protected_consequence():
+    """IC-FAIL-007 downstream hostile test: an S1 permit must die after S1 -> S2.
+
+    The payment proposal and proposition values remain unchanged. Only the
+    authoritative semantic definition/source provenance changes after successful
+    final-bind and permit mint. Protected execution must not accept the stale
+    semantic provenance carried by the otherwise valid signed permit.
+    """
+    from app.engines.institutional_authority import (
+        advance_authority_semantics_source_for_test,
+        restore_authority_semantics_for_test,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req,
+        prepared,
+        bind_at=req.requested_execution_time,
+    )
+    assert permit is not None
+
+    attempted_hash = action_binding_hash(_attempt(req))
+    previous = advance_authority_semantics_source_for_test()
+    try:
+        outcome = execute_protected_consequence(
+            permit=permit,
+            attempted_action_binding_hash=attempted_hash,
+        )
+        assert outcome != "CONSEQUENCE_FORMED", (
+            "SEMANTIC PROVENANCE FAILURE: an execution capability derived and "
+            "minted under S1 formed the protected consequence after the "
+            "authoritative semantic definition/source changed to S2"
+        )
+        assert outcome in {
+            "DENIED_AUTHORITY_STATE_STALE",
+            "DENIED_AUTHORITY_SNAPSHOT_STALE",
+            "DENIED_AUTHORITY_SEMANTICS_DEFINITION_MISMATCH",
+            "DENIED_AUTHORITY_SEMANTICS_SOURCE_MISMATCH",
+        }
+    finally:
+        restore_authority_semantics_for_test(previous)
