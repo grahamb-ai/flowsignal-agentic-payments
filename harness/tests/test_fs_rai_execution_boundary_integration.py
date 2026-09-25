@@ -237,6 +237,86 @@ def test_distinct_institutional_act_cannot_reuse_prior_attempt_lineage():
         )
 
 
+def test_authority_exercise_cannot_span_distinct_institutional_acts():
+    """IC-FAIL-006: one authority exercise must not silently span distinct acts."""
+    from app.engines.authority_determination import (
+        bind_authority_to_operation,
+        issue_authorised_execution_constraint,
+        materialise_protected_operation,
+    )
+    from app.engines.authority_lineage import (
+        create_authority_exercise,
+        create_execution_attempt,
+    )
+    from app.engines.authority_resolution import resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    _, _, _, scope, context = resolve_payment_authority(
+        req, resolved_at=req.requested_execution_time
+    )
+    exercise = create_authority_exercise(
+        resolution_context_id=context.context_id,
+        effective_authority_scope_id=scope.scope_id,
+        protected_operation_class=context.protected_operation_class,
+        created_at=req.requested_execution_time,
+    )
+    first_attempt = create_execution_attempt(
+        authority_exercise_id=exercise.authority_exercise_id,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        created_at=req.requested_execution_time,
+    )
+    first_operation = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=first_attempt.execution_attempt_id,
+    )
+    first_binding = bind_authority_to_operation(scope, first_operation)
+    issue_authorised_execution_constraint(
+        context=context,
+        scope=scope,
+        operation=first_operation,
+        binding=first_binding,
+        resolved_at=req.requested_execution_time,
+        authority_exercise=exercise,
+        execution_attempt=first_attempt,
+    )
+
+    distinct_req = replace(
+        req,
+        institutional_operation_id="PAYMENT-INSTRUCTION-DISTINCT-EXERCISE-002",
+    )
+    second_attempt = create_execution_attempt(
+        authority_exercise_id=exercise.authority_exercise_id,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        created_at=req.requested_execution_time,
+        parent_execution_attempt_id=first_attempt.execution_attempt_id,
+    )
+    second_operation = materialise_protected_operation(
+        distinct_req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=second_attempt.execution_attempt_id,
+    )
+    assert second_operation.institutional_operation_id != first_operation.institutional_operation_id
+    second_binding = bind_authority_to_operation(scope, second_operation)
+
+    with pytest.raises(ValueError, match="authority exercise.*institutional operation"):
+        issue_authorised_execution_constraint(
+            context=context,
+            scope=scope,
+            operation=second_operation,
+            binding=second_binding,
+            resolved_at=req.requested_execution_time,
+            authority_exercise=exercise,
+            execution_attempt=second_attempt,
+        )
+
+
 def test_legacy_gateway_cannot_form_protected_consequence_without_rai_chain():
     """Failure-first route-closure challenge.
 
