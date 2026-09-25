@@ -276,3 +276,26 @@ def test_fence_transition_authority_must_be_scoped_to_authority_domain():
         "a foreign-scope transition changed the canonical fence"
     )
     assert after.snapshot_id == before.snapshot_id
+
+
+def test_scope_bound_fence_transition_authority_advances_its_own_domain():
+    """IC-FAIL-008 positive control: correct scope remains transition-capable."""
+    from app.engines.institutional_authority import (
+        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        advance_authority_fence,
+        get_authority_snapshot,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    advanced = advance_authority_fence(
+        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        authority_fence_scope_key=before.authority_fence_scope_key,
+    )
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert advanced == before.authority_fence + 1
+    assert after.authority_fence == before.authority_fence + 1
+    assert after.snapshot_id != before.snapshot_id
