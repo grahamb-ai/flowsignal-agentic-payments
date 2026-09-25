@@ -111,16 +111,16 @@ def test_authorised_beneficiary_cannot_substitute_unapproved_account_reference()
 
 def test_compatibility_cut_must_correspond_to_current_mandate_generation():
     """IC-FAIL-004: an explicit actor/operational cut cannot bless a new mandate cut by itself."""
-    from app.engines.institutional_authority import advance_authority_fence_without_compatibility_for_test
+    from app.engines.institutional_authority import advance_mandate_source_generation_without_compatibility_for_test
 
     req = _request()
     _, _, _, _, before = resolve_payment_authority(
         req, resolved_at=req.requested_execution_time
     )
 
-    # Advance only the authoritative mandate cut. Actor and operational source
-    # generations remain unchanged and are still an explicitly known pair.
-    advance_authority_fence_without_compatibility_for_test()
+    # Advance only the authoritative mandate source generation. Actor and operational
+    # source generations remain unchanged and retain only their old explicit cut.
+    advance_mandate_source_generation_without_compatibility_for_test()
 
     with pytest.raises(
         AuthorityResolutionError,
