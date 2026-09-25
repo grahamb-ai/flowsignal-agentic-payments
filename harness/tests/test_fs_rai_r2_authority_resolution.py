@@ -64,11 +64,13 @@ def test_context_identity_changes_when_authority_cut_changes():
         req, resolved_at=req.requested_execution_time
     )
     from app.engines.institutional_authority import (
-        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
         advance_authority_fence,
+        issue_authority_fence_transition_capability_for_test,
     )
     advance_authority_fence(
-        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        transition_capability=issue_authority_fence_transition_capability_for_test(
+            "institution-001:MANDATE-TREASURY-001"
+        ),
     )
     _, _, _, _, after = resolve_payment_authority(
         req, resolved_at=req.requested_execution_time
@@ -210,8 +212,8 @@ def test_caller_cannot_advance_authority_fence_without_transition_provenance():
 def test_competent_bounded_transition_can_advance_authority_fence():
     """IC-FAIL-008 positive control: remediation must not make state immutable."""
     from app.engines.institutional_authority import (
-        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
         advance_authority_fence,
+        issue_authority_fence_transition_capability_for_test,
         get_authority_snapshot,
     )
 
@@ -219,7 +221,9 @@ def test_competent_bounded_transition_can_advance_authority_fence():
     assert before is not None
 
     advanced = advance_authority_fence(
-        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        transition_capability=issue_authority_fence_transition_capability_for_test(
+            "institution-001:MANDATE-TREASURY-001"
+        ),
     )
 
     after = get_authority_snapshot("MANDATE-TREASURY-001")
@@ -237,8 +241,8 @@ def test_fence_transition_authority_must_be_scoped_to_authority_domain():
     process-local fence mechanism.
     """
     from app.engines.institutional_authority import (
-        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
         advance_authority_fence,
+        issue_authority_fence_transition_capability_for_test,
         get_authority_snapshot,
     )
 
@@ -254,7 +258,9 @@ def test_fence_transition_authority_must_be_scoped_to_authority_domain():
     rejected_for_scope = False
     try:
         advance_authority_fence(
-            transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+            transition_capability=issue_authority_fence_transition_capability_for_test(
+            "institution-001:MANDATE-TREASURY-001"
+        ),
             authority_fence_scope_key=foreign_scope,
         )
     except (PermissionError, ValueError):
@@ -281,8 +287,8 @@ def test_fence_transition_authority_must_be_scoped_to_authority_domain():
 def test_scope_bound_fence_transition_authority_advances_its_own_domain():
     """IC-FAIL-008 positive control: correct scope remains transition-capable."""
     from app.engines.institutional_authority import (
-        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
         advance_authority_fence,
+        issue_authority_fence_transition_capability_for_test,
         get_authority_snapshot,
     )
 
@@ -290,7 +296,9 @@ def test_scope_bound_fence_transition_authority_advances_its_own_domain():
     assert before is not None
 
     advanced = advance_authority_fence(
-        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        transition_capability=issue_authority_fence_transition_capability_for_test(
+            "institution-001:MANDATE-TREASURY-001"
+        ),
         authority_fence_scope_key=before.authority_fence_scope_key,
     )
 
@@ -310,16 +318,19 @@ def test_fence_transition_capability_cannot_be_replayed_across_successive_states
     indefinite licence to manufacture future authority-state generations.
     """
     from app.engines.institutional_authority import (
-        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
         advance_authority_fence,
+        issue_authority_fence_transition_capability_for_test,
         get_authority_snapshot,
     )
 
     before = get_authority_snapshot("MANDATE-TREASURY-001")
     assert before is not None
 
+    transition_authority = issue_authority_fence_transition_capability_for_test(
+        before.authority_fence_scope_key
+    )
     advance_authority_fence(
-        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        transition_capability=transition_authority,
         authority_fence_scope_key=before.authority_fence_scope_key,
     )
     once = get_authority_snapshot("MANDATE-TREASURY-001")
@@ -330,7 +341,7 @@ def test_fence_transition_capability_cannot_be_replayed_across_successive_states
     # against has already been superseded.
     try:
         advance_authority_fence(
-            transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+            transition_capability=transition_authority,
             authority_fence_scope_key=once.authority_fence_scope_key,
         )
     except (PermissionError, ValueError):
