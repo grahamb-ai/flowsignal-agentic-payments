@@ -1779,3 +1779,44 @@ def test_semantic_provenance_change_after_permit_mint_cannot_form_protected_cons
         }
     finally:
         restore_authority_semantics_for_test(previous)
+
+
+def test_semantic_provenance_substitution_on_valid_rai_permit_cannot_form_protected_consequence():
+    """IC-FAIL-007 hostile substitution: signed provenance cannot be rewritten.
+
+    Start with a legitimately final-bound RAI execution permit. An attacker then
+    substitutes semantic definition/source identifiers while preserving the
+    permit's original signature and all other execution material. The protected
+    boundary must reject the forged permit before consequence formation.
+    """
+    from dataclasses import replace
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    permit = mint_rai_bound_execution_permit(
+        req,
+        prepared,
+        bind_at=req.requested_execution_time,
+    )
+    assert permit is not None
+
+    forged = replace(
+        permit,
+        authority_semantics_definition_id=permit.authority_semantics_definition_id + ":ATTACKER",
+        authority_semantics_source_id=permit.authority_semantics_source_id + ":ATTACKER",
+    )
+    attempted_hash = action_binding_hash(_attempt(req))
+
+    outcome = execute_protected_consequence(
+        permit=forged,
+        attempted_action_binding_hash=attempted_hash,
+    )
+    assert outcome == "DENIED_INVALID_EXECUTION_PERMIT", (
+        "SEMANTIC PROVENANCE SUBSTITUTION FAILURE: attacker-rewritten semantic "
+        "definition/source provenance survived permit integrity verification"
+    )
