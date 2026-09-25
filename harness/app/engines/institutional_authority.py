@@ -116,6 +116,33 @@ def get_authority_snapshot(mandate_id: str) -> AuthoritySnapshot | None:
         )
 
 
+
+def advance_authority_semantics_source_for_test() -> AuthoritySemantics:
+    """Replace the authoritative semantics identity while preserving proposition values.
+
+    Test/reference-harness support only. Returns the previous semantics object
+    so destructive hostile tests can restore process-global reference state.
+    """
+    global _SEMANTICS, _FENCE
+    with _LOCK:
+        previous = _SEMANTICS
+        _SEMANTICS = AuthoritySemantics(
+            version=previous.version,
+            definition_id=f"{previous.definition_id}:NEXT",
+            source_id=f"{previous.source_id}:NEXT",
+            source_competence_root_id=previous.source_competence_root_id,
+        )
+        _FENCE += 1
+        return previous
+
+
+def restore_authority_semantics_for_test(previous: AuthoritySemantics) -> None:
+    """Restore semantics after a destructive reference-harness hostile test."""
+    global _SEMANTICS, _FENCE
+    with _LOCK:
+        _SEMANTICS = previous
+        _FENCE += 1
+
 def advance_authority_fence() -> int:
     """Advance generic authority state without changing the mandate source generation."""
     global _FENCE
