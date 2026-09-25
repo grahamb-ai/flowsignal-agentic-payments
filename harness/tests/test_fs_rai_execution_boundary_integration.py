@@ -1720,6 +1720,7 @@ def test_caller_cannot_self_register_forged_rai_binding_to_form_protected_conseq
             execution_attempt_id=prepared.determination.execution_attempt_id,
             action_binding_hash=attempted_hash,
             usage_reservation_id=prepared.usage_reservation_id,
+            final_bind_provenance_id="SELF-REGISTERED-NON-CAUSAL-FINAL-BIND",
         )
 
     outcome = execute_protected_consequence(
