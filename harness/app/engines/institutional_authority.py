@@ -17,7 +17,6 @@ class AuthoritativeMandate:
     principal_id: str
     action: str
     targets: tuple[str, ...]
-    purposes: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -66,7 +65,6 @@ _MANDATES = {
         principal_id="institution-001",
         action="payment.release",
         targets=("TREASURY_PAYMENT_GATEWAY",),
-        purposes=("supplier-payment",),
     )
 }
 
