@@ -56,7 +56,7 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
         permitted_counterparty_class=mandate["counterparty_class"],
         mandate_valid_until=mandate_valid_until,
         amount=Decimal(str(pa["amount"])), currency=pa["currency"], source_account=pa["source_account"],
-        beneficiary=pa["beneficiary"], purpose=pa["purpose"],
+        beneficiary=pa["beneficiary"], beneficiary_account_reference=pa["beneficiary_account_reference"], purpose=pa["purpose"],
         counterparty_status=ctx["counterparty_status"], account_status=ctx["account_status"],
         risk_state=ctx["risk_state"], approval_required=bool(ctx["approval_required"]),
         screening_status=scr["status"], screening_captured_at=screening_captured_at,
