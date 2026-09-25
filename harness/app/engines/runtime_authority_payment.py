@@ -34,7 +34,7 @@ from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.authority_store import get_authority_state_version
 from app.engines.institutional_authority import get_authority_snapshot
 from app.engines.permit_authority import ExecutionPermit, _GATEWAY_MINT_CAPABILITY, issue_execution_permit
-from app.engines.rai_execution_registry import register_rai_execution_binding
+from app.engines.rai_execution_registry import (\n    _RAI_BINDING_REGISTRATION_CAPABILITY,\n    register_rai_execution_binding,\n)
 
 
 @dataclass(frozen=True)
