@@ -164,3 +164,39 @@ def test_semantic_definition_provenance_change_must_change_resolution_identity()
         assert scope_after.scope_id != scope_before.scope_id
     finally:
         restore_authority_semantics_for_test(previous)
+
+
+def test_caller_cannot_advance_authority_fence_without_transition_provenance():
+    """IC-FAIL-008 failure-first: knowing the next fence is not authority to create it.
+
+    The generic fence transition is authority-material because it changes the
+    authoritative snapshot/context and invalidates prior execution authority.
+    An ordinary caller must not be able to establish that transition merely by
+    invoking a reachable helper with no competent transition provenance.
+    """
+    from app.engines.institutional_authority import (
+        advance_authority_fence,
+        get_authority_snapshot,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    # Hostile caller reaches the current generic transition helper directly.
+    # The required architecture property is that this cannot establish a new
+    # authoritative state without explicit competent transition provenance.
+    try:
+        advance_authority_fence()
+    except (PermissionError, ValueError):
+        pass
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert after.authority_fence == before.authority_fence, (
+        "IC-FAIL-008: an unproven caller advanced authority-material fence "
+        "state merely by invoking the generic transition helper"
+    )
+    assert after.snapshot_id == before.snapshot_id, (
+        "IC-FAIL-008: unproven fence movement established a new authoritative "
+        "snapshot without competent transition provenance"
+    )
