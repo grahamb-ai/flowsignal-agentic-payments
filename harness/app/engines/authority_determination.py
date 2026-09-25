@@ -142,7 +142,15 @@ def materialise_protected_operation(
         if source_institutional_operation_id
         else _stable_id("INST-OP", institutional_payload)
     )
-    operation_id = _stable_id("OP", payload)
+    # The concrete protected-operation identity must include the stable
+    # institutional-act identity. Otherwise two distinct institutional acts with
+    # identical payment content and the same execution lineage collapse to the
+    # same operation/materialisation identity.
+    concrete_payload = {
+        **payload,
+        "institutional_operation_id": institutional_operation_id,
+    }
+    operation_id = _stable_id("OP", concrete_payload)
     return ProtectedOperation(
         operation_id=operation_id,
         institutional_operation_id=institutional_operation_id,
@@ -161,7 +169,7 @@ def materialise_protected_operation(
         route_id=route_id,
         executor_id=executor_id,
         parameter_envelope_id=None,
-        materialization_id=_stable_id("MAT", payload),
+        materialization_id=_stable_id("MAT", concrete_payload),
     )
 
 
