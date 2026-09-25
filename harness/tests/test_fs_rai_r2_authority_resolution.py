@@ -158,8 +158,8 @@ def test_semantic_definition_provenance_change_must_change_resolution_identity()
         semantics_after, _, _, scope_after, context_after = resolve_payment_authority(
             req, resolved_at=req.requested_execution_time
         )
-        assert semantics_after.definition_id != semantics_before.definition_id
-        assert semantics_after.source_id != semantics_before.source_id
+        assert semantics_after.semantics_set_id != semantics_before.semantics_set_id
+        assert semantics_after.authoritative_source_id != semantics_before.authoritative_source_id
         assert context_after.context_id != context_before.context_id
         assert scope_after.scope_id != scope_before.scope_id
     finally:
