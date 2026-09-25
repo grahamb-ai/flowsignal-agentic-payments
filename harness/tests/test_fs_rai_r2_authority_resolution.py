@@ -111,7 +111,10 @@ def test_authorised_beneficiary_cannot_substitute_unapproved_account_reference()
 
 def test_compatibility_cut_must_correspond_to_current_mandate_generation():
     """IC-FAIL-004: an explicit actor/operational cut cannot bless a new mandate cut by itself."""
-    from app.engines.institutional_authority import advance_mandate_source_generation_without_compatibility_for_test
+    from app.engines.institutional_authority import (
+        advance_mandate_source_generation_without_compatibility_for_test,
+        restore_current_reference_compatibility_for_test,
+    )
 
     req = _request()
     _, _, _, _, before = resolve_payment_authority(
@@ -122,8 +125,13 @@ def test_compatibility_cut_must_correspond_to_current_mandate_generation():
     # source generations remain unchanged and retain only their old explicit cut.
     advance_mandate_source_generation_without_compatibility_for_test()
 
-    with pytest.raises(
-        AuthorityResolutionError,
-        match="compatible multi-source authority cut not established",
-    ):
-        resolve_payment_authority(req, resolved_at=req.requested_execution_time)
+    try:
+        with pytest.raises(
+            AuthorityResolutionError,
+            match="compatible multi-source authority cut not established",
+        ):
+            resolve_payment_authority(req, resolved_at=req.requested_execution_time)
+    finally:
+        # The hostile mutation is process-global reference state. Restore only the
+        # canonical test cut so this test cannot poison unrelated later tests.
+        restore_current_reference_compatibility_for_test()
