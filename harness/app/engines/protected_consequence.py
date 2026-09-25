@@ -14,6 +14,7 @@ from app.engines.consequence_receipt import (
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
 from app.engines.rai_execution_registry import get_rai_execution_binding, verify_rai_execution_binding
+from app.engines.final_bind_provenance import verify_final_bind_provenance
 from app.engines.authority_domain import AuthorityUsageState
 from app.engines.authority_usage import consume_authority_usage, get_usage_reservation, quarantine_authority_usage
 from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
@@ -86,6 +87,18 @@ def execute_protected_consequence(
     binding = get_rai_execution_binding(permit.signature)
     if binding is None:
         return "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
+
+    if not verify_final_bind_provenance(
+        binding.final_bind_provenance_id,
+        determination_id=binding.determination_id,
+        constraint_id=binding.constraint_id,
+        protected_operation_id=binding.protected_operation_id,
+        authority_exercise_id=binding.authority_exercise_id,
+        execution_attempt_id=binding.execution_attempt_id,
+        action_binding_hash=binding.action_binding_hash,
+        usage_reservation_id=binding.usage_reservation_id,
+    ):
+        return "DENIED_FINAL_BIND_PROVENANCE_REQUIRED"
 
     if permit.valid_until is None:
         return "DENIED_EXECUTION_PERMIT_EXPIRY_MISSING"
