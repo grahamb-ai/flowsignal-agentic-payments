@@ -34,6 +34,10 @@ from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.authority_store import get_authority_state_version
 from app.engines.institutional_authority import get_authority_snapshot
 from app.engines.permit_authority import ExecutionPermit, _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+from app.engines.final_bind_provenance import (
+    _FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+    establish_final_bind_provenance,
+)
 from app.engines.rai_execution_registry import (
     _RAI_BINDING_REGISTRATION_CAPABILITY,
     register_rai_execution_binding,
@@ -203,6 +207,16 @@ def mint_rai_bound_execution_permit(
     )
     if permit is None:
         return None
+    provenance = establish_final_bind_provenance(
+        determination_id=prepared.determination.determination_id,
+        constraint_id=prepared.constraint.constraint_id,
+        protected_operation_id=prepared.operation.operation_id,
+        authority_exercise_id=prepared.determination.authority_exercise_id,
+        execution_attempt_id=prepared.determination.execution_attempt_id,
+        action_binding_hash=attempted_hash,
+        usage_reservation_id=prepared.usage_reservation_id,
+        issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+    )
     register_rai_execution_binding(
         permit_signature=permit.signature,
         determination_id=prepared.determination.determination_id,
@@ -212,6 +226,7 @@ def mint_rai_bound_execution_permit(
         execution_attempt_id=prepared.determination.execution_attempt_id,
         action_binding_hash=attempted_hash,
         usage_reservation_id=prepared.usage_reservation_id,
+        final_bind_provenance_id=provenance.provenance_id,
         registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
     )
     return permit
