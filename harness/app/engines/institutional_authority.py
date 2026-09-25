@@ -180,3 +180,46 @@ def set_usage_window_for_test(
         _USAGE_WINDOW_ID = window_id
         _FENCE += 1
         return _USAGE_WINDOW_ID
+
+
+@dataclass(frozen=True)
+class AuthorityCompatibilityCut:
+    compatibility_cut_id: str
+    authority_epoch_id: str
+    mandate_source_version: str
+    actor_source_version: str
+    operational_source_version: str
+
+
+def get_authority_compatibility_cut(
+    mandate_id: str, *, actor_source_version: str, operational_source_version: str
+) -> AuthorityCompatibilityCut | None:
+    """Return the bounded reference compatibility cut for multi-source authority state.
+
+    This is an explicit compatibility assertion for the reference fixture, not
+    an inference from a hash/version vector and not a production consensus
+    mechanism.
+    """
+    snapshot = get_authority_snapshot(mandate_id)
+    if snapshot is None:
+        return None
+    mandate_version = f"{snapshot.authority_epoch_id}:{snapshot.authority_fence}"
+    # The canonical reference cut currently admits the frozen baseline source
+    # generations only. Independently advanced sources require a newly
+    # established cut rather than being silently combined.
+    if actor_source_version != "1" or operational_source_version != "1":
+        return None
+    payload = {
+        "authority_epoch_id": snapshot.authority_epoch_id,
+        "mandate_source_version": mandate_version,
+        "actor_source_version": actor_source_version,
+        "operational_source_version": operational_source_version,
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return AuthorityCompatibilityCut(
+        compatibility_cut_id=f"COMPAT-{hashlib.sha256(raw).hexdigest()}",
+        authority_epoch_id=snapshot.authority_epoch_id,
+        mandate_source_version=mandate_version,
+        actor_source_version=actor_source_version,
+        operational_source_version=operational_source_version,
+    )
