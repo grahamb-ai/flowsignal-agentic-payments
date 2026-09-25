@@ -538,3 +538,96 @@ def test_r6_valid_final_bind_provenance_cannot_be_reused_for_a_second_permit_sig
         "R6 provenance transfer failure: one genuine successful final-bind "
         "provenance authorised a separately minted permit signature"
     )
+
+
+def test_r6_valid_final_bind_provenance_cannot_be_transplanted_to_second_chain():
+    """R6 next-order: genuine final-bind provenance is chain-specific, not bearer authority.
+
+    Establish two independently valid prepared chains for the same proposed payment.
+    Then register chain B's permit against chain B's identifiers while deliberately
+    transplanting chain A's genuine final-bind provenance identifier. Protected
+    commitment must reject the cross-chain provenance mismatch.
+    """
+    from datetime import datetime, timezone
+
+    from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+    from app.engines.final_bind_provenance import (
+        _FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+        establish_final_bind_provenance,
+    )
+    from app.engines.protected_consequence import execute_protected_consequence
+    from app.engines.rai_execution_registry import (
+        _RAI_BINDING_REGISTRATION_CAPABILITY,
+        register_rai_execution_binding,
+    )
+    from app.engines.runtime_authority_payment import (
+        mint_rai_bound_execution_permit,
+        prepare_payment_execution,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+
+    prepared_a = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    prepared_b = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+
+    permit_b = mint_rai_bound_execution_permit(
+        req, prepared_b, bind_at=req.requested_execution_time,
+    )
+    assert permit_b is not None
+
+    attempted_hash = action_binding_hash(
+        ExecutionAttempt(
+            actor_id=req.actor_id,
+            principal_id=req.principal_id,
+            action=req.action,
+            target=req.target,
+            amount=req.amount,
+            currency=req.currency,
+            source_account=req.source_account,
+            beneficiary=req.beneficiary,
+            beneficiary_account_reference=req.beneficiary_account_reference,
+            purpose=req.purpose,
+            mandate_id=req.mandate_id,
+            attempted_at=datetime.now(timezone.utc),
+        )
+    )
+
+    provenance_a = establish_final_bind_provenance(
+        determination_id=prepared_a.determination.determination_id,
+        constraint_id=prepared_a.constraint.constraint_id,
+        protected_operation_id=prepared_a.operation.operation_id,
+        authority_exercise_id=prepared_a.determination.authority_exercise_id,
+        execution_attempt_id=prepared_a.determination.execution_attempt_id,
+        action_binding_hash=attempted_hash,
+        usage_reservation_id=prepared_a.usage_reservation_id,
+        issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+    )
+
+    # Replace B's legitimate registry row with an internally consistent B row
+    # carrying A's genuine provenance identifier. The provenance is real, but
+    # belongs to a different causal chain.
+    register_rai_execution_binding(
+        permit_signature=permit_b.signature,
+        determination_id=prepared_b.determination.determination_id,
+        constraint_id=prepared_b.constraint.constraint_id,
+        protected_operation_id=prepared_b.operation.operation_id,
+        authority_exercise_id=prepared_b.determination.authority_exercise_id,
+        execution_attempt_id=prepared_b.determination.execution_attempt_id,
+        action_binding_hash=attempted_hash,
+        usage_reservation_id=prepared_b.usage_reservation_id,
+        final_bind_provenance_id=provenance_a.provenance_id,
+        registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
+    )
+
+    result = execute_protected_consequence(permit_b, attempted_hash)
+    assert result != "CONSEQUENCE_FORMED", (
+        "R6 provenance transplant failure: genuine final-bind provenance from "
+        "one chain authorised protected commitment on a different chain"
+    )
+    assert result == "DENIED_FINAL_BIND_PROVENANCE_REQUIRED"
