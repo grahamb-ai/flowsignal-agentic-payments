@@ -554,11 +554,9 @@ def test_r6_valid_final_bind_provenance_cannot_be_transplanted_to_second_chain()
 
     import app.engines.runtime_authority_payment as runtime_authority_payment
     from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
-    from app.engines.final_bind_provenance import (
-        _FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
-        establish_final_bind_provenance,
-    )
+    from app.engines.final_bind_provenance import verify_final_bind_provenance
     from app.engines.protected_consequence import execute_protected_consequence
+    from app.engines.rai_execution_registry import get_rai_execution_binding
     from app.engines.runtime_authority_payment import prepare_payment_execution
 
     req = replace(
@@ -593,22 +591,30 @@ def test_r6_valid_final_bind_provenance_cannot_be_transplanted_to_second_chain()
         )
     )
 
-    provenance_a = establish_final_bind_provenance(
-        determination_id=prepared_a.determination.determination_id,
-        constraint_id=prepared_a.constraint.constraint_id,
-        protected_operation_id=prepared_a.operation.operation_id,
-        authority_exercise_id=prepared_a.determination.authority_exercise_id,
-        execution_attempt_id=prepared_a.determination.execution_attempt_id,
-        action_binding_hash=attempted_hash,
-        usage_reservation_id=prepared_a.usage_reservation_id,
-        permit_signature="CHAIN-A-PROVENANCE-ORIGIN",
-        issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+    # Establish chain A provenance through the genuine successful final-bind path.
+    permit_a = runtime_authority_payment.mint_rai_bound_execution_permit(
+        req, prepared_a, bind_at=req.requested_execution_time,
+    )
+    assert permit_a is not None
+    binding_a = get_rai_execution_binding(permit_a.signature)
+    assert binding_a is not None
+    assert verify_final_bind_provenance(
+        binding_a.final_bind_provenance_id,
+        determination_id=binding_a.determination_id,
+        constraint_id=binding_a.constraint_id,
+        protected_operation_id=binding_a.protected_operation_id,
+        authority_exercise_id=binding_a.authority_exercise_id,
+        execution_attempt_id=binding_a.execution_attempt_id,
+        action_binding_hash=binding_a.action_binding_hash,
+        usage_reservation_id=binding_a.usage_reservation_id,
+        permit_signature=permit_a.signature,
     )
 
     original_establish = runtime_authority_payment.establish_final_bind_provenance
 
     def transplant_provenance(**kwargs):
-        return provenance_a
+        from app.engines.final_bind_provenance import _PROVENANCE
+        return _PROVENANCE[binding_a.final_bind_provenance_id]
 
     runtime_authority_payment.establish_final_bind_provenance = transplant_provenance
     try:
@@ -731,17 +737,21 @@ def test_r6_all_low_level_capabilities_cannot_substitute_for_successful_final_bi
     )
     assert permit is not None
 
-    provenance = establish_final_bind_provenance(
-        determination_id=permit.rai_determination_id,
-        constraint_id=permit.rai_constraint_id,
-        protected_operation_id=permit.rai_protected_operation_id,
-        authority_exercise_id=exercise_id,
-        execution_attempt_id=attempt_id,
-        action_binding_hash=attempted_hash,
-        usage_reservation_id=reservation_id,
-        permit_signature=permit.signature,
-        issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
-    )
+    try:
+        provenance = establish_final_bind_provenance(
+            determination_id=permit.rai_determination_id,
+            constraint_id=permit.rai_constraint_id,
+            protected_operation_id=permit.rai_protected_operation_id,
+            authority_exercise_id=exercise_id,
+            execution_attempt_id=attempt_id,
+            action_binding_hash=attempted_hash,
+            usage_reservation_id=reservation_id,
+            permit_signature=permit.signature,
+            issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+        )
+    except ValueError as exc:
+        assert str(exc) == "successful causal final-bind grant required"
+        return
 
     register_rai_execution_binding(
         permit_signature=permit.signature,
