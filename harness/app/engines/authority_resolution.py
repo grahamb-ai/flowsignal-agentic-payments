@@ -160,7 +160,16 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         + get_operational_authority_evidence(req.beneficiary, observed_at=at)
     )
     index = _evidence_index(evidence)
+    missing = tuple(p for p in _REQUIRED_PROPOSITIONS if p not in index)
+    if missing:
+        raise AuthorityResolutionError(
+            "required authoritative propositions unresolved: " + ", ".join(missing)
+        )
 
+    # Completeness must be established before cross-source compatibility is
+    # evaluated. Missing authority evidence is an unresolved proposition, not
+    # an internal lookup failure.
+    #
     # A version vector records which source generations were observed; it does
     # not establish that independently versioned sources form one compatible
     # authority cut. Require an explicit reference compatibility assertion.
@@ -173,12 +182,6 @@ def resolve_payment_authority(req, *, resolved_at: datetime
     )
     if compatibility_cut is None:
         raise AuthorityResolutionError("compatible multi-source authority cut not established")
-
-    missing = tuple(p for p in _REQUIRED_PROPOSITIONS if p not in index)
-    if missing:
-        raise AuthorityResolutionError(
-            "required authoritative propositions unresolved: " + ", ".join(missing)
-        )
 
     required_values = {
         "actor.authenticated": True,
