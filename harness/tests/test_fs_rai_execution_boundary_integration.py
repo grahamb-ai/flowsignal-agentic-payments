@@ -115,6 +115,67 @@ def test_post_resolution_beneficiary_account_substitution_blocks_final_bind():
     )
 
 
+def test_distinct_execution_attempts_for_same_institutional_act_preserve_operation_identity():
+    """IC-FAIL-006: attempt identity must not redefine institutional-act identity."""
+    from app.engines.authority_determination import materialise_protected_operation
+    from app.engines.authority_lineage import (
+        create_authority_exercise,
+        create_execution_attempt,
+    )
+    from app.engines.authority_resolution import resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    _, _, _, scope, context = resolve_payment_authority(
+        req, resolved_at=req.requested_execution_time
+    )
+    exercise = create_authority_exercise(
+        resolution_context_id=context.context_id,
+        effective_authority_scope_id=scope.scope_id,
+        protected_operation_class=context.protected_operation_class,
+        created_at=req.requested_execution_time,
+    )
+    first = create_execution_attempt(
+        authority_exercise_id=exercise.authority_exercise_id,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        created_at=req.requested_execution_time,
+    )
+    retry = create_execution_attempt(
+        authority_exercise_id=exercise.authority_exercise_id,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        created_at=req.requested_execution_time,
+        parent_execution_attempt_id=first.execution_attempt_id,
+    )
+
+    first_operation = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=first.execution_attempt_id,
+    )
+    retry_operation = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=retry.execution_attempt_id,
+    )
+
+    assert first.execution_attempt_id != retry.execution_attempt_id
+    assert retry.parent_execution_attempt_id == first.execution_attempt_id
+    assert retry.attempt_ordinal == first.attempt_ordinal + 1
+    assert first_operation.institutional_operation_id == retry_operation.institutional_operation_id, (
+        "LINEAGE FAILURE: a retry of the same institutional act acquired a new "
+        "institutional operation identity merely because execution-attempt identity changed"
+    )
+    assert first_operation.operation_id != retry_operation.operation_id, (
+        "LINEAGE FAILURE: distinct execution attempts collapsed to the same concrete "
+        "protected-operation materialisation"
+    )
+
+
 def test_legacy_gateway_cannot_form_protected_consequence_without_rai_chain():
     """Failure-first route-closure challenge.
 
