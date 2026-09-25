@@ -146,3 +146,32 @@ def advance_usage_window_for_test() -> str:
         # authoritative fence; it does not alter the generic authority epoch.
         _FENCE += 1
         return _USAGE_WINDOW_ID
+
+
+def set_usage_window_for_test(window_id: str) -> str:
+    """Apply a presented synthetic usage-window transition with monotonic validation.
+
+    Test/reference-harness support only. Canonical DAY-NNN window identities may
+    move forward, but stale/equal/backward identities cannot replace current
+    authoritative usage-window state.
+    """
+    global _USAGE_WINDOW_ID, _FENCE
+    if not window_id:
+        raise ValueError("usage window identity required")
+    with _LOCK:
+        try:
+            current_prefix, current_raw = _USAGE_WINDOW_ID.rsplit("-", 1)
+            proposed_prefix, proposed_raw = window_id.rsplit("-", 1)
+            current_n = int(current_raw)
+            proposed_n = int(proposed_raw)
+        except (ValueError, TypeError):
+            raise ValueError("usage window identity is not comparable")
+
+        if proposed_prefix != current_prefix:
+            raise ValueError("usage window domain mismatch")
+        if proposed_n <= current_n:
+            raise ValueError("usage window transition must be strictly forward")
+
+        _USAGE_WINDOW_ID = window_id
+        _FENCE += 1
+        return _USAGE_WINDOW_ID
