@@ -45,6 +45,7 @@ _REQUIRED_PROPOSITIONS = (
     "counterparty.status",
     "account.status",
     "risk.state",
+    "beneficiary.account_references",
 )
 
 
@@ -207,6 +208,8 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         raise AuthorityResolutionError("target outside authoritative mandate scope")
     if req.beneficiary not in index["mandate.beneficiaries"].observed_value:
         raise AuthorityResolutionError("beneficiary outside authoritative mandate scope")
+    if req.beneficiary_account_reference not in index["beneficiary.account_references"].observed_value:
+        raise AuthorityResolutionError("beneficiary account does not correspond to authorised beneficiary")
     if req.source_account not in index["mandate.source_accounts"].observed_value:
         raise AuthorityResolutionError("source account outside effective mandate")
     if req.amount > index["mandate.max_amount"].observed_value:
