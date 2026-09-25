@@ -1324,3 +1324,24 @@ def test_usage_window_transition_rejects_wrong_window_domain():
     assert after is not None
     assert after.usage_window_id == before.usage_window_id
     assert after.authority_fence == before.authority_fence
+
+
+def test_forward_looking_window_value_cannot_self_authorise_rollover():
+    """Failure-first: syntactic forwardness is not authority to create a future economic window."""
+    from app.engines.institutional_authority import (
+        get_authority_snapshot,
+        set_usage_window_for_test,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    # A caller can calculate a syntactically forward value. That fact alone
+    # must not constitute competent authority to advance the economic window.
+    with pytest.raises(ValueError, match="authoritative"):
+        set_usage_window_for_test("DAY-999")
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert after.usage_window_id == before.usage_window_id
+    assert after.authority_fence == before.authority_fence
