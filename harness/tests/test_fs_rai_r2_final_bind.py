@@ -798,6 +798,13 @@ def test_r6_successful_final_bind_causal_grant_is_single_use():
     from dataclasses import replace
     from decimal import Decimal
 
+    from app.engines.authority_usage import reset_authority_usage_reference_state_for_test
+
+    # This case exercises grant consumption, not aggregate-capacity interaction.
+    # Isolate the process-local reference usage state so earlier R6 reservations
+    # cannot prevent the case from reaching the intended boundary.
+    reset_authority_usage_reference_state_for_test()
+
     req = replace(
         load_scenario(SCENARIO, rebase_to_now=False),
         amount=Decimal("100000.00"),
