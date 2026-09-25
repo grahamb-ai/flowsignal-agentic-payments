@@ -97,6 +97,7 @@ def execute_protected_consequence(
         execution_attempt_id=binding.execution_attempt_id,
         action_binding_hash=binding.action_binding_hash,
         usage_reservation_id=binding.usage_reservation_id,
+        permit_signature=permit.signature,
     ):
         return "DENIED_FINAL_BIND_PROVENANCE_REQUIRED"
 
