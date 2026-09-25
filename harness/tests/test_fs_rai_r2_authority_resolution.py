@@ -89,3 +89,21 @@ def test_known_approved_beneficiary_still_requires_mandate_scope():
 
     with pytest.raises(AuthorityResolutionError, match="beneficiary|mandate|scope|authoritative"):
         resolve_payment_authority(req, resolved_at=req.requested_execution_time)
+
+
+def test_authorised_beneficiary_cannot_substitute_unapproved_account_reference():
+    """MV-003 / NORM-PAY-001: beneficiary identity does not authorise any account."""
+    from dataclasses import replace
+
+    req = _request()
+    assert req.beneficiary == "SUPPLIER-X"
+    req = replace(
+        req,
+        beneficiary_account_reference="ACCT-SUPPLIER-X-ATTACKER",
+    )
+
+    with pytest.raises(
+        AuthorityResolutionError,
+        match="beneficiary account does not correspond to authorised beneficiary",
+    ):
+        resolve_payment_authority(req, resolved_at=req.requested_execution_time)
