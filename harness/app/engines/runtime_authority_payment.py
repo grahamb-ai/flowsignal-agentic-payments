@@ -163,6 +163,7 @@ def mint_rai_bound_execution_permit(
         currency=req.currency,
         source_account=req.source_account,
         beneficiary=req.beneficiary,
+        beneficiary_account_reference=req.beneficiary_account_reference,
         purpose=req.purpose,
         mandate_id=req.mandate_id,
         attempted_at=bind_at,
