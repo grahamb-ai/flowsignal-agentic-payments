@@ -60,3 +60,23 @@ This does not claim production-grade persistence, IAM/KMS/HSM isolation,
 multi-process coordination, distributed atomicity, crash/power-loss durability,
 external payment idempotency, or resistance to arbitrary mutation of private
 process-local reference state.
+
+
+## Final branch-head confirmation
+
+After this checkpoint document was added, the verification workflow was run again
+with no further engineering changes.
+
+Result:
+
+```
+124 passed in 0.68s
+```
+
+Verified candidate head before this evidence-only annotation:
+
+`257d28cd6171475afd6b6b37b2db2a954399939b`
+
+The remediation candidate is therefore frozen at the verified engineering and
+cross-family state represented by that commit. This annotation records the result
+only and does not alter executable code or test selection.
