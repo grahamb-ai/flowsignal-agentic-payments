@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from app.engines.institutional_authority import (
-    _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
     advance_authority_fence,
+    issue_authority_fence_transition_capability_for_test,
 )
 from app.engines.runtime_authority_payment import final_bind_payment, prepare_payment_execution
 from harness.runner import load_scenario
@@ -43,7 +43,9 @@ def test_integrated_path_blocks_when_authority_changes_before_bind():
         resolved_at=req.requested_execution_time
     )
     advance_authority_fence(
-        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        transition_capability=issue_authority_fence_transition_capability_for_test(
+            "institution-001:MANDATE-TREASURY-001"
+        ),
     )
     result = final_bind_payment(req, prepared, bind_at=req.requested_execution_time)
     assert result.status == "BLOCKED"
