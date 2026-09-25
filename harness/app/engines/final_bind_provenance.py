@@ -48,6 +48,8 @@ def establish_final_bind_provenance(
     from app.engines.final_bind import consume_final_bind_causal_grant
     if not consume_final_bind_causal_grant(
         causal_grant_id,
+        determination_id=determination_id,
+        constraint_id=constraint_id,
         protected_operation_id=protected_operation_id,
         authority_exercise_id=authority_exercise_id,
         execution_attempt_id=execution_attempt_id,
