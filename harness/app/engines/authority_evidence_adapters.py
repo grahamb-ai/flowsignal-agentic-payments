@@ -179,3 +179,36 @@ def get_operational_authority_evidence(beneficiary_id: str, *,
             )
             for prop, value in values
         )
+
+
+def set_actor_source_version_for_test(actor_id: str, source_version: str) -> None:
+    """Test/reference-harness support: advance one authoritative source independently."""
+    global _ACTORS
+    with _LOCK:
+        standing = _ACTORS.get(actor_id)
+        if standing is None:
+            raise ValueError("unknown actor")
+        _ACTORS[actor_id] = AuthoritativeActorStanding(
+            actor_id=standing.actor_id,
+            principal_id=standing.principal_id,
+            authenticated=standing.authenticated,
+            kya_status=standing.kya_status,
+            role=standing.role,
+            source_version=source_version,
+        )
+
+
+def set_operational_source_version_for_test(beneficiary_id: str, source_version: str) -> None:
+    """Test/reference-harness support: advance operational standing independently."""
+    global _OPERATIONAL
+    with _LOCK:
+        standing = _OPERATIONAL.get(beneficiary_id)
+        if standing is None:
+            raise ValueError("unknown beneficiary")
+        _OPERATIONAL[beneficiary_id] = AuthoritativeOperationalStanding(
+            beneficiary_id=standing.beneficiary_id,
+            counterparty_status=standing.counterparty_status,
+            account_status=standing.account_status,
+            risk_state=standing.risk_state,
+            source_version=source_version,
+        )
