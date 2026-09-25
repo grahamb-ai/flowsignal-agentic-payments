@@ -25,6 +25,7 @@ class ExecutionAttempt:
     currency: str
     source_account: str
     beneficiary: str
+    beneficiary_account_reference: str
     purpose: str
     mandate_id: str
     attempted_at: datetime
@@ -56,6 +57,7 @@ def action_binding_hash(attempt: ExecutionAttempt) -> str:
         "currency": attempt.currency,
         "source_account": attempt.source_account,
         "beneficiary": attempt.beneficiary,
+        "beneficiary_account_reference": attempt.beneficiary_account_reference,
         "purpose": attempt.purpose,
         "mandate_id": attempt.mandate_id,
     }
