@@ -299,3 +299,47 @@ def test_scope_bound_fence_transition_authority_advances_its_own_domain():
     assert advanced == before.authority_fence + 1
     assert after.authority_fence == before.authority_fence + 1
     assert after.snapshot_id != before.snapshot_id
+
+
+def test_fence_transition_capability_cannot_be_replayed_across_successive_states():
+    """IC-FAIL-008 third-order attack: scope alone must not create perpetual transition authority.
+
+    A capability valid to move the canonical authority domain from its current
+    state must not automatically remain valid to move the newly established
+    authoritative state again. Otherwise one captured capability is an
+    indefinite licence to manufacture future authority-state generations.
+    """
+    from app.engines.institutional_authority import (
+        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        advance_authority_fence,
+        get_authority_snapshot,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    advance_authority_fence(
+        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        authority_fence_scope_key=before.authority_fence_scope_key,
+    )
+    once = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert once is not None
+    assert once.authority_fence == before.authority_fence + 1
+
+    # Replay the exact same transition authority after the state it was used
+    # against has already been superseded.
+    try:
+        advance_authority_fence(
+            transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+            authority_fence_scope_key=once.authority_fence_scope_key,
+        )
+    except (PermissionError, ValueError):
+        pass
+
+    after_replay = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after_replay is not None
+    assert after_replay.authority_fence == once.authority_fence, (
+        "IC-FAIL-008: the same scope-bound transition capability was replayed "
+        "to manufacture another authoritative fence generation"
+    )
+    assert after_replay.snapshot_id == once.snapshot_id
