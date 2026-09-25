@@ -21,6 +21,7 @@ class FinalBindProvenance:
     execution_attempt_id: str
     action_binding_hash: str
     usage_reservation_id: str
+    permit_signature: str
 
 
 _LOCK = RLock()
@@ -37,6 +38,7 @@ def establish_final_bind_provenance(
     execution_attempt_id: str,
     action_binding_hash: str,
     usage_reservation_id: str,
+    permit_signature: str,
     issuance_capability: object | None = None,
 ) -> FinalBindProvenance:
     if issuance_capability is not _FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY:
@@ -50,6 +52,7 @@ def establish_final_bind_provenance(
         execution_attempt_id=execution_attempt_id,
         action_binding_hash=action_binding_hash,
         usage_reservation_id=usage_reservation_id,
+        permit_signature=permit_signature,
     )
     with _LOCK:
         _PROVENANCE[item.provenance_id] = item
@@ -66,6 +69,7 @@ def verify_final_bind_provenance(
     execution_attempt_id: str,
     action_binding_hash: str,
     usage_reservation_id: str,
+    permit_signature: str,
 ) -> bool:
     with _LOCK:
         item = _PROVENANCE.get(provenance_id)
@@ -78,4 +82,5 @@ def verify_final_bind_provenance(
             and item.execution_attempt_id == execution_attempt_id
             and item.action_binding_hash == action_binding_hash
             and item.usage_reservation_id == usage_reservation_id
+            and item.permit_signature == permit_signature
         )
