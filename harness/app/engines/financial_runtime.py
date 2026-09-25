@@ -29,6 +29,7 @@ def _binding(req: FinancialAuthorityRequest) -> str:
         "currency": req.currency,
         "source_account": req.source_account,
         "beneficiary": req.beneficiary,
+        "beneficiary_account_reference": req.beneficiary_account_reference,
         "purpose": req.purpose,
         "mandate_id": req.mandate_id,
     }
