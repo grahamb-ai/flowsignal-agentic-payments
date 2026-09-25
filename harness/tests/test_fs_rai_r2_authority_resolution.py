@@ -70,3 +70,22 @@ def test_context_identity_changes_when_authority_cut_changes():
     )
     assert before.context_id != after.context_id
     assert before.authority_cut_id != after.authority_cut_id
+
+
+def test_known_approved_beneficiary_still_requires_mandate_scope():
+    from dataclasses import replace
+    from app.engines.authority_evidence_adapters import register_operational_standing_for_test
+
+    req = _request()
+    alternate = "SUPPLIER-Y"
+    register_operational_standing_for_test(
+        alternate,
+        counterparty_status="APPROVED",
+        account_status="ACTIVE",
+        risk_state="NORMAL",
+        source_version="1",
+    )
+    req = replace(req, beneficiary=alternate)
+
+    with pytest.raises(AuthorityResolutionError, match="beneficiary|mandate|scope|authoritative"):
+        resolve_payment_authority(req, resolved_at=req.requested_execution_time)
