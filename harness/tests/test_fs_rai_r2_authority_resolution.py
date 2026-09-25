@@ -200,3 +200,25 @@ def test_caller_cannot_advance_authority_fence_without_transition_provenance():
         "IC-FAIL-008: unproven fence movement established a new authoritative "
         "snapshot without competent transition provenance"
     )
+
+
+def test_competent_bounded_transition_can_advance_authority_fence():
+    """IC-FAIL-008 positive control: remediation must not make state immutable."""
+    from app.engines.institutional_authority import (
+        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        advance_authority_fence,
+        get_authority_snapshot,
+    )
+
+    before = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert before is not None
+
+    advanced = advance_authority_fence(
+        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+    )
+
+    after = get_authority_snapshot("MANDATE-TREASURY-001")
+    assert after is not None
+    assert advanced == before.authority_fence + 1
+    assert after.authority_fence == before.authority_fence + 1
+    assert after.snapshot_id != before.snapshot_id
