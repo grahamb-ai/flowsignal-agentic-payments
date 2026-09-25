@@ -10,6 +10,8 @@ does not form or assert downstream consequence.
 
 import hmac
 from dataclasses import dataclass
+from threading import RLock
+from uuid import uuid4
 from datetime import datetime, timezone
 
 from app.engines.authority_determination import (
@@ -32,6 +34,31 @@ class FinalBindResult:
     protected_operation_id: str
     authority_exercise_id: str
     execution_attempt_id: str
+    causal_grant_id: str | None = None
+
+
+_CAUSAL_GRANT_LOCK = RLock()
+_CAUSAL_GRANTS: dict[str, tuple[str, str, str, str]] = {}
+
+
+def consume_final_bind_causal_grant(
+    grant_id: str | None,
+    *,
+    protected_operation_id: str,
+    authority_exercise_id: str,
+    execution_attempt_id: str,
+) -> bool:
+    """Consume a one-shot grant emitted only by successful final-bind."""
+    if grant_id is None:
+        return False
+    with _CAUSAL_GRANT_LOCK:
+        expected = _CAUSAL_GRANTS.pop(grant_id, None)
+    return expected == (
+        protected_operation_id,
+        authority_exercise_id,
+        execution_attempt_id,
+        "FINAL_BIND_AUTHORITY_REVALIDATED",
+    )
 
 
 def _aware(value: datetime) -> datetime:
@@ -156,6 +183,15 @@ def revalidate_at_final_bind(
     if current_binding.binding_id != determination.authority_operation_binding_id:
         return blocked("AUTHORITY_OPERATION_CORRESPONDENCE_CHANGED", current_context_id)
 
+    grant_id = f"FBG:{uuid4()}"
+    with _CAUSAL_GRANT_LOCK:
+        _CAUSAL_GRANTS[grant_id] = (
+            original_operation.operation_id,
+            determination.authority_exercise_id,
+            determination.execution_attempt_id,
+            "FINAL_BIND_AUTHORITY_REVALIDATED",
+        )
+
     return FinalBindResult(
         status="PERMITTED",
         reason_code="FINAL_BIND_AUTHORITY_REVALIDATED",
@@ -164,4 +200,5 @@ def revalidate_at_final_bind(
         protected_operation_id=original_operation.operation_id,
         authority_exercise_id=determination.authority_exercise_id,
         execution_attempt_id=determination.execution_attempt_id,
+        causal_grant_id=grant_id,
     )
