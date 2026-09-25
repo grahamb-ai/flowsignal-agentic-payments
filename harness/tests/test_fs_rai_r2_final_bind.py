@@ -988,18 +988,22 @@ def test_r6_genuine_causal_grant_cannot_authorise_substituted_determination_and_
     )
     assert permit is not None
 
-    provenance = establish_final_bind_provenance(
-        determination_id=substituted_determination,
-        constraint_id=substituted_constraint,
-        protected_operation_id=prepared.operation.operation_id,
-        authority_exercise_id=prepared.determination.authority_exercise_id,
-        execution_attempt_id=prepared.determination.execution_attempt_id,
-        action_binding_hash=attempted_hash,
-        usage_reservation_id=prepared.usage_reservation_id,
-        permit_signature=permit.signature,
-        causal_grant_id=final.causal_grant_id,
-        issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
-    )
+    try:
+        provenance = establish_final_bind_provenance(
+            determination_id=substituted_determination,
+            constraint_id=substituted_constraint,
+            protected_operation_id=prepared.operation.operation_id,
+            authority_exercise_id=prepared.determination.authority_exercise_id,
+            execution_attempt_id=prepared.determination.execution_attempt_id,
+            action_binding_hash=attempted_hash,
+            usage_reservation_id=prepared.usage_reservation_id,
+            permit_signature=permit.signature,
+            causal_grant_id=final.causal_grant_id,
+            issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
+        )
+    except ValueError as exc:
+        assert str(exc) == "successful causal final-bind grant required"
+        return
 
     register_rai_execution_binding(
         permit_signature=permit.signature,
