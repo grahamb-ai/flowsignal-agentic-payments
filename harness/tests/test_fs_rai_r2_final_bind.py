@@ -428,3 +428,113 @@ def test_r6_low_level_capabilities_plus_forged_usage_cannot_form_consequence():
         "usage state formed the protected consequence without causal RAI final-bind"
     )
     assert result == "DENIED_FINAL_BIND_PROVENANCE_REQUIRED"
+
+
+def test_r6_valid_final_bind_provenance_cannot_be_reused_for_a_second_permit_signature():
+    """R6 fourth-order failure-first: valid provenance must not be transferable to a second permit.
+
+    Start with a genuinely successful integrated final-bind/mint chain. A caller
+    that can reach the low-level mint and registry capabilities then mints a
+    second, separately signed permit carrying the same legitimate RAI lineage
+    and registers it against the first permit's genuine final-bind provenance.
+    Protected commitment must not treat provenance established for one mint as
+    reusable authority for another permit signature.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.engines.authority_store import get_authority_state_version
+    from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+    from app.engines.institutional_authority import get_authority_snapshot
+    from app.engines.permit_authority import _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+    from app.engines.protected_consequence import execute_protected_consequence
+    from app.engines.rai_execution_registry import (
+        _RAI_BINDING_REGISTRATION_CAPABILITY,
+        get_rai_execution_binding,
+        register_rai_execution_binding,
+    )
+    from app.engines.runtime_authority_payment import (
+        mint_rai_bound_execution_permit,
+        prepare_payment_execution,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+    original_permit = mint_rai_bound_execution_permit(
+        req,
+        prepared,
+        bind_at=req.requested_execution_time,
+    )
+    assert original_permit is not None
+
+    original_binding = get_rai_execution_binding(original_permit.signature)
+    assert original_binding is not None
+
+    snapshot = get_authority_snapshot(req.mandate_id)
+    assert snapshot is not None
+    attempted_hash = action_binding_hash(
+        ExecutionAttempt(
+            actor_id=req.actor_id,
+            principal_id=req.principal_id,
+            action=req.action,
+            target=req.target,
+            amount=req.amount,
+            currency=req.currency,
+            source_account=req.source_account,
+            beneficiary=req.beneficiary,
+            beneficiary_account_reference=req.beneficiary_account_reference,
+            purpose=req.purpose,
+            mandate_id=req.mandate_id,
+            attempted_at=datetime.now(timezone.utc),
+        )
+    )
+    assert attempted_hash == original_binding.action_binding_hash
+
+    transplanted_permit = issue_execution_permit(
+        authority_receipt_id="R6-TRANSPLANTED-PROVENANCE-SECOND-MINT",
+        action_binding_hash=attempted_hash,
+        authority_state_version=get_authority_state_version(),
+        authority_snapshot_id=snapshot.snapshot_id,
+        authority_subject_principal_id=snapshot.mandate.principal_id,
+        authority_subject_mandate_id=snapshot.mandate.mandate_id,
+        authority_epoch_id=snapshot.authority_epoch_id,
+        authority_fence_scope_key=snapshot.authority_fence_scope_key,
+        authority_fence=snapshot.authority_fence,
+        authoritative_source_id=snapshot.authoritative_source_id,
+        source_competence_root_id=snapshot.source_competence_root_id,
+        authority_semantics_version=snapshot.semantics.version,
+        authority_semantics_definition_id=snapshot.semantics.definition_id,
+        authority_semantics_source_id=snapshot.semantics.source_id,
+        valid_until=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        rai_determination_id=original_binding.determination_id,
+        rai_constraint_id=original_binding.constraint_id,
+        rai_protected_operation_id=original_binding.protected_operation_id,
+        rai_authority_exercise_id=original_binding.authority_exercise_id,
+        rai_execution_attempt_id=original_binding.execution_attempt_id,
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
+    )
+    assert transplanted_permit is not None
+    assert transplanted_permit.signature != original_permit.signature
+
+    register_rai_execution_binding(
+        permit_signature=transplanted_permit.signature,
+        determination_id=original_binding.determination_id,
+        constraint_id=original_binding.constraint_id,
+        protected_operation_id=original_binding.protected_operation_id,
+        authority_exercise_id=original_binding.authority_exercise_id,
+        execution_attempt_id=original_binding.execution_attempt_id,
+        action_binding_hash=original_binding.action_binding_hash,
+        usage_reservation_id=original_binding.usage_reservation_id,
+        final_bind_provenance_id=original_binding.final_bind_provenance_id,
+        registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
+    )
+
+    result = execute_protected_consequence(transplanted_permit, attempted_hash)
+    assert result != "CONSEQUENCE_FORMED", (
+        "R6 provenance transfer failure: one genuine successful final-bind "
+        "provenance authorised a separately minted permit signature"
+    )
