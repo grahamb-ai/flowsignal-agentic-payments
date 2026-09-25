@@ -606,6 +606,7 @@ def test_r6_valid_final_bind_provenance_cannot_be_transplanted_to_second_chain()
         execution_attempt_id=prepared_a.determination.execution_attempt_id,
         action_binding_hash=attempted_hash,
         usage_reservation_id=prepared_a.usage_reservation_id,
+        permit_signature="CHAIN-A-PROVENANCE-ORIGIN",
         issuance_capability=_FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY,
     )
 
