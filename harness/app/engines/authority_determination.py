@@ -26,6 +26,7 @@ from app.engines.authority_lineage import (
     AuthorityExercise,
     ExecutionAttemptLineage,
     bind_attempt_to_operation,
+    bind_exercise_to_institutional_operation,
 )
 
 
@@ -251,6 +252,10 @@ def issue_authorised_execution_constraint(
         raise ValueError("execution attempt belongs to different authority exercise")
     if execution_attempt.route_id != operation.route_id or execution_attempt.executor_id != operation.executor_id:
         raise ValueError("execution attempt route/executor does not match protected operation")
+    bind_exercise_to_institutional_operation(
+        authority_exercise_id=exercise_id,
+        institutional_operation_id=operation.institutional_operation_id,
+    )
     bind_attempt_to_operation(
         authority_exercise_id=exercise_id,
         execution_attempt_id=attempt_id,
