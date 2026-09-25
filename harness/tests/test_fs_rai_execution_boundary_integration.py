@@ -81,6 +81,40 @@ def test_rai_bound_permit_is_not_minted_when_final_bind_blocks():
     assert permit is None
 
 
+def test_post_resolution_beneficiary_account_substitution_blocks_final_bind():
+    """MV-003 second-order: account correspondence must survive through final bind."""
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    prepared = prepare_payment_execution(
+        req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
+        resolved_at=req.requested_execution_time,
+    )
+
+    substituted = replace(
+        req,
+        beneficiary_account_reference="ACCT-SUPPLIER-X-ATTACKER",
+    )
+
+    final = final_bind_payment(
+        substituted,
+        prepared,
+        bind_at=req.requested_execution_time,
+    )
+    assert final.status != "PERMITTED", (
+        "EXECUTION CORRESPONDENCE FAILURE: beneficiary account changed after "
+        "authority resolution but final bind still permitted the operation"
+    )
+
+    permit = mint_rai_bound_execution_permit(
+        substituted,
+        prepared,
+        bind_at=req.requested_execution_time,
+    )
+    assert permit is None, (
+        "EXECUTION CORRESPONDENCE FAILURE: substituted beneficiary account "
+        "received an RAI-bound execution capability"
+    )
+
+
 def test_legacy_gateway_cannot_form_protected_consequence_without_rai_chain():
     """Failure-first route-closure challenge.
 
