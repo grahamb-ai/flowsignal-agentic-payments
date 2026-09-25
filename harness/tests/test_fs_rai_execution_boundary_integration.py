@@ -1266,6 +1266,7 @@ def test_usage_window_transition_cannot_be_replayed_back_to_prior_window():
         advance_usage_window_for_test,
         get_authority_snapshot,
         set_usage_window_for_test,
+        _USAGE_WINDOW_TRANSITION_CAPABILITY,
     )
 
     before = get_authority_snapshot("MANDATE-TREASURY-001")
@@ -1278,7 +1279,7 @@ def test_usage_window_transition_cannot_be_replayed_back_to_prior_window():
     # A stale/replayed transition must not be able to move authoritative state
     # backwards to the prior economic window.
     with pytest.raises(ValueError, match="usage window"):
-        set_usage_window_for_test(prior_window)
+        set_usage_window_for_test(prior_window, transition_capability=_USAGE_WINDOW_TRANSITION_CAPABILITY)
 
     after = get_authority_snapshot("MANDATE-TREASURY-001")
     assert after is not None
@@ -1291,6 +1292,7 @@ def test_usage_window_transition_rejects_duplicate_current_window():
         advance_usage_window_for_test,
         get_authority_snapshot,
         set_usage_window_for_test,
+        _USAGE_WINDOW_TRANSITION_CAPABILITY,
     )
 
     current_window = advance_usage_window_for_test()
@@ -1299,7 +1301,7 @@ def test_usage_window_transition_rejects_duplicate_current_window():
     assert before.usage_window_id == current_window
 
     with pytest.raises(ValueError, match="strictly forward"):
-        set_usage_window_for_test(current_window)
+        set_usage_window_for_test(current_window, transition_capability=_USAGE_WINDOW_TRANSITION_CAPABILITY)
 
     after = get_authority_snapshot("MANDATE-TREASURY-001")
     assert after is not None
@@ -1312,13 +1314,14 @@ def test_usage_window_transition_rejects_wrong_window_domain():
     from app.engines.institutional_authority import (
         get_authority_snapshot,
         set_usage_window_for_test,
+        _USAGE_WINDOW_TRANSITION_CAPABILITY,
     )
 
     before = get_authority_snapshot("MANDATE-TREASURY-001")
     assert before is not None
 
     with pytest.raises(ValueError, match="domain mismatch"):
-        set_usage_window_for_test("FOREIGN-WINDOW-999")
+        set_usage_window_for_test("FOREIGN-WINDOW-999", transition_capability=_USAGE_WINDOW_TRANSITION_CAPABILITY)
 
     after = get_authority_snapshot("MANDATE-TREASURY-001")
     assert after is not None
