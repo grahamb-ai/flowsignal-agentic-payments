@@ -1348,3 +1348,23 @@ def test_forward_looking_window_value_cannot_self_authorise_rollover():
     assert after is not None
     assert after.usage_window_id == before.usage_window_id
     assert after.authority_fence == before.authority_fence
+
+
+def test_incompatible_authority_source_generations_cannot_form_one_sufficient_context():
+    """IC-FAIL-004 failure-first: a version vector must not manufacture cross-source compatibility."""
+    from app.engines.authority_evidence_adapters import (
+        set_actor_source_version_for_test,
+        set_operational_source_version_for_test,
+    )
+    from app.engines.authority_resolution import AuthorityResolutionError, resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+
+    # Simulate independently advanced authoritative sources. Each proposition
+    # remains locally competent/current-looking, but no compatibility cut has
+    # been established that authorises these generations to coexist.
+    set_actor_source_version_for_test(req.actor_id, "ACTOR-GEN-200")
+    set_operational_source_version_for_test(req.beneficiary, "OPERATION-GEN-900")
+
+    with pytest.raises(AuthorityResolutionError, match="compatible"):
+        resolve_payment_authority(req, resolved_at=req.requested_execution_time)
