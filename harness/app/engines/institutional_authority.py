@@ -48,7 +48,7 @@ _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
 _USAGE_WINDOW_TRANSITION_CAPABILITY = object()
 _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY = object()
-_COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str]] = {("1", "1")}
+_COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str, str]] = {("AUTH-EPOCH-001:1", "1", "1")}
 _SEMANTICS = AuthoritySemantics(
     version="NORM-PAY-001-v1.2",
     definition_id="FS-RAI-FX-001:NORM-PAY-001:v1.2",
@@ -214,7 +214,7 @@ def get_authority_compatibility_cut(
     # become mutually compatible merely because they are individually current
     # or can be named in a version vector.
     with _LOCK:
-        if (actor_source_version, operational_source_version) not in _COMPATIBLE_SOURCE_GENERATIONS:
+        if (mandate_version, actor_source_version, operational_source_version) not in _COMPATIBLE_SOURCE_GENERATIONS:
             return None
     payload = {
         "authority_epoch_id": snapshot.authority_epoch_id,
@@ -236,6 +236,7 @@ def register_authority_compatibility_cut_for_test(
     *,
     actor_source_version: str,
     operational_source_version: str,
+    mandate_source_version: str | None = None,
     registration_capability: object | None = None,
 ) -> None:
     """Establish a bounded reference compatibility relation for source generations.
@@ -248,6 +249,12 @@ def register_authority_compatibility_cut_for_test(
     if not actor_source_version or not operational_source_version:
         raise ValueError("source generation identity required")
     with _LOCK:
+        effective_mandate_version = mandate_source_version
+        if effective_mandate_version is None:
+            snapshot = get_authority_snapshot("MANDATE-TREASURY-001")
+            if snapshot is None:
+                raise ValueError("authoritative mandate not found")
+            effective_mandate_version = f"{snapshot.authority_epoch_id}:{snapshot.authority_fence}"
         _COMPATIBLE_SOURCE_GENERATIONS.add(
-            (actor_source_version, operational_source_version)
+            (effective_mandate_version, actor_source_version, operational_source_version)
         )
