@@ -314,3 +314,113 @@ def test_r6_possession_of_registry_capability_cannot_manufacture_rai_provenance(
         "R6 route closure failure: possession of low-level mint and registry "
         "capabilities manufactured executable RAI provenance"
     )
+
+
+def test_r6_low_level_capabilities_plus_forged_usage_cannot_form_consequence():
+    """R6 third-order attack: writable usage state must not complete forged provenance.
+
+    The attacker is given the reference mint, RAI-registration and usage-policy
+    registration capabilities, then constructs a matching RESERVED usage record.
+    Protected commitment must still require a causally established RAI chain.
+    """
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+
+    from app.engines.authority_domain import AuthorityUsageMode, AuthorityUsagePolicy
+    from app.engines.authority_store import get_authority_state_version
+    from app.engines.authority_usage import (
+        _POLICY_REGISTRATION_CAPABILITY,
+        register_usage_policy,
+        reserve_authority_usage,
+    )
+    from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+    from app.engines.institutional_authority import get_authority_snapshot
+    from app.engines.permit_authority import _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+    from app.engines.protected_consequence import execute_protected_consequence
+    from app.engines.rai_execution_registry import (
+        _RAI_BINDING_REGISTRATION_CAPABILITY,
+        register_rai_execution_binding,
+    )
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    snapshot = get_authority_snapshot(req.mandate_id)
+    assert snapshot is not None
+
+    attempted_hash = action_binding_hash(
+        ExecutionAttempt(
+            actor_id=req.actor_id, principal_id=req.principal_id, action=req.action,
+            target=req.target, amount=req.amount, currency=req.currency,
+            source_account=req.source_account, beneficiary=req.beneficiary,
+            beneficiary_account_reference=req.beneficiary_account_reference,
+            purpose=req.purpose, mandate_id=req.mandate_id,
+            attempted_at=datetime.now(timezone.utc),
+        )
+    )
+
+    exercise_id = "FORGED-R6-USAGE-EXERCISE"
+    attempt_id = "FORGED-R6-USAGE-ATTEMPT"
+    reservation_id = "FORGED-R6-USAGE-RESERVATION"
+    policy_id = "FORGED-R6-USAGE-POLICY"
+
+    register_usage_policy(
+        AuthorityUsagePolicy(
+            usage_policy_id=policy_id,
+            authority_scope_id="FORGED-R6-SCOPE",
+            mode=AuthorityUsageMode.AGGREGATE,
+            scope_key="FORGED-R6-USAGE-SCOPE",
+            capacity=Decimal("1000000"),
+            window_id=snapshot.usage_window_id,
+            disposition_rule_id="FORGED-R6-RULE",
+        ),
+        registration_capability=_POLICY_REGISTRATION_CAPABILITY,
+    )
+    reserve_authority_usage(
+        reservation_id=reservation_id,
+        usage_policy_id=policy_id,
+        authority_exercise_id=exercise_id,
+        execution_attempt_id=attempt_id,
+        amount_or_units=req.amount,
+    )
+
+    permit = issue_execution_permit(
+        authority_receipt_id="FORGED-R6-USAGE-RECEIPT",
+        action_binding_hash=attempted_hash,
+        authority_state_version=get_authority_state_version(),
+        authority_snapshot_id=snapshot.snapshot_id,
+        authority_subject_principal_id=snapshot.mandate.principal_id,
+        authority_subject_mandate_id=snapshot.mandate.mandate_id,
+        authority_epoch_id=snapshot.authority_epoch_id,
+        authority_fence_scope_key=snapshot.authority_fence_scope_key,
+        authority_fence=snapshot.authority_fence,
+        authoritative_source_id=snapshot.authoritative_source_id,
+        source_competence_root_id=snapshot.source_competence_root_id,
+        authority_semantics_version=snapshot.semantics.version,
+        authority_semantics_definition_id=snapshot.semantics.definition_id,
+        authority_semantics_source_id=snapshot.semantics.source_id,
+        valid_until=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        rai_determination_id="FORGED-R6-USAGE-DETERMINATION",
+        rai_constraint_id="FORGED-R6-USAGE-CONSTRAINT",
+        rai_protected_operation_id="FORGED-R6-USAGE-OPERATION",
+        rai_authority_exercise_id=exercise_id,
+        rai_execution_attempt_id=attempt_id,
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
+    )
+    assert permit is not None
+
+    register_rai_execution_binding(
+        permit_signature=permit.signature,
+        determination_id=permit.rai_determination_id,
+        constraint_id=permit.rai_constraint_id,
+        protected_operation_id=permit.rai_protected_operation_id,
+        authority_exercise_id=exercise_id,
+        execution_attempt_id=attempt_id,
+        action_binding_hash=attempted_hash,
+        usage_reservation_id=reservation_id,
+        registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
+    )
+
+    result = execute_protected_consequence(permit, attempted_hash)
+    assert result != "CONSEQUENCE_FORMED", (
+        "R6 route closure failure: low-level capabilities plus caller-manufactured "
+        "usage state formed the protected consequence without causal RAI final-bind"
+    )
