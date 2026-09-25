@@ -35,6 +35,7 @@ class AuthoritySnapshot:
     usage_window_id: str
     authority_fence_scope_key: str
     authority_fence: int
+    mandate_source_version: str
     authoritative_source_id: str
     source_competence_root_id: str
     semantics: AuthoritySemantics
@@ -48,7 +49,7 @@ _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
 _USAGE_WINDOW_TRANSITION_CAPABILITY = object()
 _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY = object()
-_COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str, str]] = {("AUTH-EPOCH-001:1", "1", "1")}
+_COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str, str]] = {("MANDATE-SOURCE-001", "1", "1")}
 _SEMANTICS = AuthoritySemantics(
     version="NORM-PAY-001-v1.2",
     definition_id="FS-RAI-FX-001:NORM-PAY-001:v1.2",
@@ -56,6 +57,7 @@ _SEMANTICS = AuthoritySemantics(
     source_competence_root_id=_COMPETENCE_ROOT,
 )
 _FENCE = 1
+_MANDATE_SOURCE_VERSION = "MANDATE-SOURCE-001"
 _MANDATES = {
     "MANDATE-TREASURY-001": AuthoritativeMandate(
         mandate_id="MANDATE-TREASURY-001",
@@ -76,6 +78,7 @@ def _snapshot_id(mandate: AuthoritativeMandate, fence: int) -> str:
         "authority_epoch_id": _EPOCH_ID,
         "usage_window_id": _USAGE_WINDOW_ID,
         "authority_fence": fence,
+        "mandate_source_version": _MANDATE_SOURCE_VERSION,
         "authoritative_source_id": _SOURCE_ID,
         "source_competence_root_id": _COMPETENCE_ROOT,
         "semantics": asdict(_SEMANTICS),
@@ -105,6 +108,7 @@ def get_authority_snapshot(mandate_id: str) -> AuthoritySnapshot | None:
             usage_window_id=_USAGE_WINDOW_ID,
             authority_fence_scope_key=f"{mandate.principal_id}:{mandate.mandate_id}",
             authority_fence=fence,
+            mandate_source_version=_MANDATE_SOURCE_VERSION,
             authoritative_source_id=_SOURCE_ID,
             source_competence_root_id=_COMPETENCE_ROOT,
             semantics=_SEMANTICS,
@@ -112,44 +116,29 @@ def get_authority_snapshot(mandate_id: str) -> AuthoritySnapshot | None:
         )
 
 
-def _carry_forward_compatibility_cut(old_mandate_version: str, new_mandate_version: str) -> None:
-    """Carry an already-established source relation across a competent mandate transition.
-
-    This does not infer a new actor/operational relation. It preserves only
-    relations that were explicitly established for the immediately prior
-    mandate generation when this authoritative store itself performs the
-    transition.
-    """
-    inherited = {
-        (new_mandate_version, actor_version, operational_version)
-        for mandate_version, actor_version, operational_version in _COMPATIBLE_SOURCE_GENERATIONS
-        if mandate_version == old_mandate_version
-    }
-    _COMPATIBLE_SOURCE_GENERATIONS.update(inherited)
-
-
 def advance_authority_fence() -> int:
+    """Advance generic authority state without changing the mandate source generation."""
     global _FENCE
     with _LOCK:
-        old_version = f"{_EPOCH_ID}:{_FENCE}"
         _FENCE += 1
-        new_version = f"{_EPOCH_ID}:{_FENCE}"
-        _carry_forward_compatibility_cut(old_version, new_version)
         return _FENCE
 
 
-def advance_authority_fence_without_compatibility_for_test() -> int:
-    """Advance only the mandate generation, deliberately withholding a new compatibility assertion.
+def advance_mandate_source_generation_without_compatibility_for_test() -> str:
+    """Advance the authoritative mandate source generation without asserting compatibility.
 
-    Test/reference-harness support only. This exists to prove that a previously
-    established multi-source cut cannot silently bless a mandate generation
-    that changed outside the competent compatibility-transition path.
+    Test/reference-harness support only. This proves that compatibility for one
+    mandate source generation cannot silently bless a distinct generation.
     """
-    global _FENCE
+    global _MANDATE_SOURCE_VERSION, _FENCE
     with _LOCK:
+        try:
+            prefix, raw = _MANDATE_SOURCE_VERSION.rsplit("-", 1)
+            _MANDATE_SOURCE_VERSION = f"{prefix}-{int(raw) + 1:03d}"
+        except (ValueError, TypeError):
+            _MANDATE_SOURCE_VERSION = f"{_MANDATE_SOURCE_VERSION}-NEXT"
         _FENCE += 1
-        return _FENCE
-
+        return _MANDATE_SOURCE_VERSION
 
 def advance_authority_epoch_for_test() -> str:
     """Advance the synthetic authority epoch without changing mandate economics.
@@ -241,7 +230,7 @@ def get_authority_compatibility_cut(
     snapshot = get_authority_snapshot(mandate_id)
     if snapshot is None:
         return None
-    mandate_version = f"{snapshot.authority_epoch_id}:{snapshot.authority_fence}"
+    mandate_version = snapshot.mandate_source_version
     # Compatibility is explicit reference state. Source generations do not
     # become mutually compatible merely because they are individually current
     # or can be named in a version vector.
@@ -286,7 +275,7 @@ def register_authority_compatibility_cut_for_test(
             snapshot = get_authority_snapshot("MANDATE-TREASURY-001")
             if snapshot is None:
                 raise ValueError("authoritative mandate not found")
-            effective_mandate_version = f"{snapshot.authority_epoch_id}:{snapshot.authority_fence}"
+            effective_mandate_version = snapshot.mandate_source_version
         _COMPATIBLE_SOURCE_GENERATIONS.add(
             (effective_mandate_version, actor_source_version, operational_source_version)
         )
