@@ -565,7 +565,14 @@ def test_r6_valid_final_bind_provenance_cannot_be_transplanted_to_second_chain()
         prepare_payment_execution,
     )
 
-    req = load_scenario(SCENARIO, rebase_to_now=False)
+    from dataclasses import replace
+    from decimal import Decimal
+
+    req = replace(
+        load_scenario(SCENARIO, rebase_to_now=False),
+        amount=Decimal("100000.00"),
+        institutional_operation_id="R6-PROVENANCE-TRANSPLANT",
+    )
 
     prepared_a = prepare_payment_execution(
         req, route_id="R1", executor_id="PAYMENT-EXECUTOR-1",
