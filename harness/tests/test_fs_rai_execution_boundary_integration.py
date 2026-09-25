@@ -176,6 +176,67 @@ def test_distinct_execution_attempts_for_same_institutional_act_preserve_operati
     )
 
 
+def test_distinct_institutional_act_cannot_reuse_prior_attempt_lineage():
+    """IC-FAIL-006 converse: new institutional act cannot inherit an old attempt."""
+    from app.engines.authority_determination import materialise_protected_operation
+    from app.engines.authority_lineage import (
+        bind_attempt_to_operation,
+        create_authority_exercise,
+        create_execution_attempt,
+    )
+    from app.engines.authority_resolution import resolve_payment_authority
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    _, _, _, scope, context = resolve_payment_authority(
+        req, resolved_at=req.requested_execution_time
+    )
+    exercise = create_authority_exercise(
+        resolution_context_id=context.context_id,
+        effective_authority_scope_id=scope.scope_id,
+        protected_operation_class=context.protected_operation_class,
+        created_at=req.requested_execution_time,
+    )
+    attempt = create_execution_attempt(
+        authority_exercise_id=exercise.authority_exercise_id,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        created_at=req.requested_execution_time,
+    )
+    original = materialise_protected_operation(
+        req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=attempt.execution_attempt_id,
+    )
+    bind_attempt_to_operation(
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=attempt.execution_attempt_id,
+        protected_operation_id=original.operation_id,
+    )
+
+    distinct_req = replace(
+        req,
+        institutional_operation_id="PAYMENT-INSTRUCTION-DISTINCT-002",
+    )
+    distinct = materialise_protected_operation(
+        distinct_req,
+        route_id="R1",
+        executor_id="PAYMENT-EXECUTOR-1",
+        authority_exercise_id=exercise.authority_exercise_id,
+        execution_attempt_id=attempt.execution_attempt_id,
+    )
+
+    assert distinct.institutional_operation_id != original.institutional_operation_id
+    assert distinct.operation_id != original.operation_id
+    with pytest.raises(ValueError, match="already bound to different operation"):
+        bind_attempt_to_operation(
+            authority_exercise_id=exercise.authority_exercise_id,
+            execution_attempt_id=attempt.execution_attempt_id,
+            protected_operation_id=distinct.operation_id,
+        )
+
+
 def test_legacy_gateway_cannot_form_protected_consequence_without_rai_chain():
     """Failure-first route-closure challenge.
 
