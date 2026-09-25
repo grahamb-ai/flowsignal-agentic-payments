@@ -27,6 +27,7 @@ class FinancialAuthorityRequest:
     currency: str
     source_account: str
     beneficiary: str
+    beneficiary_account_reference: str
     purpose: str
     counterparty_status: str
     account_status: str
