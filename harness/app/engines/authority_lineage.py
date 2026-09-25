@@ -48,6 +48,7 @@ _LOCK = RLock()
 _EXERCISES: dict[str, AuthorityExercise] = {}
 _ATTEMPTS: dict[str, ExecutionAttemptLineage] = {}
 _BINDINGS: dict[str, LineageBinding] = {}
+_EXERCISE_INSTITUTIONAL_OPERATIONS: dict[str, str] = {}
 
 
 def _aware(value: datetime) -> datetime:
@@ -160,6 +161,21 @@ def bind_attempt_to_operation(
             raise ValueError("execution attempt already bound to different operation")
         _BINDINGS[key] = proposed
         return proposed
+
+
+def bind_exercise_to_institutional_operation(
+    *,
+    authority_exercise_id: str,
+    institutional_operation_id: str,
+) -> None:
+    """Bind one authority exercise to exactly one institutional act."""
+    with _LOCK:
+        if authority_exercise_id not in _EXERCISES:
+            raise ValueError("unknown authority exercise")
+        existing = _EXERCISE_INSTITUTIONAL_OPERATIONS.get(authority_exercise_id)
+        if existing is not None and existing != institutional_operation_id:
+            raise ValueError("authority exercise already bound to different institutional operation")
+        _EXERCISE_INSTITUTIONAL_OPERATIONS[authority_exercise_id] = institutional_operation_id
 
 
 def verify_lineage(
