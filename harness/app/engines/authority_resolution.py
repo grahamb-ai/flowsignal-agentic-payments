@@ -38,6 +38,7 @@ _REQUIRED_PROPOSITIONS = (
     "mandate.active",
     "mandate.action",
     "mandate.targets",
+    "mandate.beneficiaries",
     "mandate.max_amount",
     "mandate.currency",
     "mandate.source_accounts",
@@ -74,6 +75,7 @@ def _mandate_evidence(snapshot, *, observed_at: datetime
         ("mandate.active", mandate.status == "ACTIVE"),
         ("mandate.action", mandate.action),
         ("mandate.targets", tuple(mandate.targets)),
+        ("mandate.beneficiaries", tuple(mandate.beneficiaries)),
         ("mandate.max_amount", mandate.max_amount),
         ("mandate.currency", mandate.currency),
         ("mandate.source_accounts", tuple(mandate.source_accounts)),
@@ -203,6 +205,8 @@ def resolve_payment_authority(req, *, resolved_at: datetime
 
     if req.target not in index["mandate.targets"].observed_value:
         raise AuthorityResolutionError("target outside authoritative mandate scope")
+    if req.beneficiary not in index["mandate.beneficiaries"].observed_value:
+        raise AuthorityResolutionError("beneficiary outside authoritative mandate scope")
     if req.source_account not in index["mandate.source_accounts"].observed_value:
         raise AuthorityResolutionError("source account outside effective mandate")
     if req.amount > index["mandate.max_amount"].observed_value:
