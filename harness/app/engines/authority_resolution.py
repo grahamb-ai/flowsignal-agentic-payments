@@ -27,7 +27,7 @@ from app.engines.authority_evidence_adapters import (
     get_actor_authority_evidence,
     get_operational_authority_evidence,
 )
-from app.engines.institutional_authority import get_authority_snapshot
+from app.engines.institutional_authority import get_authority_snapshot, get_authority_compatibility_cut
 from app.engines.approval_authority import resolve_approval
 
 
@@ -160,6 +160,20 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         + get_operational_authority_evidence(req.beneficiary, observed_at=at)
     )
     index = _evidence_index(evidence)
+
+    # A version vector records which source generations were observed; it does
+    # not establish that independently versioned sources form one compatible
+    # authority cut. Require an explicit reference compatibility assertion.
+    actor_source_version = index["actor.authenticated"].source_version
+    operational_source_version = index["counterparty.status"].source_version
+    compatibility_cut = get_authority_compatibility_cut(
+        req.mandate_id,
+        actor_source_version=actor_source_version,
+        operational_source_version=operational_source_version,
+    )
+    if compatibility_cut is None:
+        raise AuthorityResolutionError("compatible multi-source authority cut not established")
+
     missing = tuple(p for p in _REQUIRED_PROPOSITIONS if p not in index)
     if missing:
         raise AuthorityResolutionError(
@@ -243,6 +257,7 @@ def resolve_payment_authority(req, *, resolved_at: datetime
         "fence": snapshot.authority_fence,
         "approval_binding_id": approval.approval_binding_id,
         "approval_rule_id": approval.approval_rule_id,
+        "compatibility_cut_id": compatibility_cut.compatibility_cut_id,
     }
     context = AuthorityResolutionContext(
         context_id=_stable_id("CTX", context_payload),
