@@ -212,5 +212,6 @@ def mint_rai_bound_execution_permit(
         execution_attempt_id=prepared.determination.execution_attempt_id,
         action_binding_hash=attempted_hash,
         usage_reservation_id=prepared.usage_reservation_id,
+        registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
     )
     return permit
