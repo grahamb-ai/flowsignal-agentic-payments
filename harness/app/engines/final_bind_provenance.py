@@ -39,10 +39,20 @@ def establish_final_bind_provenance(
     action_binding_hash: str,
     usage_reservation_id: str,
     permit_signature: str,
+    causal_grant_id: str | None = None,
     issuance_capability: object | None = None,
 ) -> FinalBindProvenance:
     if issuance_capability is not _FINAL_BIND_PROVENANCE_ISSUANCE_CAPABILITY:
         raise ValueError("successful final-bind provenance required")
+
+    from app.engines.final_bind import consume_final_bind_causal_grant
+    if not consume_final_bind_causal_grant(
+        causal_grant_id,
+        protected_operation_id=protected_operation_id,
+        authority_exercise_id=authority_exercise_id,
+        execution_attempt_id=execution_attempt_id,
+    ):
+        raise ValueError("successful causal final-bind grant required")
     item = FinalBindProvenance(
         provenance_id=f"FBP:{uuid4()}",
         determination_id=determination_id,
