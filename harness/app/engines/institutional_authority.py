@@ -253,6 +253,23 @@ def get_authority_compatibility_cut(
     )
 
 
+def restore_current_reference_compatibility_for_test(
+    *, actor_source_version: str = "1", operational_source_version: str = "1"
+) -> None:
+    """Restore the canonical reference compatibility cut after a destructive hostile test.
+
+    Test cleanup only. This is not an authority transition mechanism and must
+    not be used by production resolution paths.
+    """
+    snapshot = get_authority_snapshot("MANDATE-TREASURY-001")
+    if snapshot is None:
+        raise ValueError("authoritative mandate not found")
+    with _LOCK:
+        _COMPATIBLE_SOURCE_GENERATIONS.add(
+            (snapshot.mandate_source_version, actor_source_version, operational_source_version)
+        )
+
+
 def register_authority_compatibility_cut_for_test(
     *,
     actor_source_version: str,
