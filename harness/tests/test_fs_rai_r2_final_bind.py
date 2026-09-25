@@ -143,3 +143,90 @@ def test_route_substitution_is_a_different_operation():
     )
     assert result.status == "BLOCKED"
     assert result.reason_code == "PROTECTED_OPERATION_IDENTITY_MISMATCH"
+
+
+def test_r6_caller_cannot_self_register_forged_rai_binding_to_form_protected_consequence():
+    """R6 failure-first route closure: registry write reachability is not RAI provenance.
+
+    A caller reaching low-level reference helpers must not be able to mint a
+    separately constructed permit, self-register matching RAI-looking fields,
+    and thereby make the directly callable protected executor form the protected
+    consequence without the successful integrated final-bind/mint chain.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.engines.authority_store import get_authority_state_version
+    from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
+    from app.engines.institutional_authority import get_authority_snapshot
+    from app.engines.permit_authority import _GATEWAY_MINT_CAPABILITY, issue_execution_permit
+    from app.engines.protected_consequence import execute_protected_consequence
+    from app.engines.rai_execution_registry import register_rai_execution_binding
+
+    req = load_scenario(SCENARIO, rebase_to_now=False)
+    snapshot = get_authority_snapshot(req.mandate_id)
+    assert snapshot is not None
+
+    attempted_hash = action_binding_hash(
+        ExecutionAttempt(
+            actor_id=req.actor_id,
+            principal_id=req.principal_id,
+            action=req.action,
+            target=req.target,
+            amount=req.amount,
+            currency=req.currency,
+            source_account=req.source_account,
+            beneficiary=req.beneficiary,
+            beneficiary_account_reference=req.beneficiary_account_reference,
+            purpose=req.purpose,
+            mandate_id=req.mandate_id,
+            attempted_at=datetime.now(timezone.utc),
+        )
+    )
+
+    permit = issue_execution_permit(
+        authority_receipt_id="FORGED-R6-RECEIPT",
+        action_binding_hash=attempted_hash,
+        authority_state_version=get_authority_state_version(),
+        authority_snapshot_id=snapshot.snapshot_id,
+        authority_subject_principal_id=snapshot.mandate.principal_id,
+        authority_subject_mandate_id=snapshot.mandate.mandate_id,
+        authority_epoch_id=snapshot.authority_epoch_id,
+        authority_fence_scope_key=snapshot.authority_fence_scope_key,
+        authority_fence=snapshot.authority_fence,
+        authoritative_source_id=snapshot.authoritative_source_id,
+        source_competence_root_id=snapshot.source_competence_root_id,
+        authority_semantics_version=snapshot.semantics.version,
+        authority_semantics_definition_id=snapshot.semantics.definition_id,
+        authority_semantics_source_id=snapshot.semantics.source_id,
+        valid_until=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+        rai_determination_id="FORGED-R6-DETERMINATION",
+        rai_constraint_id="FORGED-R6-CONSTRAINT",
+        rai_protected_operation_id="FORGED-R6-OPERATION",
+        rai_authority_exercise_id="FORGED-R6-EXERCISE",
+        rai_execution_attempt_id="FORGED-R6-ATTEMPT",
+        mint_capability=_GATEWAY_MINT_CAPABILITY,
+    )
+    assert permit is not None
+
+    # Public helper reachability must not be sufficient to manufacture the
+    # causal RAI provenance required by the executor.
+    try:
+        register_rai_execution_binding(
+            permit_signature=permit.signature,
+            determination_id=permit.rai_determination_id,
+            constraint_id=permit.rai_constraint_id,
+            protected_operation_id=permit.rai_protected_operation_id,
+            authority_exercise_id=permit.rai_authority_exercise_id,
+            execution_attempt_id=permit.rai_execution_attempt_id,
+            action_binding_hash=attempted_hash,
+            usage_reservation_id="FORGED-R6-USAGE",
+        )
+    except ValueError:
+        pass
+
+    result = execute_protected_consequence(permit, attempted_hash)
+    assert result != "CONSEQUENCE_FORMED", (
+        "R6 route closure failure: low-level mint + self-registration formed "
+        "the protected consequence without successful RAI final-bind provenance"
+    )
+    assert result == "DENIED_RAI_EXECUTION_BINDING_REQUIRED"
