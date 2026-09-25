@@ -68,3 +68,20 @@ Do not solve this by adding another caller-supplied flag or another freely impor
 A valid remediation must make successful final-bind causally necessary for provenance establishment, so that directly composing the low-level mint/usage/provenance/registry helpers cannot manufacture equivalent executable state.
 
 The preserved RED should remain unchanged until that property is implemented and demonstrated.
+
+
+## Remediation verification
+
+The preserved first failure was remediated by making successful final-bind emit a one-shot causal grant bound to the protected operation, authority exercise and execution attempt. Final-bind provenance establishment now requires and consumes that grant.
+
+The hostile case itself was not weakened: direct possession of the low-level mint, usage-policy registration, provenance-issuance and RAI-registration capabilities remains insufficient because no successful final-bind causal grant exists.
+
+The pre-existing cross-chain provenance case was aligned with the strengthened contract by obtaining chain A provenance through the genuine successful final-bind/mint path before attempting transplantation.
+
+Final full regression:
+
+```
+114 passed in 0.43s
+```
+
+This closes the demonstrated all-low-level-capabilities causal-substitution route within the bounded reference implementation. It does not establish global closure for production IAM/process isolation, persistence, concurrency, rollback of all state, distributed execution or infrastructure compromise.
