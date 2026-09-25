@@ -63,8 +63,13 @@ def test_context_identity_changes_when_authority_cut_changes():
     _, _, _, _, before = resolve_payment_authority(
         req, resolved_at=req.requested_execution_time
     )
-    from app.engines.institutional_authority import advance_authority_fence
-    advance_authority_fence()
+    from app.engines.institutional_authority import (
+        _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        advance_authority_fence,
+    )
+    advance_authority_fence(
+        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+    )
     _, _, _, _, after = resolve_payment_authority(
         req, resolved_at=req.requested_execution_time
     )
