@@ -48,7 +48,14 @@ _USAGE_WINDOW_ID = "DAY-001"
 _SOURCE_ID = "INSTITUTIONAL-AUTHORITY-STORE-001"
 _COMPETENCE_ROOT = "INSTITUTIONAL-COMPETENCE-ROOT-001"
 _USAGE_WINDOW_TRANSITION_CAPABILITY = object()
-_AUTHORITY_FENCE_TRANSITION_CAPABILITY = object()
+@dataclass(frozen=True)
+class AuthorityFenceTransitionCapability:
+    authority_fence_scope_key: str
+
+
+_AUTHORITY_FENCE_TRANSITION_CAPABILITY = AuthorityFenceTransitionCapability(
+    authority_fence_scope_key="institution-001:MANDATE-TREASURY-001"
+)
 _COMPATIBILITY_CUT_REGISTRATION_CAPABILITY = object()
 _COMPATIBLE_SOURCE_GENERATIONS: set[tuple[str, str, str]] = {("MANDATE-SOURCE-001", "1", "1")}
 _SEMANTICS = AuthoritySemantics(
@@ -144,16 +151,24 @@ def restore_authority_semantics_for_test(previous: AuthoritySemantics) -> None:
         _SEMANTICS = previous
         _FENCE += 1
 
-def advance_authority_fence(*, transition_capability: object | None = None) -> int:
-    """Advance generic authority state only for a competent bounded transition.
+def advance_authority_fence(
+    *,
+    transition_capability: object | None = None,
+    authority_fence_scope_key: str = "institution-001:MANDATE-TREASURY-001",
+) -> int:
+    """Advance authority state only under scope-correspondent transition authority.
 
-    Reference-harness mechanism: call reachability is not transition authority.
-    The private capability represents the trusted transition boundary here; it
-    is not a claim of a production credential or distributed trust mechanism.
+    Reference-harness mechanism only. The capability is bound to one frozen
+    authority-fence scope; possession does not imply authority over another
+    principal/mandate domain.
     """
     global _FENCE
+    if not isinstance(transition_capability, AuthorityFenceTransitionCapability):
+        raise PermissionError("authoritative fence transition required")
     if transition_capability is not _AUTHORITY_FENCE_TRANSITION_CAPABILITY:
         raise PermissionError("authoritative fence transition required")
+    if transition_capability.authority_fence_scope_key != authority_fence_scope_key:
+        raise PermissionError("authority fence transition scope mismatch")
     with _LOCK:
         _FENCE += 1
         return _FENCE
