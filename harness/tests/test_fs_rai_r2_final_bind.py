@@ -10,8 +10,8 @@ from app.engines.authority_resolution import resolve_payment_authority
 from app.engines.authority_lineage import create_authority_exercise, create_execution_attempt
 from app.engines.final_bind import revalidate_at_final_bind
 from app.engines.institutional_authority import (
-    _AUTHORITY_FENCE_TRANSITION_CAPABILITY,
     advance_authority_fence,
+    issue_authority_fence_transition_capability_for_test,
 )
 from harness.runner import load_scenario
 
@@ -74,7 +74,9 @@ def test_slice_e_permits_unchanged_current_authority_and_operation():
 def test_authority_cut_change_blocks_at_final_bind():
     req, operation, determination, constraint = _authorised_chain()
     advance_authority_fence(
-        transition_capability=_AUTHORITY_FENCE_TRANSITION_CAPABILITY,
+        transition_capability=issue_authority_fence_transition_capability_for_test(
+            "institution-001:MANDATE-TREASURY-001"
+        ),
     )
     result = revalidate_at_final_bind(
         req,
