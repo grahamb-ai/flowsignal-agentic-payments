@@ -112,7 +112,39 @@ def get_authority_snapshot(mandate_id: str) -> AuthoritySnapshot | None:
         )
 
 
+def _carry_forward_compatibility_cut(old_mandate_version: str, new_mandate_version: str) -> None:
+    """Carry an already-established source relation across a competent mandate transition.
+
+    This does not infer a new actor/operational relation. It preserves only
+    relations that were explicitly established for the immediately prior
+    mandate generation when this authoritative store itself performs the
+    transition.
+    """
+    inherited = {
+        (new_mandate_version, actor_version, operational_version)
+        for mandate_version, actor_version, operational_version in _COMPATIBLE_SOURCE_GENERATIONS
+        if mandate_version == old_mandate_version
+    }
+    _COMPATIBLE_SOURCE_GENERATIONS.update(inherited)
+
+
 def advance_authority_fence() -> int:
+    global _FENCE
+    with _LOCK:
+        old_version = f"{_EPOCH_ID}:{_FENCE}"
+        _FENCE += 1
+        new_version = f"{_EPOCH_ID}:{_FENCE}"
+        _carry_forward_compatibility_cut(old_version, new_version)
+        return _FENCE
+
+
+def advance_authority_fence_without_compatibility_for_test() -> int:
+    """Advance only the mandate generation, deliberately withholding a new compatibility assertion.
+
+    Test/reference-harness support only. This exists to prove that a previously
+    established multi-source cut cannot silently bless a mandate generation
+    that changed outside the competent compatibility-transition path.
+    """
     global _FENCE
     with _LOCK:
         _FENCE += 1
