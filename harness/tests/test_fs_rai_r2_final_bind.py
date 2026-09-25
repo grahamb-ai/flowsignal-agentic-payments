@@ -220,6 +220,7 @@ def test_r6_caller_cannot_self_register_forged_rai_binding_to_form_protected_con
             execution_attempt_id=permit.rai_execution_attempt_id,
             action_binding_hash=attempted_hash,
             usage_reservation_id="FORGED-R6-USAGE",
+            final_bind_provenance_id="FORGED-R6-FINAL-BIND-PROVENANCE",
         )
     except ValueError:
         pass
@@ -306,6 +307,7 @@ def test_r6_possession_of_registry_capability_cannot_manufacture_rai_provenance(
         execution_attempt_id=permit.rai_execution_attempt_id,
         action_binding_hash=attempted_hash,
         usage_reservation_id="FORGED-R6-CAP-USAGE",
+        final_bind_provenance_id="FORGED-R6-CAP-FINAL-BIND-PROVENANCE",
         registration_capability=_RAI_BINDING_REGISTRATION_CAPABILITY,
     )
 
