@@ -1,123 +1,176 @@
-# Runtime Authority for Agentic Payments
+# FlowSignal™ Runtime Authority — Public Verification Candidate v0.1
 
-**An open engineering reference project examining how institutional authority can be independently determined and enforced immediately before an autonomous financial action becomes a represented financial consequence.**
+> **WHO → WHAT → NOW → MATCH = B4 ACT**
 
-## Why This Project Exists
+**Before AI acts, know it's authorised.**
 
-The UK Financial Services AI Adoption Plan identifies agentic payments as an emerging area for industry development.
+This branch is a frozen public verification candidate for FlowSignal's Runtime Authority reference implementation.
 
-Recommendation 10 proposes an industry-led trust framework for agentic payments, including work around legal/liability frameworks, Know Your Agent protocols, authentication and governance.
+## Your job: try to make the declared properties fail
 
-This project examines a narrower implementation question:
+FlowSignal built this reference implementation and FlowSignal performed the verification that produced the current baseline. That is useful engineering evidence, but it is not independent third-party validation.
 
-> **Once an autonomous agent is known, authenticated and operating under delegated authority, what determines whether that authority remains sufficient for the specific financial action immediately before execution?**
+So this candidate is being opened for independent technical scrutiny.
 
-The project explores **Runtime Authority** as one architectural answer.
+We are not asking reviewers to confirm that FlowSignal is right. We are asking reviewers to try to falsify the bounded claims below with a reproducible case.
 
-## Runtime Authority
+If a legitimate new failure is demonstrated, the intended process is:
 
-Within this reference project, Runtime Authority evaluates whether sufficient represented institutional authority exists for a proposed autonomous action immediately before the protected consequence boundary.
+**preserve the first failure → understand the cause → remediate narrowly → rerun the regression → retain the evidence**
 
-**Actor + Mandate + Proposed Action + Current Context + Applicable Constraints + Trusted Evidence**
+A new reproducible failure is useful evidence, not something to hide.
 
-→ **Runtime Authority**
+## The simple model
 
-→ **ALLOW | ESCALATE | REFUSE**
+| Question | Runtime-authority question |
+|---|---|
+| **WHO** | Who holds the authority? |
+| **WHAT** | What is authorised? |
+| **NOW** | Is that authority valid at the point of execution? |
+| **MATCH** | Does this exact execution still correspond to the authority and decision that were validated? |
 
-→ **Execution Gateway**
+**WHO → WHAT → NOW → MATCH = B4 ACT**
 
-→ **Represented Financial Consequence**
+The engineering question is whether protected consequence can form when one of the required runtime-authority relationships should prevent it.
 
-The autonomous system may remain probabilistic. The represented authority boundary can be deterministic.
+## Frozen baseline
 
-## Executable Evidence
+The engineering checkpoint underlying this candidate is:
 
-The primary public evidence index is [`EVIDENCE.md`](EVIDENCE.md).
+```
+257d28cd6171475afd6b6b37b2db2a954399939b
+```
 
-> **EVIDENCE.md is an index to executable evidence; it is not itself the evidence.**
+The selected cross-family verification workflow completed:
 
-It links the engineering propositions directly to implementation/test artifacts, preserved failures, remediation records, reruns and explicit residual limitations.
+```
+124 passed in 0.68s
+```
 
-The current qualified reference-MVP candidate was reproduced on a clean GitHub-hosted Ubuntu runner using Python 3.11 and the repository dependency manifest. The qualified run recorded:
+That is a regression result, not 124 independent proofs and not production certification.
 
-**53 passed / 0 failed**
+The selected verification scope spans:
 
-This is a regression count, **not 53 independent proofs**, and clean hosted CI reproduction is **not independent third-party validation**.
+- R1 exact-money;
+- R2 authoritative state, authority domain, evidence adapters, resolution, determination and final-bind;
+- R3 approval;
+- R4 authority usage;
+- R5 lineage;
+- R6 final-bind provenance and causal correspondence;
+- the integrated payment path; and
+- the protected execution boundary.
 
-The evidence estate deliberately preserves material failures discovered during adversarial qualification, including consequence-producing bypass/replay/rollback failures before remediation. See [`evidence/PMQ-001/`](evidence/PMQ-001/), [`evidence/PMQ-002/`](evidence/PMQ-002/) and [`evidence/CAT-001/`](evidence/CAT-001/).
+## What previous verification found
 
-## Current Qualification Boundary
+Failure-first work already exposed genuine weaknesses, including:
 
-The maintained reference-MVP has been exercised against standing-at-effect, stale authority, changed conditions, temporal expiry, direct bypass, consequence non-formation, replay, restart, concurrency, evidence failure, crash recovery and durable rollback propositions.
+1. genuine final-bind provenance that could be reused with a separately signed permit;
+2. low-level reference capabilities that could originally substitute for causal traversal of successful final-bind;
+3. a genuine causal grant that was not initially bound to the exact determination and constraint; and
+4. an availability weakness where an incorrect correspondence could consume a genuine grant.
 
-The architecture-neutral CAT-001 record currently classifies the FlowSignal reference-MVP as **14 PASS · 1 PARTIAL · 0 FAIL · 0 NOT DEMONSTRATED** under its frozen fifteen-proposition burden.
+Those findings were preserved, remediated narrowly and retained in the regression evidence.
 
-The single PARTIAL is governed route closure: tested governed consequence-producing bypasses have been exercised and remediated, but **universal external route closure is not demonstrated**.
+See `harness/evidence/` for the detailed records.
 
-CAT-001 is a qualification/evidence-mapping record. The executable tests and execution records linked from [`EVIDENCE.md`](EVIDENCE.md) are the primary engineering evidence.
+## What we currently claim
 
-## What This Project Does Not Claim
+Within the tested reference-harness boundary, the evidence supports the following bounded properties:
 
-The public reference-MVP does **not** establish:
+- final-bind provenance corresponds to the exact execution permit;
+- tested cross-chain provenance transplant does not form a protected consequence;
+- the tested low-level reference capabilities cannot substitute for successful causal final-bind;
+- the one-shot causal grant corresponds to the exact tested decision artifacts and execution lineage;
+- incorrect grant correspondence does not destroy a still-valid grant;
+- successful grant consumption remains single-use; and
+- the selected R1-R6 and integrated execution families are regression-compatible at the frozen checkpoint.
+
+**These are the claims to challenge.**
+
+## What we do not claim
+
+This candidate does not establish:
 
 - production certification;
-- universal route closure or universal non-bypassability;
-- prevention across real bank/payment rails;
-- external physical consequence non-formation;
-- production process/IAM/KMS/HSM isolation;
-- distributed consensus, serializability or multi-region correctness;
-- resistance to privileged host/storage compromise;
-- rollback resistance where every store and surviving reference anchor is coherently restored or compromised;
-- immutable/write-once external audit infrastructure;
-- real external evidence-provider outage/transport/malformed-payload behaviour unless explicitly tested; or
-- independent third-party reproduction, validation or commercial endorsement.
+- production-grade persistence;
+- universal route closure;
+- multi-process or distributed coordination;
+- distributed atomicity;
+- crash or power-loss durability;
+- production IAM, HSM or KMS isolation;
+- external payment-system idempotency;
+- resistance to arbitrary mutation of private process-local reference state;
+- complete rollback resistance across every possible state store; or
+- global closure of every possible runtime-authority failure mode.
 
-Those are separate proof obligations and must not be inferred from the reference-MVP evidence.
+Please do not treat a finding outside this declared boundary as evidence for a claim we have not made. It may still be useful as a proposed extension of scope.
 
-## What Runtime Authority Is Not
-
-Runtime Authority is not intended to replace identity/authentication, Know Your Agent infrastructure, fraud detection, sanctions/AML controls, risk systems, institutional policy, human approval, legal/regulatory judgement or payment infrastructure.
-
-Those functions remain authoritative in their domains. Runtime Authority may consume trusted evidence/assertions from them where relevant to the execution-authority determination.
-
-## Architectural Analysis
-
-The architectural foundation for this project is:
-
-### [FS-AN-004 — The Runtime Authority Requirement in Agentic Payments](docs/FS-AN-004%20v1.0%20Released.pdf)
-
-FS-AN-004 treats Runtime Authority as an architectural proposition for investigation and testing, **not** as a requirement stated by HM Treasury.
-
-## Reproduce
+## Reproduce the selected 124-test verification
 
 ```bash
 git clone https://github.com/grahamb-ai/flowsignal-agentic-payments.git
 cd flowsignal-agentic-payments
+git checkout public-verification-candidate-v0.1
+
 python -m venv .venv
-source .venv/bin/activate   # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+
 python -m pip install --upgrade pip
-pip install -r requirements.txt
-pytest -q
+pip install -r harness/requirements.txt
+
+cd harness
+python -m pytest -q \
+  tests/test_fs_rai_r1_exact_money.py \
+  tests/test_fs_rai_r2_authoritative_state.py \
+  tests/test_fs_rai_r2_authority_domain.py \
+  tests/test_fs_rai_r2_authority_evidence_adapters.py \
+  tests/test_fs_rai_r2_authority_resolution.py \
+  tests/test_fs_rai_r2_authority_determination.py \
+  tests/test_fs_rai_r2_final_bind.py \
+  tests/test_fs_rai_r5_lineage.py \
+  tests/test_fs_rai_r3_approval.py \
+  tests/test_fs_rai_r4_authority_usage.py \
+  tests/test_fs_rai_integrated_payment_path.py \
+  tests/test_fs_rai_execution_boundary_integration.py
 ```
 
-Future repository changes may change the collected test count. Read any count with its relevant commit/workflow evidence rather than as a permanent product metric.
+Expected frozen baseline:
 
-## Research Approach
+```
+124 passed
+```
 
-**Define → Implement → Test → Challenge → Preserve Failure → Remediate → Rerun → Bound Claim**
+Timing varies by environment.
 
-The objective is not to assume Runtime Authority is correct. It is to make the proposition sufficiently explicit that it can be implemented, tested, challenged and falsified.
+## Submit a challenge
 
-## Independence and Attribution
+Please read [PUBLIC-VERIFICATION-CHALLENGE.md](PUBLIC-VERIFICATION-CHALLENGE.md) before submitting a case.
 
-This is an independent FlowSignal engineering research project.
+A useful submission should contain:
 
-It is informed by implementation questions arising from the UK Financial Services AI Adoption Plan but is **not affiliated with, endorsed by, or produced on behalf of HM Treasury, the FCA or any other UK government or regulatory body**.
+- the exact candidate commit/ref tested;
+- environment and Python version;
+- a minimal reproducible test or fixture;
+- the authority invariant you believe is violated;
+- expected result;
+- actual result;
+- complete test output; and
+- whether protected consequence formed.
 
-Runtime Authority, the associated architecture and the interpretations presented here are FlowSignal's independent technical analysis.
+Please do not test FlowSignal infrastructure, third-party systems, real payment rails or accounts. The invitation is limited to the published reference implementation.
+
+## Evidence discipline
+
+We will distinguish clearly between:
+
+- a reproducible failure of a declared property;
+- a test/setup error;
+- a useful new requirement outside the current boundary; and
+- a production concern that this reference candidate explicitly does not claim to solve.
+
+Where a reproducible new failure of a declared property is confirmed, the goal is to preserve the first failure before remediation and credit the contributor where they wish to be identified.
 
 ---
 
-**FlowSignal™ — Execute with Authority. Defend with Evidence.**
-
-© 2026 FlowSignal. All rights reserved.
+**FlowSignal™ — EXECUTE WITH AUTHORITY. DEFEND WITH EVIDENCE.**
