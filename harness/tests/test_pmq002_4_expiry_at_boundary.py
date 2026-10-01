@@ -27,6 +27,7 @@ def test_pmq002_4_permit_expiring_while_waiting_for_final_boundary_cannot_form_c
     valid_until = datetime.now(timezone.utc) + timedelta(milliseconds=300)
     permit = issue_execution_permit(
         authority_receipt_id="PMQ-002.4-RECEIPT",
+        candidate_generation_id="PMQ-002.4-CANDIDATE",
         action_binding_hash=binding,
         authority_state_version=get_authority_state_version(),
         valid_until=valid_until.isoformat(),

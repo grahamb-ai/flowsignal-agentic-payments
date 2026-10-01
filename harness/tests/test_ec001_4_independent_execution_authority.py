@@ -42,6 +42,7 @@ def test_ec001_4_arbitrarily_fabricated_signature_is_denied():
     _, attempt = _allow_case()
     forged = ExecutionPermit(
         authority_receipt_id="forged-receipt",
+        candidate_generation_id="forged-candidate-generation",
         action_binding_hash=action_binding_hash(attempt),
         authority_state_version=get_authority_state_version(),
         issued_at="2026-08-17T10:00:00+00:00",

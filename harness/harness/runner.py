@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, json
+import argparse, json, uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,7 +45,9 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
         screening_captured_at = _rebase(screening_captured_at, delta)
 
     return FinancialAuthorityRequest(
-        scenario_id=d["scenario_id"], action=a["action"], target=a["target"],
+        scenario_id=d["scenario_id"],
+        candidate_generation_id=a.get("candidate_generation_id", str(uuid.uuid4())),
+        action=a["action"], target=a["target"],
         actor_id=actor["id"], actor_type=actor["type"], actor_role=actor["role"],
         actor_authenticated=actor["authenticated"], kya_status=actor["kya_status"],
         principal_id=principal["id"], principal_name=principal["name"],

@@ -8,6 +8,7 @@ from app.engines.authority_store import (
     get_authority_state_version_unlocked,
 )
 from app.engines.consequence_outcome_store import record_consequence_outcome
+from app.engines.candidate_lifecycle_store import is_candidate_generation_invalidated
 from app.engines.consequence_receipt import (
     ConsequenceOutcomeReceipt,
     create_consequence_outcome_receipt,
@@ -83,6 +84,9 @@ def execute_protected_consequence(
         current_authority_state_version = get_authority_state_version_unlocked()
         if permit.authority_state_version != current_authority_state_version:
             return "DENIED_AUTHORITY_STATE_STALE"
+
+        if is_candidate_generation_invalidated(permit.candidate_generation_id):
+            return "DENIED_CANDIDATE_GENERATION_INVALIDATED"
 
         anchor_was_new = claim_execution_anchor_once(
             permit_signature=permit.signature,

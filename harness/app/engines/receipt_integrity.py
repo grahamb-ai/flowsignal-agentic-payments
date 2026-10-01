@@ -49,6 +49,7 @@ def compute_receipt_hmac(
     *,
     receipt_id: str,
     scenario_id: str,
+    candidate_generation_id: str,
     decision: str,
     reason_code: str,
     sealed_at: datetime,
@@ -62,6 +63,7 @@ def compute_receipt_hmac(
     payload = {
         "receipt_id": receipt_id,
         "scenario_id": scenario_id,
+        "candidate_generation_id": candidate_generation_id,
         "decision": decision,
         "reason_code": reason_code,
         "sealed_at": _utc_text(sealed_at),
@@ -90,6 +92,7 @@ def verify_receipt_hmac(receipt) -> bool:
     expected = compute_receipt_hmac(
         receipt_id=receipt.id,
         scenario_id=receipt.scenario_id,
+        candidate_generation_id=receipt.candidate_generation_id,
         decision=receipt.decision,
         reason_code=receipt.reason_code,
         sealed_at=receipt.sealed_at,

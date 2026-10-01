@@ -9,6 +9,11 @@ from app.engines.authority_store import (
     get_authority_state_version,
 )
 from app.engines.action_binding import EC009_MANDATE_ID, action_binding_hash
+from app.engines.candidate_lifecycle_store import (
+    candidate_lifecycle_guard,
+    invalidate_candidate_generation,
+    is_candidate_generation_invalidated,
+)
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
 from app.engines.receipt_integrity import compute_receipt_hmac
 
@@ -62,6 +67,7 @@ def _request_shape_valid(req: FinancialAuthorityRequest) -> bool:
     membership tests, or numeric comparisons that can raise or coerce unexpectedly.
     """
     required_text = (
+        req.candidate_generation_id,
         req.actor_id,
         req.principal_id,
         req.mandate_id,
@@ -164,14 +170,29 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
             _check("beneficiary_permitted", authoritative_mandate is not None and req.beneficiary in authoritative_mandate.beneficiaries, "REFUSE", f"Beneficiary '{req.beneficiary}' is outside the delegated mandate", req.mandate_id),
         ])
 
-    failed = [c for c in checks if not c.passed]
-    if any(c.outcome_on_failure == "REFUSE" for c in failed):
-        decision, reason_code, required_action = "REFUSE", "AUTHORITY_NOT_ESTABLISHED", None
-    elif failed:
-        decision, reason_code = "ESCALATE", "ADDITIONAL_AUTHORITY_OR_EVIDENCE_REQUIRED"
-        required_action = "Route for authorised intervention or refresh required evidence"
-    else:
-        decision, reason_code, required_action = "ALLOW", "AUTHORITY_ESTABLISHED", None
+    with candidate_lifecycle_guard():
+        generation_already_invalidated = is_candidate_generation_invalidated(
+            req.candidate_generation_id
+        )
+        checks.append(
+            _check(
+                "candidate_generation_not_invalidated",
+                not generation_already_invalidated,
+                "REFUSE",
+                "Candidate generation has previously entered terminal invalid space",
+                req.candidate_generation_id,
+            )
+        )
+
+        failed = [c for c in checks if not c.passed]
+        if any(c.outcome_on_failure == "REFUSE" for c in failed):
+            decision, reason_code, required_action = "REFUSE", "AUTHORITY_NOT_ESTABLISHED", None
+            invalidate_candidate_generation(req.candidate_generation_id)
+        elif failed:
+            decision, reason_code = "ESCALATE", "ADDITIONAL_AUTHORITY_OR_EVIDENCE_REQUIRED"
+            required_action = "Route for authorised intervention or refresh required evidence"
+        else:
+            decision, reason_code, required_action = "ALLOW", "AUTHORITY_ESTABLISHED", None
 
     rid = str(uuid.uuid4())
     valid_until = now + timedelta(seconds=60) if decision == "ALLOW" else None
@@ -189,13 +210,16 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
     }]
     authority_state_version = get_authority_state_version()
     receipt_hmac = compute_receipt_hmac(
-        receipt_id=rid, scenario_id=req.scenario_id, decision=decision,
+        receipt_id=rid, scenario_id=req.scenario_id,
+        candidate_generation_id=req.candidate_generation_id, decision=decision,
         reason_code=reason_code, sealed_at=now, valid_until=valid_until,
         action_binding_hash=action_binding_hash(req), authority_state_version=authority_state_version,
         request_snapshot=snapshot, checks=checks, evidence_references=evidence_references,
     )
     receipt = AuthorityReceipt(
-        id=rid, scenario_id=req.scenario_id, decision=decision, reason_code=reason_code,
+        id=rid, scenario_id=req.scenario_id,
+        candidate_generation_id=req.candidate_generation_id,
+        decision=decision, reason_code=reason_code,
         sealed_at=now, valid_until=valid_until, action_binding_hash=action_binding_hash(req),
         authority_state_version=authority_state_version, receipt_hmac=receipt_hmac,
         request_snapshot=snapshot, checks=checks, evidence_references=evidence_references,

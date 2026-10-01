@@ -6,6 +6,7 @@ from typing import Any
 @dataclass
 class FinancialAuthorityRequest:
     scenario_id: str
+    candidate_generation_id: str
     action: str
     target: str
     actor_id: str
@@ -57,6 +58,7 @@ class ExecutionResponse:
 class AuthorityReceipt:
     id: str
     scenario_id: str
+    candidate_generation_id: str
     decision: str
     reason_code: str
     sealed_at: datetime

@@ -83,6 +83,7 @@ def test_pmq002_2_same_permit_cannot_form_multiple_consequences_across_two_proce
     permit_payload = json.dumps(
         {
             "authority_receipt_id": permit.authority_receipt_id,
+            "candidate_generation_id": permit.candidate_generation_id,
             "action_binding_hash": permit.action_binding_hash,
             "authority_state_version": permit.authority_state_version,
             "issued_at": permit.issued_at,

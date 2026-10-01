@@ -25,6 +25,7 @@ _GATEWAY_MINT_CAPABILITY = object()
 @dataclass(frozen=True)
 class ExecutionPermit:
     authority_receipt_id: str
+    candidate_generation_id: str
     action_binding_hash: str
     authority_state_version: int
     issued_at: str
@@ -34,6 +35,7 @@ class ExecutionPermit:
 
 def _payload(
     authority_receipt_id: str,
+    candidate_generation_id: str,
     action_binding_hash: str,
     authority_state_version: int,
     issued_at: str,
@@ -42,6 +44,7 @@ def _payload(
     return json.dumps(
         {
             "authority_receipt_id": authority_receipt_id,
+            "candidate_generation_id": candidate_generation_id,
             "action_binding_hash": action_binding_hash,
             "authority_state_version": authority_state_version,
             "issued_at": issued_at,
@@ -54,6 +57,7 @@ def _payload(
 
 def _sign(
     authority_receipt_id: str,
+    candidate_generation_id: str,
     action_binding_hash: str,
     authority_state_version: int,
     issued_at: str,
@@ -63,6 +67,7 @@ def _sign(
         _PERMIT_KEY,
         _payload(
             authority_receipt_id,
+            candidate_generation_id,
             action_binding_hash,
             authority_state_version,
             issued_at,
@@ -74,6 +79,7 @@ def _sign(
 
 def issue_execution_permit(
     authority_receipt_id: str,
+    candidate_generation_id: str,
     action_binding_hash: str,
     authority_state_version: int,
     *,
@@ -88,12 +94,14 @@ def issue_execution_permit(
     issued_at = datetime.now(timezone.utc).isoformat()
     return ExecutionPermit(
         authority_receipt_id=authority_receipt_id,
+        candidate_generation_id=candidate_generation_id,
         action_binding_hash=action_binding_hash,
         authority_state_version=authority_state_version,
         issued_at=issued_at,
         valid_until=valid_until,
         signature=_sign(
             authority_receipt_id,
+            candidate_generation_id,
             action_binding_hash,
             authority_state_version,
             issued_at,
@@ -105,6 +113,7 @@ def issue_execution_permit(
 def verify_execution_permit(permit: ExecutionPermit) -> bool:
     expected = _sign(
         permit.authority_receipt_id,
+        permit.candidate_generation_id,
         permit.action_binding_hash,
         permit.authority_state_version,
         permit.issued_at,

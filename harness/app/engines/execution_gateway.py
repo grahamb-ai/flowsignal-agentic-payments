@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.engines.financial_types import AuthorityReceipt
 from app.engines.receipt_integrity import verify_receipt_hmac
 from app.engines.authority_store import get_authority_state_version
+from app.engines.candidate_lifecycle_store import is_candidate_generation_invalidated
 from app.engines.action_binding import action_binding_hash
 from app.engines.permit_authority import (
     ExecutionPermit,
@@ -68,6 +69,15 @@ def validate_execution(
             attempted_action_binding_hash=attempted_hash,
         )
 
+    if is_candidate_generation_invalidated(receipt.candidate_generation_id):
+        return GatewayResult(
+            status="BLOCKED",
+            reason_code="CANDIDATE_GENERATION_INVALIDATED",
+            authority_receipt_id=receipt.id,
+            expected_action_binding_hash=receipt.action_binding_hash,
+            attempted_action_binding_hash=attempted_hash,
+        )
+
     if receipt.decision != "ALLOW":
         return GatewayResult(
             status="BLOCKED",
@@ -97,6 +107,7 @@ def validate_execution(
 
     permit = issue_execution_permit(
         authority_receipt_id=receipt.id,
+        candidate_generation_id=receipt.candidate_generation_id,
         action_binding_hash=attempted_hash,
         authority_state_version=current_authority_state_version,
         valid_until=_aware(receipt.valid_until).isoformat(),
