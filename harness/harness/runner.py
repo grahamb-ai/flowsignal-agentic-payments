@@ -1,10 +1,16 @@
 from __future__ import annotations
-import argparse, json, uuid
-from dataclasses import asdict
+import argparse, json
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from app.engines.financial_runtime import evaluate_financial
 from app.engines.financial_types import FinancialAuthorityRequest
+from app.engines.action_binding import action_binding_hash
+from app.engines.candidate_lifecycle_store import (
+    _GENERATION_ISSUANCE_CAPABILITY,
+    issue_initial_candidate_generation,
+    issue_successor_candidate_generation,
+)
 
 
 def _dt(v: str) -> datetime:
@@ -44,9 +50,9 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
         mandate_valid_until = _rebase(mandate_valid_until, delta)
         screening_captured_at = _rebase(screening_captured_at, delta)
 
-    return FinancialAuthorityRequest(
+    request = FinancialAuthorityRequest(
         scenario_id=d["scenario_id"],
-        candidate_generation_id=a.get("candidate_generation_id", str(uuid.uuid4())),
+        candidate_generation_id="PENDING_AUTHORITY_ISSUANCE",
         action=a["action"], target=a["target"],
         actor_id=actor["id"], actor_type=actor["type"], actor_role=actor["role"],
         actor_authenticated=actor["authenticated"], kya_status=actor["kya_status"],
@@ -63,6 +69,35 @@ def load_scenario(path: Path, *, rebase_to_now: bool = True) -> FinancialAuthori
         screening_status=scr["status"], screening_captured_at=screening_captured_at,
         screening_max_age_seconds=int(scr["max_age_seconds"]), screening_source=scr["source"],
         requested_execution_time=requested_execution_time,
+    )
+    return issue_initial_generation(request)
+
+
+def issue_initial_generation(
+    request: FinancialAuthorityRequest,
+) -> FinancialAuthorityRequest:
+    """Mint a root generation for a fully assembled candidate request."""
+    candidate_generation_id = issue_initial_candidate_generation(
+        request.scenario_id,
+        action_binding_hash(request),
+        issuance_capability=_GENERATION_ISSUANCE_CAPABILITY,
+    )
+    return replace(request, candidate_generation_id=candidate_generation_id)
+
+
+def issue_successor_generation(
+    invalidated_request: FinancialAuthorityRequest,
+) -> FinancialAuthorityRequest:
+    """Return an authority-issued successor bound to an invalidated request."""
+    candidate_generation_id = issue_successor_candidate_generation(
+        invalidated_request.candidate_generation_id,
+        invalidated_request.scenario_id,
+        action_binding_hash(invalidated_request),
+        issuance_capability=_GENERATION_ISSUANCE_CAPABILITY,
+    )
+    return replace(
+        invalidated_request,
+        candidate_generation_id=candidate_generation_id,
     )
 
 

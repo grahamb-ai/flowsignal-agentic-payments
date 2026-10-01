@@ -12,6 +12,7 @@ from app.engines.action_binding import EC009_MANDATE_ID, action_binding_hash
 from app.engines.candidate_lifecycle_store import (
     candidate_lifecycle_guard,
     invalidate_candidate_generation,
+    is_authority_issued_candidate_generation,
     is_candidate_generation_invalidated,
 )
 from app.engines.financial_types import AuthorityReceipt, ExecutionResponse, FinancialAuthorityRequest, FinancialCheck
@@ -171,6 +172,20 @@ def evaluate_financial(req: FinancialAuthorityRequest, *, sealed_at: datetime | 
         ])
 
     with candidate_lifecycle_guard():
+        generation_authority_issued = is_authority_issued_candidate_generation(
+            req.candidate_generation_id,
+            req.scenario_id,
+            action_binding_hash(req),
+        )
+        checks.append(
+            _check(
+                "candidate_generation_authority_issued",
+                generation_authority_issued,
+                "REFUSE",
+                "Candidate generation was not issued and bound by the authority lifecycle service",
+                req.candidate_generation_id,
+            )
+        )
         generation_already_invalidated = is_candidate_generation_invalidated(
             req.candidate_generation_id
         )

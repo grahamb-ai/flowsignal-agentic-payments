@@ -21,6 +21,7 @@ def test_ap001_all_required_conditions_are_evaluated_and_allow():
         "source_account_permitted","counterparty_approved","account_active",
         "risk_state_permits_execution","approval_not_required","screening_clear",
         "screening_not_future_dated","screening_policy_valid","screening_fresh",
+        "candidate_generation_authority_issued",
         "candidate_generation_not_invalidated",
     }
     assert {c.name for c in receipt.checks} == expected

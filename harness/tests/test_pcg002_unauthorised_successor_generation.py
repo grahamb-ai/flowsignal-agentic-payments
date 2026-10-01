@@ -12,8 +12,10 @@ from dataclasses import replace
 from pathlib import Path
 import uuid
 
+import pytest
+
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_successor_generation, load_scenario
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -53,3 +55,32 @@ def test_caller_minted_successor_cannot_bypass_terminal_invalidation():
         and not check.passed
         for check in fabricated_receipt.checks
     )
+
+
+def test_authority_will_not_issue_successor_before_parent_invalidation():
+    candidate_g = load_scenario(SCENARIO)
+
+    with pytest.raises(
+        ValueError,
+        match="authority-issued invalidated parent",
+    ):
+        issue_successor_generation(candidate_g)
+
+
+def test_authority_issued_successor_preserves_parent_action_binding():
+    candidate_g = load_scenario(SCENARIO)
+    invalid_response, _ = evaluate_financial(
+        replace(candidate_g, account_status="SUSPENDED")
+    )
+    assert invalid_response.decision == "REFUSE"
+
+    changed_action = replace(candidate_g, beneficiary="ATTACKER-BENEFICIARY")
+    with pytest.raises(
+        ValueError,
+        match="preserve parent scenario and action binding",
+    ):
+        issue_successor_generation(changed_action)
+
+    successor = issue_successor_generation(candidate_g)
+    successor_response, _ = evaluate_financial(successor)
+    assert successor_response.decision == "ALLOW"

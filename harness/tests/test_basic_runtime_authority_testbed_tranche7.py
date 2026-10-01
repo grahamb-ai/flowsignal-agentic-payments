@@ -2,11 +2,11 @@ from dataclasses import replace
 from pathlib import Path
 import pytest
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_initial_generation, load_scenario
 BASE=Path("harness/scenarios/AP-001_allow.json")
 def _base(): return load_scenario(BASE)
 def _decision(**changes):
-    response,_=evaluate_financial(replace(_base(),**changes)); return response.decision
+    response,_=evaluate_financial(issue_initial_generation(replace(_base(),**changes))); return response.decision
 def test_amount_exactly_at_authoritative_limit_may_allow():
     req=_base(); assert _decision(amount=req.mandate_max_amount)=="ALLOW"
 def test_amount_just_over_authoritative_limit_does_not_allow():

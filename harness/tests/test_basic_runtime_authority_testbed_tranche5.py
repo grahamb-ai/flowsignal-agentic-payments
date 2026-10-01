@@ -2,10 +2,10 @@ from dataclasses import replace
 from pathlib import Path
 import pytest
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_initial_generation, load_scenario
 BASE=Path("harness/scenarios/AP-001_allow.json")
 def _decision(**changes):
-    response,_=evaluate_financial(replace(load_scenario(BASE),**changes)); return response.decision
+    response,_=evaluate_financial(issue_initial_generation(replace(load_scenario(BASE),**changes))); return response.decision
 @pytest.mark.parametrize("amount",[float("nan"),float("inf"),float("-inf")])
 def test_non_finite_payment_amount_never_allows(amount): assert _decision(amount=amount) != "ALLOW"
 @pytest.mark.parametrize("limit",[float("nan"),float("inf"),float("-inf")])

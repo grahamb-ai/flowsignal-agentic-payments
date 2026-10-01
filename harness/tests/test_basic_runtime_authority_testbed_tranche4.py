@@ -2,10 +2,10 @@ from dataclasses import replace
 from pathlib import Path
 import pytest
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_initial_generation, load_scenario
 BASE=Path("harness/scenarios/AP-001_allow.json")
 def _decision(**changes):
-    response,_=evaluate_financial(replace(load_scenario(BASE),**changes)); return response.decision
+    response,_=evaluate_financial(issue_initial_generation(replace(load_scenario(BASE),**changes))); return response.decision
 @pytest.mark.parametrize("field,value",[("kya_status",""),("mandate_status",""),("counterparty_status",""),("account_status",""),("risk_state",""),("screening_status","")])
 def test_blank_status_fields_never_allow(field,value): assert _decision(**{field:value}) != "ALLOW"
 @pytest.mark.parametrize("field,value",[("kya_status"," verified "),("mandate_status"," active "),("counterparty_status"," approved "),("account_status"," active "),("risk_state"," normal "),("screening_status"," clear ")])

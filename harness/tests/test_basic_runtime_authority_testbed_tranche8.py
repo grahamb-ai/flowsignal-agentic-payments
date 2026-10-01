@@ -3,11 +3,11 @@ from datetime import timedelta
 from pathlib import Path
 import pytest
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_initial_generation, load_scenario
 BASE=Path("harness/scenarios/AP-001_allow.json")
 def _base(): return load_scenario(BASE)
 def _decision(**changes):
-    response,_=evaluate_financial(replace(_base(),**changes)); return response.decision
+    response,_=evaluate_financial(issue_initial_generation(replace(_base(),**changes))); return response.decision
 @pytest.mark.parametrize("seconds_ahead",[1,60,3600,86400])
 def test_future_dated_screening_evidence_never_allows(seconds_ahead):
     req=_base(); assert _decision(screening_captured_at=req.requested_execution_time+timedelta(seconds=seconds_ahead)) != "ALLOW"

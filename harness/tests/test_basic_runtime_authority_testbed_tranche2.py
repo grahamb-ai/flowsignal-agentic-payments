@@ -2,8 +2,8 @@ from dataclasses import replace
 from pathlib import Path
 import pytest
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
-def _request(**changes): return replace(load_scenario(Path("harness/scenarios/AP-001_allow.json")), **changes)
+from harness.runner import issue_initial_generation, load_scenario
+def _request(**changes): return issue_initial_generation(replace(load_scenario(Path("harness/scenarios/AP-001_allow.json")), **changes))
 def _decision(**changes):
     response,_=evaluate_financial(_request(**changes)); return response.decision
 @pytest.mark.parametrize("field", ["action","target","source_account","currency","purpose"])

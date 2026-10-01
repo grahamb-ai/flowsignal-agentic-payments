@@ -13,12 +13,11 @@ an explicit REFUSE when no fresh candidate-generation identity exists.
 
 from dataclasses import replace
 from pathlib import Path
-import uuid
 
 from app.engines.action_binding import action_binding_hash
 from app.engines.execution_gateway import ExecutionAttempt, validate_execution
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_successor_generation, load_scenario
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -79,7 +78,7 @@ def test_invalid_candidate_generation_cannot_regain_execution_after_condition_re
     )
 
     # Liveness: restored conditions may support a genuinely new generation.
-    successor = replace(candidate_g, candidate_generation_id=str(uuid.uuid4()))
+    successor = issue_successor_generation(candidate_g)
     successor_response, successor_receipt = evaluate_financial(successor)
     assert successor_receipt is not None
     assert successor_response.decision == "ALLOW"

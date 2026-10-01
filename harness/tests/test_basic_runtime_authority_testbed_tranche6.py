@@ -3,11 +3,11 @@ from datetime import timedelta
 from pathlib import Path
 import pytest
 from app.engines.financial_runtime import evaluate_financial
-from harness.runner import load_scenario
+from harness.runner import issue_initial_generation, load_scenario
 BASE=Path("harness/scenarios/AP-001_allow.json")
 def _base(): return load_scenario(BASE)
 def _decision(**changes):
-    response,_=evaluate_financial(replace(_base(),**changes)); return response.decision
+    response,_=evaluate_financial(issue_initial_generation(replace(_base(),**changes))); return response.decision
 def test_expired_mandate_refuses():
     req=_base(); assert _decision(mandate_valid_until=req.requested_execution_time-timedelta(seconds=1)) != "ALLOW"
 def test_screening_just_beyond_freshness_window_does_not_allow():
