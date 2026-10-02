@@ -41,6 +41,13 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    connection.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS one_successor_per_parent
+        ON authority_issued_candidate_generations(parent_candidate_generation_id)
+        WHERE parent_candidate_generation_id IS NOT NULL
+        """
+    )
     return connection
 
 
@@ -125,20 +132,25 @@ def issue_successor_candidate_generation(
             raise ValueError("successor requires an authority-issued invalidated parent")
         if parent != (scenario_id, action_hash):
             raise ValueError("successor must preserve parent scenario and action binding")
-        connection.execute(
-            """
-            INSERT INTO authority_issued_candidate_generations(
-                candidate_generation_id, scenario_id, action_binding_hash,
-                parent_candidate_generation_id
-            ) VALUES (?, ?, ?, ?)
-            """,
-            (
-                candidate_generation_id,
-                scenario_id,
-                action_hash,
-                parent_candidate_generation_id,
-            ),
-        )
+        try:
+            connection.execute(
+                """
+                INSERT INTO authority_issued_candidate_generations(
+                    candidate_generation_id, scenario_id, action_binding_hash,
+                    parent_candidate_generation_id
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    candidate_generation_id,
+                    scenario_id,
+                    action_hash,
+                    parent_candidate_generation_id,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(
+                "successor transition is no longer enabled for this parent"
+            ) from exc
     return candidate_generation_id
 
 
