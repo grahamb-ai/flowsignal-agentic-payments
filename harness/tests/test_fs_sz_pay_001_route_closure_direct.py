@@ -1,4 +1,4 @@
-from provider_signed_fixture import issuer, signed_payment, write_public_key
+from tests.provider_signed_fixture import issuer, signed_payment, write_public_key
 """Failure-first route-closure challenge against actual CBP-002 external ledger.
 
 The direct /payments endpoint is a separate execution route from the
