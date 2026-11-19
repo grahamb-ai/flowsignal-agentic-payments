@@ -54,3 +54,32 @@ def test_reconciliation_refuses_unsigned_or_changed_payment(tmp_path):
     status, result = ledger.reconcile(altered)
     assert status == 403 and result["status"] == "REFUSED_UNAUTHENTICATED_INSTRUCTION"
     assert fence.transfer_count() == 1
+
+
+def test_other_route_commit_is_invisible_to_reference_reconciliation(tmp_path):
+    """Preserved scope counterexample: one ledger cannot attest another route."""
+    _, _, fence, protected, payment = _setup(tmp_path)
+    legacy = ExternalLedger(legacy_test_mode=True)
+    status, _ = legacy.transfer({
+        "transaction_id": payment["transaction_id"],
+        "source_account": payment["source_account"],
+        "beneficiary": payment["beneficiary"],
+        "amount": payment["amount"],
+        "currency": payment["currency"],
+        "purpose": payment["purpose"],
+    })
+    assert status == 201 and legacy.snapshot()["transfer_count"] == 1
+    status, result = protected.reconcile(payment)
+    assert status == 200
+    assert result["status"] == "NOT_FOUND_IN_REFERENCE_LEDGER"
+    assert result["status"] != "NOT_COMMITTED"
+    assert fence.transfer_count() == 0
+
+
+def test_revocation_does_not_erase_preexisting_commit_evidence(tmp_path):
+    _, _, fence, ledger, payment = _setup(tmp_path)
+    assert ledger.transfer(payment)[0] == 201
+    fence.revoke("MANDATE-A")
+    status, result = ledger.reconcile(payment)
+    assert status == 200 and result["status"] == "TRANSFER_RECORDED"
+    assert fence.transfer_count() == 1
