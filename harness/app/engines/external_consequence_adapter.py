@@ -4,7 +4,10 @@ import json
 from urllib import request
 
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
-from app.engines.protected_consequence import execute_protected_consequence_with_receipt
+from app.engines.protected_consequence import (
+    ExternalOutcomeUnknown,
+    execute_protected_consequence_with_receipt,
+)
 from app.engines.permit_authority import ExecutionPermit
 
 
@@ -59,11 +62,15 @@ def execute_external_payment(
     def form_external_consequence() -> None:
         if permit is None:
             raise RuntimeError("external consequence hook reached without permit")
-        _post_json(
-            payments_url,
-            _external_payload(attempt, permit),
-            timeout_seconds=timeout_seconds,
-        )
+        try:
+            _post_json(
+                payments_url,
+                _external_payload(attempt, permit),
+                timeout_seconds=timeout_seconds,
+            )
+        except Exception as exc:
+            # A transport/HTTP failure cannot establish provider non-commitment.
+            raise ExternalOutcomeUnknown("external payment outcome requires reconciliation") from exc
 
     return execute_protected_consequence_with_receipt(
         permit=permit,
