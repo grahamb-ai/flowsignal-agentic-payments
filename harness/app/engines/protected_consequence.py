@@ -17,6 +17,10 @@ from app.engines.permit_consumption_store import consume_execution_permit_and_be
 from app.engines.rollback_anchor_store import claim_execution_anchor_once
 
 
+class ExternalOutcomeUnknown(Exception):
+    """Dispatch may have reached an external effect-producing provider."""
+
+
 def _aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
@@ -107,6 +111,9 @@ def execute_protected_consequence(
         if before_formation_hook is not None:
             try:
                 before_formation_hook()
+            except ExternalOutcomeUnknown:
+                # Initial durable UNRESOLVED record must survive ambiguous dispatch.
+                raise
             except Exception:
                 record_consequence_outcome(
                     permit_signature=permit.signature,
