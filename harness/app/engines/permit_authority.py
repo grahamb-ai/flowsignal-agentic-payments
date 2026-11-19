@@ -30,6 +30,9 @@ class ExecutionPermit:
     issued_at: str
     signature: str
     valid_until: str | None = None
+    payment_intent_id: str | None = None
+    provider_authority_epoch: int | None = None
+    provider_mandate_id: str | None = None
 
 
 def _payload(
@@ -38,6 +41,9 @@ def _payload(
     authority_state_version: int,
     issued_at: str,
     valid_until: str | None,
+    payment_intent_id: str | None = None,
+    provider_authority_epoch: int | None = None,
+    provider_mandate_id: str | None = None,
 ) -> bytes:
     return json.dumps(
         {
@@ -46,6 +52,9 @@ def _payload(
             "authority_state_version": authority_state_version,
             "issued_at": issued_at,
             "valid_until": valid_until,
+            "payment_intent_id": payment_intent_id,
+            "provider_authority_epoch": provider_authority_epoch,
+            "provider_mandate_id": provider_mandate_id,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -58,6 +67,9 @@ def _sign(
     authority_state_version: int,
     issued_at: str,
     valid_until: str | None,
+    payment_intent_id: str | None = None,
+    provider_authority_epoch: int | None = None,
+    provider_mandate_id: str | None = None,
 ) -> str:
     return hmac.new(
         _PERMIT_KEY,
@@ -67,6 +79,9 @@ def _sign(
             authority_state_version,
             issued_at,
             valid_until,
+            payment_intent_id,
+            provider_authority_epoch,
+            provider_mandate_id,
         ),
         hashlib.sha256,
     ).hexdigest()
@@ -79,12 +94,18 @@ def issue_execution_permit(
     *,
     valid_until: str | None = None,
     mint_capability: object | None = None,
+    payment_intent_id: str | None = None,
+    provider_authority_epoch: int | None = None,
+    provider_mandate_id: str | None = None,
 ) -> ExecutionPermit | None:
     if mint_capability is not _GATEWAY_MINT_CAPABILITY:
         return None
     if valid_until is None:
         return None
 
+    if any(v is not None for v in (payment_intent_id, provider_authority_epoch, provider_mandate_id)):
+        if not isinstance(payment_intent_id, str) or not payment_intent_id.strip() or not isinstance(provider_mandate_id, str) or not provider_mandate_id.strip() or type(provider_authority_epoch) is not int or provider_authority_epoch <= 0:
+            return None
     issued_at = datetime.now(timezone.utc).isoformat()
     return ExecutionPermit(
         authority_receipt_id=authority_receipt_id,
@@ -92,12 +113,18 @@ def issue_execution_permit(
         authority_state_version=authority_state_version,
         issued_at=issued_at,
         valid_until=valid_until,
+        payment_intent_id=payment_intent_id,
+        provider_authority_epoch=provider_authority_epoch,
+        provider_mandate_id=provider_mandate_id,
         signature=_sign(
             authority_receipt_id,
             action_binding_hash,
             authority_state_version,
             issued_at,
             valid_until,
+            payment_intent_id,
+            provider_authority_epoch,
+            provider_mandate_id,
         ),
     )
 
@@ -109,5 +136,8 @@ def verify_execution_permit(permit: ExecutionPermit) -> bool:
         permit.authority_state_version,
         permit.issued_at,
         permit.valid_until,
+        permit.payment_intent_id,
+        permit.provider_authority_epoch,
+        permit.provider_mandate_id,
     )
     return hmac.compare_digest(expected, permit.signature)
