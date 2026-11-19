@@ -40,3 +40,11 @@ Do not merge to main or assert production Structural Zero.
 - `/admin/reset` and `/state` now return HTTP 403 when the service is configured with an authoritative fence. This is an HTTP surface restriction, not a database ACL or institutional IAM control.
 - The new hostile HTTP test checks that reset and state access are denied while a prior payment remains recorded and later revocation still refuses a payment.
 - Direct Python access to `ProviderCommitFence` and filesystem-level SQLite access remain open in this reference harness. Do not claim complete route closure.
+
+## Authority updater qualification — unresolved direct method routes
+- Verified historical run https://github.com/grahamb-ai/flowsignal-agentic-payments/actions/runs/44508105473: focused 37 passed / 1 failed, full 105 passed / 2 failed, including T23.
+- `ProviderCommitFence.revoke` accepts a direct unauthenticated caller. This is a preserved hostile RED.
+- `ProviderCommitFence.revoke_if_epoch` is also directly callable without the signed updater facade. A separate hostile test is now frozen; result pending.
+- The signed `apply_signed_update` facade is not an access-control boundary while direct store methods or the SQLite file remain reachable.
+- A qualified closure requires a provider-owned isolated state-mutation service with updater identity verification and storage ACLs; Python method naming or a shared process-local token alone is insufficient.
+- No production IAM, key ownership, or database permission evidence has been provided. Do not claim authority-update route closure.
