@@ -9,7 +9,14 @@ from threading import Lock
 class ExternalLedger:
     """State owned by the external test service, not FlowSignal."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, fence=None, mandate_id=None, authority_epoch=None) -> None:
+        # Fenced mode uses the provider's single authoritative commit store.
+        # Legacy sandbox mode remains explicitly unqualified for route closure.
+        self._fence = fence
+        self._mandate_id = mandate_id
+        self._authority_epoch = authority_epoch
+        if fence is not None and (not mandate_id or authority_epoch is None):
+            raise ValueError('fenced ledger requires mandate and authority epoch')
         self._lock = Lock()
         self.reset()
 
@@ -20,6 +27,8 @@ class ExternalLedger:
             self.transfers: list[dict] = []
 
     def snapshot(self) -> dict:
+        if self._fence is not None:
+            return {'transfer_count': self._fence.transfer_count(), 'mode': 'FENCED_REFERENCE'}
         with self._lock:
             return {
                 "source_balance": self.source_balance,
@@ -51,6 +60,15 @@ class ExternalLedger:
 
         if amount <= 0:
             return 400, {"error": "INVALID_AMOUNT"}
+
+        if self._fence is not None:
+            result = self._fence.commit_transfer(
+                self._mandate_id, self._authority_epoch,
+                str(payload["transaction_id"]), payload,
+            )
+            if result == "COMMITTED":
+                return 201, {"status": "TRANSFER_RECORDED"}
+            return 403 if result == "REFUSED_AUTHORITY" else 409, {"status": result}
 
         with self._lock:
             if any(t["transaction_id"] == payload["transaction_id"] for t in self.transfers):
