@@ -1,4 +1,4 @@
-from provider_signed_fixture import issuer, signed_payment, write_public_key
+from tests.provider_signed_fixture import issuer, signed_payment, write_public_key
 """Failure-first: configured provider mandate cannot silently authorise another mandate.
 
 Current HTTP provider uses a single startup mandate/epoch rather than a
