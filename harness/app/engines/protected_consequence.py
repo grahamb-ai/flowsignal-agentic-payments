@@ -17,6 +17,10 @@ from app.engines.permit_consumption_store import consume_execution_permit_and_be
 from app.engines.rollback_anchor_store import claim_execution_anchor_once
 
 
+class ProviderCommitRefused(Exception):
+    """Explicit provider non-commitment in the bounded trusted-provider contract."""
+
+
 class ExternalOutcomeUnknown(Exception):
     """Dispatch may have reached an external effect-producing provider."""
 
@@ -111,6 +115,13 @@ def execute_protected_consequence(
         if before_formation_hook is not None:
             try:
                 before_formation_hook()
+            except ProviderCommitRefused:
+                record_consequence_outcome(
+                    permit_signature=permit.signature,
+                    action_binding_hash=attempted_action_binding_hash,
+                    outcome="CONSEQUENCE_NOT_FORMED",
+                )
+                return "DENIED_PROVIDER_COMMIT_REFUSED"
             except ExternalOutcomeUnknown:
                 # Initial durable UNRESOLVED record must survive ambiguous dispatch.
                 raise
