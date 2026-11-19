@@ -29,7 +29,7 @@ def _send(url,payload):
 
 
 def _payment(intent):
-    return {"transaction_id":intent,"source_account":"TREASURY-001",
+    return {"transaction_id":intent,"mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,"source_account":"TREASURY-001",
             "beneficiary":"SUPPLIER-X","amount":750000.0,
             "currency":"GBP","purpose":"supplier settlement"}
 
