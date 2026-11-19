@@ -1,0 +1,45 @@
+name: FS-SZ-PAY-001 fail-closed route qualification
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-fail-closed-default]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run focused route closure and historical compatibility
+        shell: bash
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_route_closure_direct.py tests/test_cbp002_external_consequence_boundary.py) > evidence/focused.txt 2>&1
+          code=$?
+          echo "$code" > evidence/focused.exit
+          cat evidence/focused.txt
+          exit "$code"
+      - name: Run full suite, preserving unrelated historical RED
+        if: always()
+        shell: bash
+        run: |
+          (cd harness && python -m pytest -q) > evidence/full.txt 2>&1
+          code=$?
+          echo "$code" > evidence/full.exit
+          tail -n 60 evidence/full.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-fail-closed-default
+          path: evidence/
