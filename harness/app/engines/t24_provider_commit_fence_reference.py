@@ -37,3 +37,51 @@ class ProviderCommitFence:
     def count(self):
         with self._connect() as db:
             return db.execute("SELECT COUNT(*) FROM commits").fetchone()[0]
+
+    def commit_transfer(self, mandate_id, authority_epoch, intent_id, payload):
+        """Atomically check standing and record the actual represented transfer.
+
+        The same SQLite transaction owns revocation ordering, uniqueness, and
+        the transfer record. This is not a real payment provider or live rail.
+        """
+        from decimal import Decimal, InvalidOperation
+        try:
+            amount = Decimal(str(payload["amount"]))
+            minor = amount * 100
+            if amount <= 0 or minor != minor.to_integral_value():
+                return "REFUSED_INVALID_AMOUNT"
+            amount_minor = int(minor)
+        except (KeyError, ValueError, InvalidOperation, TypeError):
+            return "REFUSED_INVALID_AMOUNT"
+        if not intent_id or not mandate_id:
+            return "REFUSED_INVALID_BINDING"
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS transfer_records (
+                intent_id TEXT PRIMARY KEY, mandate_id TEXT NOT NULL,
+                epoch INTEGER NOT NULL, amount_minor INTEGER NOT NULL,
+                beneficiary TEXT NOT NULL, source_account TEXT NOT NULL,
+                currency TEXT NOT NULL
+            )""")
+            db.execute("BEGIN IMMEDIATE")
+            state = db.execute(
+                "SELECT epoch, revoked FROM mandates WHERE id=?", (mandate_id,)
+            ).fetchone()
+            if state is None or state[1] or state[0] != authority_epoch:
+                return "REFUSED_AUTHORITY"
+            if db.execute("SELECT 1 FROM commits WHERE intent_id=?", (intent_id,)).fetchone():
+                return "REFUSED_DUPLICATE_INTENT"
+            if payload.get("currency") != "GBP" or not payload.get("beneficiary") or not payload.get("source_account"):
+                return "REFUSED_INVALID_BINDING"
+            db.execute("INSERT INTO commits(intent_id,mandate_id,epoch) VALUES(?,?,?)",
+                       (intent_id,mandate_id,authority_epoch))
+            db.execute("""INSERT INTO transfer_records
+                (intent_id,mandate_id,epoch,amount_minor,beneficiary,source_account,currency)
+                VALUES(?,?,?,?,?,?,?)""",
+                (intent_id,mandate_id,authority_epoch,amount_minor,
+                 payload["beneficiary"],payload["source_account"],payload["currency"]))
+            return "COMMITTED"
+
+    def transfer_count(self):
+        with self._connect() as db:
+            exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='transfer_records'").fetchone()
+            return db.execute("SELECT COUNT(*) FROM transfer_records").fetchone()[0] if exists else 0
