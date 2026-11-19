@@ -21,6 +21,7 @@ def test_direct_provider_route_cannot_commit_after_authoritative_revocation(tmp_
     direct=ExternalLedger(fence=fence, mandate_id='MANDATE-TREASURY-001', authority_epoch=1)
     status,result=direct.transfer({
         "transaction_id":"new-permit-after-revocation",
+        "mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,
         "source_account":"TREASURY-001",
         "beneficiary":"SUPPLIER-X",
         "amount":750000.0,
@@ -40,7 +41,7 @@ def test_fenced_direct_route_commits_before_revocation_and_refuses_after(tmp_pat
     fence=ProviderCommitFence(tmp_path/"provider.sqlite3")
     fence.establish("MANDATE-TREASURY-001",epoch=1)
     direct=ExternalLedger(fence=fence,mandate_id="MANDATE-TREASURY-001",authority_epoch=1)
-    payload={"transaction_id":"intent-1","source_account":"TREASURY-001",
+    payload={"transaction_id":"intent-1","mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,"source_account":"TREASURY-001",
              "beneficiary":"SUPPLIER-X","amount":750000.0,
              "currency":"GBP","purpose":"supplier settlement"}
     status,result=direct.transfer(payload)
