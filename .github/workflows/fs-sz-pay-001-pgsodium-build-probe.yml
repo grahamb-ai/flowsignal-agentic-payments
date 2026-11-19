@@ -81,6 +81,8 @@ jobs:
           cat pgsodium-evidence/signed-race.txt
           python qualification/pgsodium/signed_commit_lost_ack_retry.py > pgsodium-evidence/signed-lost-ack-retry.txt 2>&1
           cat pgsodium-evidence/signed-lost-ack-retry.txt
+          python qualification/pgsodium/signed_commit_reconcile_after_retry.py > pgsodium-evidence/signed-reconciliation.txt 2>&1
+          cat pgsodium-evidence/signed-reconciliation.txt
           echo 'SIGNED RACE AND SIMULATED LOST-ACK RETRY EXPERIMENTS: real crash/recovery and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
