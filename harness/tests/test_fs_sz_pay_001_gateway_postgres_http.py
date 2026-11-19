@@ -87,6 +87,23 @@ def test_gateway_to_separate_postgres_http_provider(tmp_path, monkeypatch):
         assert send_payment(unsigned)[0] == 403, "unsigned HTTP payment accepted"
         tampered = {**signed, "beneficiary": "ATTACKER"}
         assert send_payment(tampered)[0] == 403, "tampered HTTP payment accepted"
+        # Hostile route/credential substitutions, each with a fresh business intent.
+        wrong_issuer = signed_payment(issuer(), {
+            **unsigned, "transaction_id": "HTTP-WRONG-ISSUER",
+            "payment_intent_id": "HTTP-WRONG-ISSUER"})
+        assert send_payment(wrong_issuer)[0] == 403, "untrusted issuer accepted"
+        wrong_mandate = signed_payment(key, {
+            **unsigned, "transaction_id": "HTTP-WRONG-MANDATE",
+            "payment_intent_id": "HTTP-WRONG-MANDATE",
+            "mandate_id": "MANDATE-OTHER"})
+        assert send_payment(wrong_mandate)[0] == 403, "different mandate accepted"
+        wrong_epoch = signed_payment(key, {
+            **unsigned, "transaction_id": "HTTP-WRONG-EPOCH",
+            "payment_intent_id": "HTTP-WRONG-EPOCH",
+            "authority_epoch": 2})
+        assert send_payment(wrong_epoch)[0] == 403, "future epoch accepted"
+        wrong_amount = {**signed, "amount": "999999.00"}
+        assert send_payment(wrong_amount)[0] == 403, "modified payment amount accepted"
         result, _ = execute_external_payment(
             permit=permit_result.execution_permit, attempt=attempt,
             payments_url=base + "/payments",
