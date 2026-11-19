@@ -15,7 +15,7 @@ BEGIN
  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname=ext_schema
  AND p.proname='crypto_sign_verify_detached'
- AND pg_get_function_identity_arguments(p.oid)='sig bytea, message bytea, key bytea'
+ AND oidvectortypes(p.proargtypes)='bytea, bytea, bytea'
  AND p.prorettype='boolean'::regtype;
  IF fn_count <> 1 THEN
   RAISE EXCEPTION 'PGSODIUM DETACHED ED25519 VERIFIER SIGNATURE NOT QUALIFIED: count=%',fn_count;
