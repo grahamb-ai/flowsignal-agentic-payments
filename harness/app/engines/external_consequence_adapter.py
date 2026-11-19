@@ -75,9 +75,8 @@ def execute_external_payment(
             if status in ("REFUSED_AUTHORITY", "REFUSED_DUPLICATE_INTENT"):
                 # BOUNDED: configured cooperating provider status, not signed evidence.
                 raise ProviderCommitRefused(status)
-            if status not in ("COMMITTED", "TRANSFER_RECORDED") and not (
-                status is None and provider_result == {}
-            ):
+            if status not in ("COMMITTED", "TRANSFER_RECORDED"):
+                # HTTP 2xx or empty JSON is not commitment evidence.
                 raise ExternalOutcomeUnknown("provider outcome is unrecognised")
         except (ProviderCommitRefused, ExternalOutcomeUnknown):
             raise
