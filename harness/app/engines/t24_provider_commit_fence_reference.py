@@ -85,3 +85,31 @@ class ProviderCommitFence:
         with self._connect() as db:
             exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='transfer_records'").fetchone()
             return db.execute("SELECT COUNT(*) FROM transfer_records").fetchone()[0] if exists else 0
+
+    def reconcile_transfer(self, intent_id, instruction):
+        """Read durable provider commitment by stable intent without creating a transfer.
+
+        A missing record is NOT proof that a payment never occurred on another
+        route or rail. Caller authentication is enforced by the provider layer.
+        """
+        from decimal import Decimal, InvalidOperation
+        with self._connect() as db:
+            exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='transfer_records'").fetchone()
+            if not exists:
+                return {"status": "NOT_FOUND_IN_REFERENCE_LEDGER"}
+            row = db.execute(
+                "SELECT mandate_id,epoch,amount_minor,beneficiary,source_account,currency "
+                "FROM transfer_records WHERE intent_id=?", (intent_id,)
+            ).fetchone()
+            if row is None:
+                return {"status": "NOT_FOUND_IN_REFERENCE_LEDGER"}
+            try:
+                amount_minor = int(Decimal(str(instruction["amount"])) * 100)
+            except (KeyError, InvalidOperation, ValueError, TypeError):
+                return {"status": "REFUSED_BINDING"}
+            expected = (instruction.get("mandate_id"), instruction.get("authority_epoch"),
+                        amount_minor, instruction.get("beneficiary"),
+                        instruction.get("source_account"), instruction.get("currency"))
+            if row != expected:
+                return {"status": "REFUSED_BINDING"}
+            return {"status": "TRANSFER_RECORDED", "payment_intent_id": intent_id}
