@@ -180,3 +180,79 @@ def consume_execution_permit_and_begin_outcome_once(
             time.sleep(_BUSY_RETRY_DELAY_SECONDS)
 
     raise AssertionError("unreachable")
+
+
+def consume_permit_begin_outcome_and_claim_intent_once(
+    signature: str,
+    action_binding_hash: str,
+    payment_intent_id: str,
+) -> str:
+    """Bounded atomic reference: one SQLite transaction for all three records.
+
+    NOT wired to gateway/adapters. The caller must authenticate and bind
+    payment_intent_id to the permit before calling this operation.
+    """
+    if not payment_intent_id or not payment_intent_id.strip():
+        raise ValueError("authenticated payment_intent_id required")
+    if not signature or not action_binding_hash:
+        raise ValueError("signature and binding required")
+    permit_path = _store_path()
+    outcome_path = _outcome_store_path()
+    permit_path.parent.mkdir(parents=True, exist_ok=True)
+    outcome_path.parent.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(_BUSY_RETRY_ATTEMPTS):
+        connection = sqlite3.connect(permit_path, timeout=5.0, isolation_level=None)
+        try:
+            connection.execute("PRAGMA busy_timeout=5000")
+            _execute_with_busy_retry(connection, "PRAGMA journal_mode=DELETE")
+            connection.execute("ATTACH DATABASE ? AS outcome_db", (str(outcome_path),))
+            _execute_with_busy_retry(connection, "PRAGMA outcome_db.journal_mode=DELETE")
+            _execute_with_busy_retry(connection, """CREATE TABLE IF NOT EXISTS consumed_execution_permits (
+                signature TEXT PRIMARY KEY, consumed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+            _execute_with_busy_retry(connection, """CREATE TABLE IF NOT EXISTS outcome_db.consequence_outcomes (
+                permit_signature TEXT PRIMARY KEY, action_binding_hash TEXT NOT NULL,
+                outcome TEXT NOT NULL, recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+            _execute_with_busy_retry(connection, """CREATE TABLE IF NOT EXISTS payment_intent_claims (
+                payment_intent_id TEXT PRIMARY KEY, permit_signature TEXT NOT NULL,
+                action_binding_hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'UNRESOLVED')""")
+            connection.execute("BEGIN IMMEDIATE")
+            if connection.execute(
+                "SELECT 1 FROM consumed_execution_permits WHERE signature=?", (signature,)
+            ).fetchone():
+                connection.execute("ROLLBACK")
+                return "DENIED_EXECUTION_PERMIT_REPLAY"
+            if connection.execute(
+                "SELECT 1 FROM payment_intent_claims WHERE payment_intent_id=?",
+                (payment_intent_id,),
+            ).fetchone():
+                connection.execute("ROLLBACK")
+                return "DENIED_PAYMENT_INTENT_ALREADY_CLAIMED"
+            connection.execute(
+                "INSERT INTO payment_intent_claims(payment_intent_id,permit_signature,action_binding_hash) VALUES (?,?,?)",
+                (payment_intent_id,signature,action_binding_hash),
+            )
+            connection.execute(
+                "INSERT INTO consumed_execution_permits(signature) VALUES (?)", (signature,)
+            )
+            connection.execute(
+                """INSERT INTO outcome_db.consequence_outcomes(
+                    permit_signature,action_binding_hash,outcome)
+                    VALUES (?,?,'CONSEQUENCE_OUTCOME_UNRESOLVED')""",
+                (signature,action_binding_hash),
+            )
+            connection.execute("COMMIT")
+            return "RESERVED"
+        except sqlite3.OperationalError as exc:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            if not _is_busy(exc) or attempt == _BUSY_RETRY_ATTEMPTS - 1:
+                raise
+            time.sleep(_BUSY_RETRY_DELAY_SECONDS)
+        except Exception:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+    raise AssertionError("unreachable")
