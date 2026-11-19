@@ -45,7 +45,10 @@ jobs:
           python qualification/pgsodium/generate_interop_sql.py > pgsodium-evidence/interop.sql
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/interop.sql > pgsodium-evidence/interop.txt 2>&1
           cat pgsodium-evidence/interop.txt
-          echo 'CRYPTOGRAPHIC BYTE INTEROPERABILITY ONLY: provenance, canonical SQL derivation and final-commit enforcement NOT QUALIFIED' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/generate_unbound_fields_negative_sql.py > pgsodium-evidence/unbound-fields-negative.sql
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/unbound-fields-negative.sql > pgsodium-evidence/unbound-fields-negative.txt 2>&1
+          cat pgsodium-evidence/unbound-fields-negative.txt
+          echo 'RED CHARACTERIZATION: valid signature does not authenticate separately supplied SQL fields; no final-commit enforcement' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
