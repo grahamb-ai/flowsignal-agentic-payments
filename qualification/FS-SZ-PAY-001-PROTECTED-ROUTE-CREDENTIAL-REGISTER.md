@@ -48,3 +48,11 @@ Do not merge to main or assert production Structural Zero.
 - The signed `apply_signed_update` facade is not an access-control boundary while direct store methods or the SQLite file remain reachable.
 - A qualified closure requires a provider-owned isolated state-mutation service with updater identity verification and storage ACLs; Python method naming or a shared process-local token alone is insufficient.
 - No production IAM, key ownership, or database permission evidence has been provided. Do not claim authority-update route closure.
+
+## Authority-state writer attack inventory
+- Direct `ProviderCommitFence.revoke`: observed RED, unauthenticated epoch advance.
+- Direct `ProviderCommitFence.revoke_if_epoch`: observed RED, expected epoch alone is insufficient.
+- Direct `ProviderCommitFence.establish`: new frozen hostile challenge, result pending CI.
+- Direct SQLite writer: outside the signed facade, must be denied by deployment credentials; Python visibility restrictions do not constitute a trust boundary.
+- Required architecture: separate institutional authority updater identity and write permission; payment executor read/commit-only access; durable monotonic per-mandate update ordering and no rollback; issuer public-key trust anchor independent of caller input.
+- Do not patch these failures with a shared in-process Python token and claim production isolation. Prefer a provider-owned updater service and OS/database credential separation, then qualify direct access from the payment-executor identity.
