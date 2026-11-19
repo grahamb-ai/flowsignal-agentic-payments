@@ -5,6 +5,7 @@ import socket
 import subprocess
 import sys
 import time
+from uuid import uuid4
 from dataclasses import replace
 from pathlib import Path
 from urllib import request
@@ -71,7 +72,7 @@ def _fresh_allow_and_permit():
         mandate_id=req.mandate_id,
         attempted_at=req.requested_execution_time,
     )
-    gateway = validate_execution(receipt, attempt)
+    gateway = validate_execution(receipt, attempt, payment_intent_id=f'cbp002-{uuid4().hex}', provider_authority_epoch=1, provider_mandate_id=attempt.mandate_id)
     assert gateway.status == "PERMITTED"
     assert gateway.execution_permit is not None
     return receipt, attempt, gateway.execution_permit
@@ -231,7 +232,7 @@ def test_cbp002_external_consequence_boundary(tmp_path, monkeypatch):
         assert final_state["transfer_count"] == 1
         assert final_state["source_balance"] == challenged_before["source_balance"] - fresh_attempt.amount
         assert final_state["beneficiary_balances"][fresh_attempt.beneficiary] == fresh_attempt.amount
-        assert final_state["transfers"][0]["transaction_id"] == fresh_permit.signature
+        assert final_state["transfers"][0]["transaction_id"] == fresh_permit.payment_intent_id
         assert final_state["transfers"][0]["beneficiary"] == fresh_attempt.beneficiary
         assert final_state["transfers"][0]["amount"] == fresh_attempt.amount
 
