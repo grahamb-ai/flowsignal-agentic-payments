@@ -1,0 +1,44 @@
+name: FS-SZ-PAY-001 unsigned commitment shutdown candidate
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  disable-unsigned-commit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test fail-closed shutdown of unsigned function
+        shell: bash
+        run: |
+          mkdir -p boundary-evidence
+          git rev-parse HEAD > boundary-evidence/commit.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_isolation.sql > boundary-evidence/setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_disable_unsigned_commit_candidate.sql > boundary-evidence/migration.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_disable_unsigned_commit_challenge.sql > boundary-evidence/challenge.txt 2>&1
+          cat boundary-evidence/challenge.txt
+      - name: Preserve boundary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-unsigned-commit-shutdown
+          path: boundary-evidence/
