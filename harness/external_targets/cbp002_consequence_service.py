@@ -159,6 +159,13 @@ def main() -> None:
     if args.legacy_test_mode and args.fence_db:
         parser.error('legacy test mode and fenced provider mode are mutually exclusive')
     if args.fence_db:
+        # Standalone script execution puts external_targets/ on sys.path, not harness/.
+        # Resolve the repository's harness package root explicitly for this test service.
+        import sys
+        from pathlib import Path
+        harness_root = str(Path(__file__).resolve().parents[1])
+        if harness_root not in sys.path:
+            sys.path.insert(0, harness_root)
         from app.engines.t24_provider_commit_fence_reference import ProviderCommitFence
         fence = ProviderCommitFence(args.fence_db)
         LEDGER = ExternalLedger(fence=fence, mandate_id=args.mandate_id, authority_epoch=args.authority_epoch)
