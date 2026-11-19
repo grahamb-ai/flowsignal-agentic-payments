@@ -28,6 +28,13 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 END $$;
-SELECT CASE WHEN (SELECT epoch=1 AND NOT revoked FROM fs_provider.mandates WHERE id='MANDATE-A')
- THEN 'AUTH-01..04 PASS: mandate unchanged' ELSE 1/0::text END;
+DO $ BEGIN
+ IF NOT EXISTS (SELECT 1 FROM fs_provider.mandates WHERE id='MANDATE-A' AND epoch=1 AND NOT revoked) THEN
+  RAISE EXCEPTION 'AUTH-01..04: mandate state changed';
+ END IF;
+ IF EXISTS (SELECT 1 FROM fs_provider.mandates WHERE id='FORGED') THEN
+  RAISE EXCEPTION 'AUTH-01: forged mandate exists';
+ END IF;
+ RAISE NOTICE 'AUTH-01..04 PASS: database permissions denied mutations';
+END $;
 RESET ROLE;
