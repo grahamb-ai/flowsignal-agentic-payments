@@ -24,7 +24,7 @@ def _issued_payment():
         beneficiary=req.beneficiary, purpose=req.purpose,
         mandate_id=req.mandate_id, attempted_at=req.requested_execution_time,
     )
-    gateway = validate_execution(receipt, attempt)
+    gateway = validate_execution(receipt, attempt, payment_intent_id='institution-intent-001', provider_authority_epoch=1, provider_mandate_id=attempt.mandate_id)
     assert gateway.status == "PERMITTED"
     return attempt, gateway.execution_permit
 
@@ -45,3 +45,12 @@ def test_payment_intent_is_not_permit_signature_and_survives_new_permit():
     # Issuer must bind the identity, not derive it from mutable HTTP parameters.
     assert getattr(permit, "payment_intent_id", None) == payload["payment_intent_id"]
     assert getattr(permit, "provider_authority_epoch", None) == payload["authority_epoch"]
+
+
+def test_signed_intent_and_epoch_tampering_invalidates_permit():
+    from app.engines.permit_authority import verify_execution_permit
+    attempt, permit = _issued_payment()
+    assert verify_execution_permit(permit)
+    assert not verify_execution_permit(replace(permit, payment_intent_id="attacker-intent"))
+    assert not verify_execution_permit(replace(permit, provider_authority_epoch=2))
+    assert not verify_execution_permit(replace(permit, provider_mandate_id="OTHER-MANDATE"))
