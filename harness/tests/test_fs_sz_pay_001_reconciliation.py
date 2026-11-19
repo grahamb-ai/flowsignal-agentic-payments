@@ -83,3 +83,42 @@ def test_revocation_does_not_erase_preexisting_commit_evidence(tmp_path):
     status, result = ledger.reconcile(payment)
     assert status == 200 and result["status"] == "TRANSFER_RECORDED"
     assert fence.transfer_count() == 1
+
+
+def test_reconciliation_rejects_different_issuer_and_expired_proof(tmp_path):
+    import json
+    from datetime import datetime, timedelta, timezone
+    from app.engines.provider_instruction_verifier import canonical_instruction
+    key, _, fence, ledger, payment = _setup(tmp_path)
+    assert ledger.transfer(payment)[0] == 201
+
+    attacker = issuer()
+    foreign = signed_payment(attacker, {k: v for k, v in payment.items()
+                                        if k != "institutional_authorization"})
+    status, result = ledger.reconcile(foreign)
+    assert status == 403 and result["status"] == "REFUSED_UNAUTHENTICATED_INSTRUCTION"
+
+    expired = dict(payment)
+    expires_at = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+    signed = json.dumps({"instruction": canonical_instruction(expired),
+                         "expires_at": expires_at},
+                        sort_keys=True, separators=(",", ":")).encode()
+    expired["institutional_authorization"] = {
+        "expires_at": expires_at, "signature": key.sign(signed).hex()}
+    status, result = ledger.reconcile(expired)
+    assert status == 403 and result["status"] == "REFUSED_UNAUTHENTICATED_INSTRUCTION"
+    assert fence.transfer_count() == 1
+
+
+def test_reconciliation_does_not_mutate_revoked_authority_or_provider_record(tmp_path):
+    _, _, fence, ledger, payment = _setup(tmp_path)
+    assert ledger.transfer(payment)[0] == 201
+    fence.revoke("MANDATE-A")
+    before = fence.transfer_count()
+    for _ in range(5):
+        status, result = ledger.reconcile(payment)
+        assert status == 200 and result["status"] == "TRANSFER_RECORDED"
+    assert fence.transfer_count() == before == 1
+    retry_status, retry = ledger.transfer(payment)
+    assert retry_status == 403 and retry["status"] == "REFUSED_AUTHORITY"
+    assert fence.transfer_count() == 1
