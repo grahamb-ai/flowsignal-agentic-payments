@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir -p evidence
           git rev-parse HEAD > evidence/commit.txt
-          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_http_mandate_binding.py) > evidence/pytest.txt 2>&1
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_http_mandate_binding.py tests/test_fs_sz_pay_001_mandate_epoch_controls.py) > evidence/pytest.txt 2>&1
           code=$?
           echo "$code" > evidence/exit.txt
           cat evidence/pytest.txt
