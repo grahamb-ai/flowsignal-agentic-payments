@@ -96,3 +96,32 @@ def test_http_provider_refuses_to_start_unconfigured():
                          "--port",str(port)],capture_output=True,text=True,timeout=5)
     assert proc.returncode!=0
     assert "REFUSED_UNQUALIFIED_PROVIDER_ROUTE" in proc.stderr
+
+
+def test_fenced_http_denies_unqualified_admin_and_state_routes(tmp_path):
+    db = tmp_path / "authority.sqlite3"
+    provider = ProviderCommitFence(db)
+    provider.establish("MANDATE-TREASURY-001", epoch=1)
+    key = issuer()
+    port = _port()
+    service = _start(port, db, write_public_key(key, tmp_path / "issuer-public.pem"))
+    try:
+        base = f"http://127.0.0.1:{port}"
+        status, result = _send(base + "/payments", _payment("committed-before-admin", key))
+        assert status == 201 and result["status"] == "TRANSFER_RECORDED"
+        status, result = _send(base + "/admin/reset", {})
+        assert status == 403 and result["status"] == "REFUSED_UNQUALIFIED_ADMIN_ROUTE"
+        try:
+            with request.urlopen(base + "/state", timeout=3):
+                raise AssertionError("unauthenticated state disclosure succeeded")
+        except error.HTTPError as exc:
+            assert exc.code == 403
+            assert json.loads(exc.read())["status"] == "REFUSED_UNQUALIFIED_STATE_ROUTE"
+        assert provider.transfer_count() == 1
+        provider.revoke("MANDATE-TREASURY-001")
+        status, result = _send(base + "/payments", _payment("after-admin-and-revoke", key))
+        assert status == 403 and result["status"] == "REFUSED_AUTHORITY"
+        assert provider.transfer_count() == 1
+    finally:
+        service.terminate()
+        service.wait(timeout=5)
