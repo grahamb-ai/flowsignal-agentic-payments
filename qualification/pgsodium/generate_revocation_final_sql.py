@@ -22,6 +22,6 @@ def call(intent,epoch):
       lit(instruction["action"]),lit(instruction["target"])])+")"
 print("\\set ON_ERROR_STOP on")
 print("SELECT current_user AS revocation_test_login;")
-for name,intent,epoch in [("revoked_mandate","REVOKED-AFTER-SIGN",7),("stale_epoch","STALE-EPOCH-AFTER-ROTATION",7)]:
+mode=sys.argv[1]\nassert mode in ("revoked","stale")\nfor name,intent,epoch in ([("revoked_mandate","REVOKED-AFTER-SIGN",7)] if mode=="revoked" else [("stale_epoch","STALE-EPOCH-AFTER-ROTATION",7)]):
  print("SELECT 1 / CASE WHEN "+call(intent,epoch)+" = 'REFUSED_AUTHORITY' THEN 1 ELSE 0 END AS "+name+"_refused;")
 print("SELECT 1 / CASE WHEN NOT EXISTS (SELECT 1 FROM fs_provider.commits WHERE intent_id IN ('REVOKED-AFTER-SIGN','STALE-EPOCH-AFTER-ROTATION')) THEN 1 ELSE 0 END AS zero_post_revocation_commitments;")
