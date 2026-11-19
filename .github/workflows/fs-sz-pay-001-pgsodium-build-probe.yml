@@ -1,0 +1,31 @@
+name: FS-SZ-PAY-001 pgsodium PG16 compatibility experiment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated PostgreSQL 16 extension image
+        shell: bash
+        run: |
+          mkdir -p pgsodium-evidence
+          git rev-parse HEAD > pgsodium-evidence/commit.txt
+          set +e
+          docker build --progress=plain -f qualification/pgsodium/Dockerfile -t fs-pgsodium-evaluation:local . > pgsodium-evidence/build.txt 2>&1
+          result=$?
+          set -e
+          echo "$result" > pgsodium-evidence/build-exit.txt
+          if [ "$result" -ne 0 ]; then
+            echo 'BUILD RED: extension compatibility NOT qualified' > pgsodium-evidence/disposition.txt
+            exit "$result"
+          fi
+          echo 'BUILD ONLY: extension not yet signature-tested or source-reviewed' > pgsodium-evidence/disposition.txt
+      - name: Preserve raw experiment
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-pgsodium-build-probe
+          path: pgsodium-evidence/
