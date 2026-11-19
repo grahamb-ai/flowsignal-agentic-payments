@@ -1,3 +1,4 @@
+from provider_signed_fixture import issuer, signed_payment, write_public_key
 """HTTP-level route closure against actual CBP-002 service process.
 
 Cooperating reference provider only; does not qualify legacy-test-mode or live rails.
@@ -28,17 +29,18 @@ def _send(url,payload):
         return exc.code,json.loads(exc.read())
 
 
-def _payment(intent):
-    return {"transaction_id":intent,"mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,"source_account":"TREASURY-001",
+def _payment(intent, key):
+    return signed_payment(key, {"transaction_id":intent,"mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,"source_account":"TREASURY-001",
             "beneficiary":"SUPPLIER-X","amount":750000.0,
-            "currency":"GBP","purpose":"supplier settlement"}
+            "currency":"GBP","purpose":"supplier settlement"})
 
 
-def _start(port,path):
+def _start(port,path,public_key_path):
     process=subprocess.Popen([
         sys.executable,"external_targets/cbp002_consequence_service.py",
         "--port",str(port),"--fence-db",str(path),
         "--mandate-id","MANDATE-TREASURY-001","--authority-epoch","1",
+        "--authorization-public-key-file",str(public_key_path),
     ],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     for _ in range(100):
         if process.poll() is not None:
@@ -58,9 +60,10 @@ def test_http_fenced_route_refuses_after_effective_revocation(tmp_path):
     provider.establish("MANDATE-TREASURY-001",epoch=1)
     provider.revoke("MANDATE-TREASURY-001")
     port=_port()
-    service=_start(port,db)
+    key=issuer()
+    service=_start(port,db,write_public_key(key,tmp_path/"issuer-public.pem"))
     try:
-        status,result=_send(f"http://127.0.0.1:{port}/payments",_payment("intent-after-revoke"))
+        status,result=_send(f"http://127.0.0.1:{port}/payments",_payment("intent-after-revoke",key))
         assert status==403 and result["status"]=="REFUSED_AUTHORITY"
         assert provider.transfer_count()==0
     finally:
@@ -73,12 +76,13 @@ def test_http_fenced_route_accepts_then_refuses(tmp_path):
     provider=ProviderCommitFence(db)
     provider.establish("MANDATE-TREASURY-001",epoch=1)
     port=_port()
-    service=_start(port,db)
+    key=issuer()
+    service=_start(port,db,write_public_key(key,tmp_path/"issuer-public.pem"))
     try:
-        status,result=_send(f"http://127.0.0.1:{port}/payments",_payment("intent-before-revoke"))
+        status,result=_send(f"http://127.0.0.1:{port}/payments",_payment("intent-before-revoke",key))
         assert status==201 and result["status"]=="TRANSFER_RECORDED"
         provider.revoke("MANDATE-TREASURY-001")
-        status,result=_send(f"http://127.0.0.1:{port}/payments",_payment("intent-after-revoke"))
+        status,result=_send(f"http://127.0.0.1:{port}/payments",_payment("intent-after-revoke",key))
         assert status==403 and result["status"]=="REFUSED_AUTHORITY"
         assert provider.transfer_count()==1
     finally:
