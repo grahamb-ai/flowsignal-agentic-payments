@@ -1,3 +1,4 @@
+from provider_signed_fixture import issuer, signed_payment, write_public_key
 """Failure-first route-closure challenge against actual CBP-002 external ledger.
 
 The direct /payments endpoint is a separate execution route from the
@@ -18,8 +19,9 @@ def test_direct_provider_route_cannot_commit_after_authoritative_revocation(tmp_
     # CBP-002 direct target is a distinct execution surface. Its transfer()
     # implementation currently checks payment fields/balance but not mandate
     # revocation or the provider-side fence.
-    direct=ExternalLedger(fence=fence, mandate_id='MANDATE-TREASURY-001', authority_epoch=1)
-    status,result=direct.transfer({
+    key=issuer()
+    direct=ExternalLedger(authorization_public_key=key.public_key(),fence=fence, mandate_id='MANDATE-TREASURY-001', authority_epoch=1)
+    status,result=direct.transfer(signed_payment(key, {
         "transaction_id":"new-permit-after-revocation",
         "mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,
         "source_account":"TREASURY-001",
@@ -27,7 +29,7 @@ def test_direct_provider_route_cannot_commit_after_authoritative_revocation(tmp_
         "amount":750000.0,
         "currency":"GBP",
         "purpose":"supplier settlement",
-    })
+    }))
 
     assert fence.commit("MANDATE-TREASURY-001",1,"separate-intent")=="REFUSED_AUTHORITY"
     assert direct.snapshot()["transfer_count"]==0, (
@@ -40,15 +42,16 @@ def test_direct_provider_route_cannot_commit_after_authoritative_revocation(tmp_
 def test_fenced_direct_route_commits_before_revocation_and_refuses_after(tmp_path):
     fence=ProviderCommitFence(tmp_path/"provider.sqlite3")
     fence.establish("MANDATE-TREASURY-001",epoch=1)
-    direct=ExternalLedger(fence=fence,mandate_id="MANDATE-TREASURY-001",authority_epoch=1)
+    key=issuer()
+    direct=ExternalLedger(authorization_public_key=key.public_key(),fence=fence,mandate_id="MANDATE-TREASURY-001",authority_epoch=1)
     payload={"transaction_id":"intent-1","mandate_id":"MANDATE-TREASURY-001","authority_epoch":1,"source_account":"TREASURY-001",
              "beneficiary":"SUPPLIER-X","amount":750000.0,
              "currency":"GBP","purpose":"supplier settlement"}
-    status,result=direct.transfer(payload)
+    status,result=direct.transfer(signed_payment(key,payload))
     assert status==201 and result["status"]=="TRANSFER_RECORDED"
     assert direct.snapshot()["transfer_count"]==1
     fence.revoke("MANDATE-TREASURY-001")
-    status,result=direct.transfer({**payload,"transaction_id":"intent-2"})
+    status,result=direct.transfer(signed_payment(key, {**payload,"transaction_id":"intent-2"}))
     assert status==403 and result["status"]=="REFUSED_AUTHORITY"
     assert direct.snapshot()["transfer_count"]==1
 
