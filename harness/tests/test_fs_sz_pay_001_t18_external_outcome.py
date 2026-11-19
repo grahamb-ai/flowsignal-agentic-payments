@@ -26,7 +26,7 @@ def test_t18_external_commit_lost_ack_remains_unresolved(tmp_path, monkeypatch):
         beneficiary=req.beneficiary, purpose=req.purpose,
         mandate_id=req.mandate_id, attempted_at=req.requested_execution_time,
     )
-    gateway = validate_execution(receipt, attempt)
+    gateway = validate_execution(receipt, attempt, payment_intent_id='institution-payment-intent-001', provider_authority_epoch=1, provider_mandate_id=attempt.mandate_id)
     assert gateway.status == "PERMITTED"
     permit = gateway.execution_permit
     assert permit is not None
@@ -48,11 +48,11 @@ def test_t18_external_commit_lost_ack_remains_unresolved(tmp_path, monkeypatch):
             (permit.signature,),
         ).fetchall()
     assert rows == [("CONSEQUENCE_OUTCOME_UNRESOLVED",)]
-    assert provider_commits == [permit.signature]
+    assert provider_commits == ['institution-payment-intent-001']
 
     # Reusing the consumed permit must not dispatch a second payment.
     outcome, _ = external_consequence_adapter.execute_external_payment(
         permit=permit, attempt=attempt, payments_url="http://provider.invalid/payments"
     )
     assert outcome == "DENIED_EXECUTION_PERMIT_REPLAY"
-    assert provider_commits == [permit.signature]
+    assert provider_commits == ['institution-payment-intent-001']
