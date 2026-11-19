@@ -15,8 +15,8 @@ These results qualify bounded reference behaviours, not universal route closure.
 | `ExternalLedger.transfer` direct call | Same fenced transfer in configured mode | Same public-key verification and fence | Reference hostile direct-caller tests GREEN |
 | `ProviderCommitFence.commit_transfer` direct method | Writes simulated transfer record | SQLite epoch/revocation/intent checks, **no independent issuer signature check in this method** | Internal trust boundary only; direct invocation must be restricted |
 | `ProviderCommitFence.commit` direct method | Writes a commit claim, not transfer record | SQLite epoch/revocation/intent checks; no institutional proof | Internal reference helper; caller permissions unresolved |
-| `Handler.POST /admin/reset` | Resets legacy in-memory ledger; fenced mode leaves durable provider transfer records intact | **No administrative authentication in reference service** | Unqualified administrative route |
-| `Handler.GET /state` | Reads transfer count / sandbox balances | **No caller authentication** | Unqualified information exposure |
+| `Handler.POST /admin/reset` | Resets legacy in-memory ledger; fenced mode leaves durable provider transfer records intact | Fenced HTTP mode now refuses this route; legacy test mode remains unqualified | Candidate change, CI pending |
+| `Handler.GET /state` | Reads transfer count / sandbox balances | Fenced HTTP mode now refuses this route; legacy test mode remains unqualified | Candidate change, CI pending |
 | `Handler.POST /payments/reconcile` | Read-only lookup | Signed instruction verified; missing reference record is not proof of non-commitment | Bounded GREEN; global completeness not demonstrated |
 | `ExternalLedger(legacy_test_mode=True)` | Unfenced sandbox payment | No mandate or institutional signature | Explicitly OUT OF SCOPE; must be inaccessible to protected credentials |
 | `ProviderCommitFence.revoke` / `establish` | Mutates mandate authority | Local SQLite method, no demonstrated institutional updater IAM | Authoritative state provenance unresolved |
@@ -35,3 +35,8 @@ These results qualify bounded reference behaviours, not universal route closure.
 ## Decision
 **REFERENCE ROUTE TESTS GREEN; PROTECTED DEPLOYMENT ROUTE/CREDENTIAL CLOSURE OPEN.**
 Do not merge to main or assert production Structural Zero.
+
+## Fenced HTTP closure candidate (unverified until CI)
+- `/admin/reset` and `/state` now return HTTP 403 when the service is configured with an authoritative fence. This is an HTTP surface restriction, not a database ACL or institutional IAM control.
+- The new hostile HTTP test checks that reset and state access are denied while a prior payment remains recorded and later revocation still refuses a payment.
+- Direct Python access to `ProviderCommitFence` and filesystem-level SQLite access remain open in this reference harness. Do not claim complete route closure.
