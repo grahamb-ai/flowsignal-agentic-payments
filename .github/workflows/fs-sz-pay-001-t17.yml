@@ -37,27 +37,22 @@ jobs:
           from pathlib import Path
           p=Path("harness/app/engines/protected_consequence.py")
           s=p.read_text()
-          old='''            except Exception:
-                  record_consequence_outcome(
-                      permit_signature=permit.signature,
-                      action_binding_hash=attempted_action_binding_hash,
-                      outcome="CONSEQUENCE_NOT_FORMED",
-                  )
-                  raise'''
-          # Preserve exact original indentation, do not guess if it has changed.
-          old='''            except Exception:
-                  record_consequence_outcome(
-                      permit_signature=permit.signature,
-                      action_binding_hash=attempted_action_binding_hash,
-                      outcome="CONSEQUENCE_NOT_FORMED",
-                  )
-                  raise'''.replace("                  ","    "*5)
-          if old not in s:
-              raise SystemExit("STOP: expected source block not found; no candidate applied")
-          p.write_text(s.replace(old,'''            except Exception:
-                  # External dispatch may have committed before acknowledgement failed.
-                  # Preserve pre-existing durable UNRESOLVED outcome.
-                  raise'''.replace("                  ","    "*5),1))
+          import re
+          pattern = (r'(?m)^            except Exception:\\n'
+                     r'                record_consequence_outcome\\(\\n'
+                     r'                    permit_signature=permit\\.signature,\\n'
+                     r'                    action_binding_hash=attempted_action_binding_hash,\\n'
+                     r'                    outcome="CONSEQUENCE_NOT_FORMED",\\n'
+                     r'                \\)\\n'
+                     r'                raise')
+          replacement = ('            except Exception:\\n'
+                         '                # External dispatch outcome may be unknown.\\n'
+                         '                # Preserve the pre-existing UNRESOLVED record.\\n'
+                         '                raise')
+          changed, n = re.subn(pattern, replacement, s)
+          if n != 1:
+              raise SystemExit(f"STOP: expected exactly one original exception block; found {n}")
+          p.write_text(changed)
           PY
           git diff -- harness/app/engines/protected_consequence.py > evidence/candidate.patch
           sha256sum harness/app/engines/protected_consequence.py > evidence/candidate.sha256
