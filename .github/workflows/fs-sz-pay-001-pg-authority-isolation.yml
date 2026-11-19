@@ -104,7 +104,12 @@ jobs:
           login=$?
           cat auth-db-evidence/caller-login-challenge.txt
           echo "$login" > auth-db-evidence/caller-login-exit.txt
-          exit "$login"
+          if [ "$login" -ne 0 ]; then exit "$login"; fi
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_provider_process_isolation.py) > auth-db-evidence/provider-process-isolation.txt 2>&1
+          isolation=$?
+          cat auth-db-evidence/provider-process-isolation.txt
+          echo "$isolation" > auth-db-evidence/process-isolation-exit.txt
+          exit "$isolation"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
