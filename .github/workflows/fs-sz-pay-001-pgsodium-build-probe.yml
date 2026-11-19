@@ -83,7 +83,18 @@ jobs:
           cat pgsodium-evidence/signed-lost-ack-retry.txt
           python qualification/pgsodium/signed_commit_reconcile_after_retry.py > pgsodium-evidence/signed-reconciliation.txt 2>&1
           cat pgsodium-evidence/signed-reconciliation.txt
-          echo 'SIGNED RACE AND SIMULATED LOST-ACK RETRY EXPERIMENTS: real crash/recovery and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
+          # Restart the isolated database after the signed transaction has committed.
+          # This tests durability across a controlled restart, NOT a power-loss crash.
+          docker restart fs-pgsodium-qualification > pgsodium-evidence/restart.txt 2>&1
+          ready_after_restart=0
+          for attempt in $(seq 1 30); do
+            if docker exec fs-pgsodium-qualification pg_isready -U postgres >/dev/null 2>&1; then ready_after_restart=1; break; fi
+            sleep 2
+          done
+          test "$ready_after_restart" -eq 1
+          python qualification/pgsodium/signed_commit_reconcile_after_retry.py > pgsodium-evidence/post-restart-reconciliation.txt 2>&1
+          cat pgsodium-evidence/post-restart-reconciliation.txt
+          echo 'SIGNED RACE, RETRY, READ-ONLY RECONCILIATION AND CONTROLLED DB RESTART: abrupt crash, external settlement and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
