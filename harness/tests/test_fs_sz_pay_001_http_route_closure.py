@@ -1,4 +1,4 @@
-from provider_signed_fixture import issuer, signed_payment, write_public_key
+from tests.provider_signed_fixture import issuer, signed_payment, write_public_key
 """HTTP-level route closure against actual CBP-002 service process.
 
 Cooperating reference provider only; does not qualify legacy-test-mode or live rails.
