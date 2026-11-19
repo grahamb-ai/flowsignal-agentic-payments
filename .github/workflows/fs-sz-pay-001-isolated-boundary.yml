@@ -1,0 +1,31 @@
+name: FS-SZ-PAY-001 isolated commitment fail-closed candidate
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install cryptography pytest
+      - name: Exercise signed instruction and hard-disabled commit
+        shell: bash
+        run: |
+          mkdir -p isolated-boundary-evidence
+          git rev-parse HEAD > isolated-boundary-evidence/commit.txt
+          python -m pytest -q harness/tests/test_fs_sz_pay_001_isolated_commitment_candidate.py > isolated-boundary-evidence/test.txt 2>&1
+          result=$?
+          cat isolated-boundary-evidence/test.txt
+          echo "$result" > isolated-boundary-evidence/exit.txt
+          exit "$result"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FS-SZ-PAY-001-isolated-boundary
+          path: isolated-boundary-evidence/
