@@ -18,6 +18,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p pgsodium-evidence
+          python -m compileall -q qualification/pgsodium
           git rev-parse HEAD > pgsodium-evidence/commit.txt
           set +e
           docker build --progress=plain -f qualification/pgsodium/Dockerfile -t fs-pgsodium-evaluation:local . > pgsodium-evidence/build.txt 2>&1
