@@ -40,7 +40,12 @@ jobs:
           result=$?
           cat auth-db-evidence/challenge.txt
           echo "$result" > auth-db-evidence/exit.txt
-          exit "$result"
+          if [ "$result" -ne 0 ]; then exit "$result"; fi
+          bash qualification/sql/fs_sz_pay_001_pg_revocation_race.sh > auth-db-evidence/revocation-race.txt 2>&1
+          race=$?
+          cat auth-db-evidence/revocation-race.txt
+          echo "$race" > auth-db-evidence/race-exit.txt
+          exit "$race"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
