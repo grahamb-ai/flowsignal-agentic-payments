@@ -1,7 +1,7 @@
-name: FS-SZ-PAY-001 direct provider route closure
+name: FS-SZ-PAY-001 atomic fenced direct route
 on:
   push:
-    branches: [qualification/fs-sz-pay-001-route-closure]
+    branches: [qualification/fs-sz-pay-001-route-closure-atomic]
   workflow_dispatch:
 permissions:
   contents: read
@@ -33,5 +33,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FS-SZ-PAY-001-route-closure-first-run
+          name: FS-SZ-PAY-001-route-closure-atomic
           path: closure-evidence/
