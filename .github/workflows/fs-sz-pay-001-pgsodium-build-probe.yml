@@ -58,7 +58,14 @@ jobs:
           python qualification/pgsodium/generate_atomic_commit_sql.py > pgsodium-evidence/atomic-commit.sql
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/atomic-commit.sql > pgsodium-evidence/atomic-commit.txt 2>&1
           cat pgsodium-evidence/atomic-commit.txt
-          echo 'EXPERIMENTAL SIGNED ATOMIC COMMIT: NOT YET INDEPENDENTLY REVIEWED OR BOUNDARY-02 CLOSED' > pgsodium-evidence/disposition.txt
+          docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -c "ALTER ROLE fs_commit_service LOGIN PASSWORD 'qualification-only-service'" > pgsodium-evidence/login-setup.txt 2>&1
+          python qualification/pgsodium/generate_stolen_credential_signed_boundary_sql.py > pgsodium-evidence/stolen-login.sql
+          docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/stolen-login.sql > pgsodium-evidence/stolen-login.txt 2>&1
+          cat pgsodium-evidence/stolen-login.txt
+          grep -q 'REFUSED_INVALID_BINDING' pgsodium-evidence/stolen-login.txt
+          grep -A 3 'unsigned_durable_commit_count' pgsodium-evidence/stolen-login.txt | grep -q '0'
+          grep -A 3 'old_unsigned_function_executable' pgsodium-evidence/stolen-login.txt | grep -q 'f'
+          echo 'REAL-LOGIN UNSIGNED ATTACK REFUSED IN CANDIDATE: broader BOUNDARY-02 review remains open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
