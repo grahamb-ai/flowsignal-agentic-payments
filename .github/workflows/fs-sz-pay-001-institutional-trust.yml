@@ -1,0 +1,47 @@
+name: FS-SZ-PAY-001 institutional issuer trust isolation
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  issuer-trust:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise institutional trust-table isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p issuer-trust-evidence
+          git rev-parse HEAD > issuer-trust-evidence/commit.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_isolation.sql > issuer-trust-evidence/setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_commit_service_identity_candidate.sql >> issuer-trust-evidence/setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_institutional_trust_store_candidate.sql > issuer-trust-evidence/migration.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_institutional_trust_store_challenge.sql > issuer-trust-evidence/challenge.txt 2>&1
+          cat issuer-trust-evidence/challenge.txt
+          echo 'TRUST STORE ROLE ISOLATION PASS — NOT CRYPTOGRAPHIC VERIFICATION' > issuer-trust-evidence/disposition.txt
+      - name: Preserve qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-institutional-trust-isolation
+          path: issuer-trust-evidence/
