@@ -5,7 +5,7 @@ from urllib import request
 
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.permit_authority import ExecutionPermit
-from app.engines.protected_consequence import execute_protected_consequence_with_receipt
+from app.engines.protected_consequence import ExternalOutcomeUnknown, execute_protected_consequence_with_receipt
 
 
 def _post_json(
@@ -83,12 +83,18 @@ def execute_capability_protected_payment(
             "transaction_id": permit.signature,
             **_action_payload(attempt),
         }
-        _post_json(
-            payments_url,
-            payment_payload,
-            timeout_seconds=timeout_seconds,
-            bearer_token=capability,
-        )
+        try:
+            _post_json(
+                payments_url,
+                payment_payload,
+                timeout_seconds=timeout_seconds,
+                bearer_token=capability,
+            )
+        except Exception as exc:
+            # Provider may have committed before the acknowledgement was lost.
+            raise ExternalOutcomeUnknown(
+                "capability payment outcome requires reconciliation"
+            ) from exc
 
     outcome, receipt = execute_protected_consequence_with_receipt(
         permit=permit,
