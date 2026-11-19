@@ -1,8 +1,8 @@
 -- FS-SZ-PAY-001 reference PostgreSQL role isolation.
 -- Run as a dedicated migration administrator in an ephemeral qualification DB.
 -- This is a database permission gate, not institutional identity/KMS qualification.
-CREATE ROLE fs_authority_writer LOGIN PASSWORD 'ephemeral-writer-only';
-CREATE ROLE fs_payment_executor LOGIN PASSWORD 'ephemeral-executor-only';
+CREATE ROLE fs_authority_writer NOLOGIN;
+CREATE ROLE fs_payment_executor NOLOGIN;
 CREATE SCHEMA fs_provider;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA fs_provider FROM PUBLIC;
