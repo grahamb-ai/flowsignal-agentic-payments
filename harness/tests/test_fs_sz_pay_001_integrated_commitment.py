@@ -24,7 +24,7 @@ def _authorized():
         purpose=req.purpose,mandate_id=req.mandate_id,
         attempted_at=req.requested_execution_time,
     )
-    gateway=validate_execution(receipt,attempt)
+    gateway=validate_execution(receipt, attempt, payment_intent_id='institution-payment-intent-001', provider_authority_epoch=1, provider_mandate_id=attempt.mandate_id)
     assert gateway.status=="PERMITTED"
     return attempt,gateway.execution_permit
 
