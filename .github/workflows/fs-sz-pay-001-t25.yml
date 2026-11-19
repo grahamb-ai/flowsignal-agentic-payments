@@ -1,0 +1,37 @@
+name: FS-SZ-PAY-001 T25 provider refusal through real adapter
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-t25-adapter-provider-fence]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  challenge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run new hostile test and preserve evidence
+        shell: bash
+        run: |
+          mkdir -p t25-evidence
+          git rev-parse HEAD > t25-evidence/commit.txt
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_t25_provider_refusal_adapter.py) > t25-evidence/t25.txt 2>&1
+          code=$?
+          echo "$code" > t25-evidence/t25.exit
+          cat t25-evidence/t25.txt
+          exit "$code"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-T25-first-red
+          path: t25-evidence/
