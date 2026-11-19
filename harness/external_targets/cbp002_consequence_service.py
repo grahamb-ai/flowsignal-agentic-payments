@@ -142,6 +142,9 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(200, {"status": "ok"})
             return
         if self.path == "/state":
+            if LEDGER._fence is not None:
+                self._respond(403, {"status": "REFUSED_UNQUALIFIED_STATE_ROUTE"})
+                return
             self._respond(200, LEDGER.snapshot())
             return
         self._respond(404, {"error": "NOT_FOUND"})
@@ -164,6 +167,9 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/admin/reset":
+            if LEDGER._fence is not None:
+                self._respond(403, {"status": "REFUSED_UNQUALIFIED_ADMIN_ROUTE"})
+                return
             LEDGER.reset()
             self._respond(200, LEDGER.snapshot())
             return
