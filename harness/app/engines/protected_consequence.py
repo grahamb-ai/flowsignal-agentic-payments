@@ -13,7 +13,7 @@ from app.engines.consequence_receipt import (
     create_consequence_outcome_receipt,
 )
 from app.engines.permit_authority import ExecutionPermit, verify_execution_permit
-from app.engines.permit_consumption_store import consume_execution_permit_and_begin_outcome_once
+from app.engines.permit_consumption_store import (consume_execution_permit_and_begin_outcome_once, consume_permit_begin_outcome_and_claim_intent_once)
 from app.engines.rollback_anchor_store import claim_execution_anchor_once
 
 
@@ -97,13 +97,19 @@ def execute_protected_consequence(
             action_binding_hash=attempted_action_binding_hash,
         )
 
-        consumption_was_new = consume_execution_permit_and_begin_outcome_once(
-            permit.signature,
-            attempted_action_binding_hash,
-        )
-
-        if not consumption_was_new:
-            return "DENIED_EXECUTION_PERMIT_REPLAY"
+        if permit.payment_intent_id:
+            claim_result = consume_permit_begin_outcome_and_claim_intent_once(
+                permit.signature, attempted_action_binding_hash, permit.payment_intent_id
+            )
+            if claim_result != "RESERVED":
+                return claim_result
+        else:
+            # Historical reference permits retain the original replay path.
+            consumption_was_new = consume_execution_permit_and_begin_outcome_once(
+                permit.signature, attempted_action_binding_hash,
+            )
+            if not consumption_was_new:
+                return "DENIED_EXECUTION_PERMIT_REPLAY"
 
         if not anchor_was_new:
             # The separate anchor remembers this execution while the restored
