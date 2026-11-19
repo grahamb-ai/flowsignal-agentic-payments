@@ -56,3 +56,11 @@ Do not merge to main or assert production Structural Zero.
 - Direct SQLite writer: outside the signed facade, must be denied by deployment credentials; Python visibility restrictions do not constitute a trust boundary.
 - Required architecture: separate institutional authority updater identity and write permission; payment executor read/commit-only access; durable monotonic per-mandate update ordering and no rollback; issuer public-key trust anchor independent of caller input.
 - Do not patch these failures with a shared in-process Python token and claim production isolation. Prefer a provider-owned updater service and OS/database credential separation, then qualify direct access from the payment-executor identity.
+
+## Integrated PostgreSQL HTTP reference — 19 November 2026
+- Verified CI https://github.com/grahamb-ai/flowsignal-agentic-payments/actions/runs/44518541084: gateway-to-separate-process HTTP payment and hostile signed-instruction substitution GREEN.
+- The provider HTTP service exposes POST /payments; administrative/state routes are unavailable in this service.
+- The provider database connection is authenticated as fs_payment_executor. PostgreSQL grants no direct mandate mutation or commitment-table INSERT to this role; a guarded SECURITY DEFINER function performs the atomic current-authority check and commitment.
+- Additional direct-INSERT alternate-executor challenge committed after this checkpoint; CI pending.
+- **Not closed:** identities with database-owner or superuser rights, role membership escalation, compromised issuer key, external rail routes, production network/IAM and independently authenticated mandate writer service. PostgreSQL reference grants are not a proof of deployed route inventory completeness.
+- The full historical regression remains RED from preserved SQLite authority-state bypasses and T23; these are not silently excluded from the archive.
