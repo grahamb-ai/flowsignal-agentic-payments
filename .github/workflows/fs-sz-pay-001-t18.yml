@@ -1,0 +1,38 @@
+name: FS-SZ-PAY-001 T18 actual harness regression
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-t18]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run full original and new regression tests
+        shell: bash
+        run: |
+          mkdir -p t18-evidence
+          git rev-parse HEAD > t18-evidence/commit.txt
+          (cd harness && python -m pytest -q) > t18-evidence/pytest.txt 2>&1
+          code=$?
+          echo "$code" > t18-evidence/exit.txt
+          cat t18-evidence/pytest.txt
+          exit "$code"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-T18-results
+          path: t18-evidence/
+          if-no-files-found: warn
