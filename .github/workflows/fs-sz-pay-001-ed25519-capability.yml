@@ -1,0 +1,43 @@
+name: FS-SZ-PAY-001 Ed25519 database capability probe
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capability-probe:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inventory actual database verifier capabilities
+        shell: bash
+        run: |
+          mkdir -p ed25519-capability-evidence
+          git rev-parse HEAD > ed25519-capability-evidence/commit.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_ed25519_capability_probe.sql > ed25519-capability-evidence/functions.txt 2>&1
+          cat ed25519-capability-evidence/functions.txt
+          echo 'CAPABILITY INVENTORY ONLY: NOT AN AUTHENTICATED COMMIT' > ed25519-capability-evidence/disposition.txt
+      - name: Archive capability inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-ed25519-capability-inventory
+          path: ed25519-capability-evidence/
