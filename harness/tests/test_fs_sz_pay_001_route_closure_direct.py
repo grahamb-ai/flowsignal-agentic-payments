@@ -54,8 +54,14 @@ def test_fenced_direct_route_commits_before_revocation_and_refuses_after(tmp_pat
 
 def test_unconfigured_legacy_route_remains_unqualified():
     # Explicitly document the scope limitation: default legacy ledger bypasses fence.
-    direct=ExternalLedger()
+    direct=ExternalLedger(legacy_test_mode=True)
     status,_=direct.transfer({"transaction_id":"legacy","source_account":"TREASURY-001",
                              "beneficiary":"SUPPLIER-X","amount":1.0,
                              "currency":"GBP","purpose":"sandbox"})
     assert status==201
+
+
+def test_direct_route_fails_closed_without_fence():
+    import pytest
+    with pytest.raises(RuntimeError, match="REFUSED_UNQUALIFIED_PROVIDER_ROUTE"):
+        ExternalLedger()
