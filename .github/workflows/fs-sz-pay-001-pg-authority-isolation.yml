@@ -60,7 +60,12 @@ jobs:
           server_restart=$?
           cat auth-db-evidence/server-restart.txt
           echo "$server_restart" > auth-db-evidence/server-restart-exit.txt
-          exit "$server_restart"
+          if [ "$server_restart" -ne 0 ]; then exit "$server_restart"; fi
+          bash qualification/sql/fs_sz_pay_001_pg_forced_crash_uncommitted.sh > auth-db-evidence/forced-crash-uncommitted.txt 2>&1
+          crash=$?
+          cat auth-db-evidence/forced-crash-uncommitted.txt
+          echo "$crash" > auth-db-evidence/forced-crash-exit.txt
+          exit "$crash"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
