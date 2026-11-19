@@ -15,7 +15,7 @@ SQL
 # A single long-lived client holds a transaction open with the guarded
 # commitment already inserted but not committed.
 client_log=$(mktemp)
-psql -v ON_ERROR_STOP=1 >"$client_log" 2>&1 <<'SQL' &
+PGAPPNAME=fs_crash_uncommitted_client psql -v ON_ERROR_STOP=1 >"$client_log" 2>&1 <<'SQL' &
 SET ROLE fs_payment_executor;
 BEGIN;
 SELECT 1 / CASE WHEN fs_provider.commit_if_current('CRASH-UNCOMMITTED-INTENT','MANDATE-CRASH-UNCOMMITTED',1,100,'BENEFICIARY')='COMMITTED' THEN 1 ELSE 0 END;
@@ -27,7 +27,7 @@ client_pid=$!
 # using pg_stat_activity, not merely a timing assumption.
 observed=0
 for i in $(seq 1 40); do
- if psql -Atqc "SELECT count(*) FROM pg_stat_activity WHERE query LIKE '%pg_sleep(20)%' AND state='active'" | grep -qx '[1-9][0-9]*'; then observed=1; break; fi
+ if psql -Atqc "SELECT count(*) FROM pg_stat_activity WHERE application_name='fs_crash_uncommitted_client' AND query LIKE 'SELECT pg_sleep(20)%' AND state='active'" | grep -qx '[1-9][0-9]*'; then observed=1; break; fi
  sleep 0.25
 done
 [[ "$observed" == 1 ]] || { cat "$client_log"; echo "Crash point not reached"; kill "$client_pid" || true; exit 1; }
