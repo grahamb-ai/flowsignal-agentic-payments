@@ -1,0 +1,37 @@
+name: FS-SZ-PAY-001 T25 full regression
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-t25-adapter-provider-fence]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Full suite with preserved T23 counterexample
+        shell: bash
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          (cd harness && python -m pytest -q) > evidence/full-suite.txt 2>&1
+          code=$?
+          echo "$code" > evidence/full-suite.exit
+          tail -n 70 evidence/full-suite.txt
+          exit "$code"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-T25-full-suite
+          path: evidence/
