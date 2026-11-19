@@ -31,7 +31,7 @@ SELECT 1 / CASE WHEN {call(c["payment_intent_id"],c["beneficiary"])}='COMMITTED'
  THEN 1 ELSE 0 END AS signed_commit;
 SELECT 1 / CASE WHEN {call(c["payment_intent_id"],c["beneficiary"])}='REFUSED_DUPLICATE_INTENT'
  THEN 1 ELSE 0 END AS duplicate_refused;
-SELECT 1 / CASE WHEN {call("UNSIGNED-ATTACK",c["beneficiary"],False)}='REFUSED_UNAUTHENTICATED_INSTRUCTION'
+SELECT 1 / CASE WHEN {call(c["payment_intent_id"],c["beneficiary"],False)}='REFUSED_UNAUTHENTICATED_INSTRUCTION'
  THEN 1 ELSE 0 END AS forged_signature_refused;
 SELECT 1 / CASE WHEN {call("OTHER-INTENT",c["beneficiary"])}='REFUSED_INVALID_BINDING'
  THEN 1 ELSE 0 END AS changed_intent_refused;
