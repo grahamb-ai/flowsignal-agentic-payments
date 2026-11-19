@@ -1,0 +1,49 @@
+name: FS-SZ-PAY-001 PostgreSQL authority isolation
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  authority-isolation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute database-level AUTH-01..04 challenge
+        shell: bash
+        run: |
+          mkdir -p auth-db-evidence
+          git rev-parse HEAD > auth-db-evidence/commit.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_isolation.sql > auth-db-evidence/setup.txt 2>&1
+          setup=$?
+          if [ "$setup" -ne 0 ]; then cat auth-db-evidence/setup.txt; exit "$setup"; fi
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_challenge.sql > auth-db-evidence/challenge.txt 2>&1
+          result=$?
+          cat auth-db-evidence/challenge.txt
+          echo "$result" > auth-db-evidence/exit.txt
+          exit "$result"
+      - name: Preserve authority isolation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-pg-authority-isolation
+          path: auth-db-evidence/
