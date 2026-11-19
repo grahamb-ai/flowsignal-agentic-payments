@@ -72,11 +72,38 @@ def test_gateway_to_separate_postgres_http_provider(tmp_path, monkeypatch):
         else:
             raise AssertionError("provider did not start")
         signed = signed_payment(key, _external_payload(attempt, permit_result.execution_permit))
+        def send_payment(payload):
+            body = json.dumps(payload, sort_keys=True).encode("utf-8")
+            req_http = request.Request(
+                base + "/payments", data=body, method="POST",
+                headers={"Content-Type": "application/json"})
+            try:
+                with request.urlopen(req_http, timeout=3) as response:
+                    return response.status, json.loads(response.read())
+            except error.HTTPError as exc:
+                return exc.code, json.loads(exc.read())
+
+        unsigned = _external_payload(attempt, permit_result.execution_permit)
+        assert send_payment(unsigned)[0] == 403, "unsigned HTTP payment accepted"
+        tampered = {**signed, "beneficiary": "ATTACKER"}
+        assert send_payment(tampered)[0] == 403, "tampered HTTP payment accepted"
         result, _ = execute_external_payment(
             permit=permit_result.execution_permit, attempt=attempt,
             payments_url=base + "/payments",
             institutional_authorization=signed["institutional_authorization"])
         assert result == "CONSEQUENCE_FORMED"
+        assert send_payment(signed)[0] == 409, "duplicate signed HTTP payment accepted"
+        with psycopg.connect(os.environ["FS_QUAL_WRITER_DSN"]) as db:
+            with db.cursor() as cur:
+                cur.execute(
+                    "UPDATE fs_provider.mandates SET revoked=true, epoch=epoch+1 "
+                    "WHERE id=%s AND epoch=1 AND revoked=false", (attempt.mandate_id,))
+                assert cur.rowcount == 1, "institutional revocation not applied"
+        new_intent = {**signed, "transaction_id": "GATEWAY-PG-HTTP-002",
+                      "payment_intent_id": "GATEWAY-PG-HTTP-002"}
+        signed_after_revoke = signed_payment(key, new_intent)
+        assert send_payment(signed_after_revoke)[0] == 403, (
+            "provider accepted a new signed HTTP payment after revocation")
         for path in ("/state", "/admin/reset"):
             try:
                 request.urlopen(base + path, timeout=2)
