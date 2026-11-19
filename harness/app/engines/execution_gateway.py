@@ -64,6 +64,10 @@ def action_binding_hash(attempt: ExecutionAttempt) -> str:
 def validate_execution(
     receipt: AuthorityReceipt,
     attempt: ExecutionAttempt,
+    *,
+    payment_intent_id: str | None = None,
+    provider_authority_epoch: int | None = None,
+    provider_mandate_id: str | None = None,
 ) -> GatewayResult:
     attempted_hash = action_binding_hash(attempt)
     if not verify_receipt_hmac(receipt):
@@ -113,12 +117,26 @@ def validate_execution(
             attempted_action_binding_hash=attempted_hash,
         )
 
+    if any(v is not None for v in (payment_intent_id, provider_authority_epoch, provider_mandate_id)):
+        if (not isinstance(payment_intent_id, str) or not payment_intent_id.strip()
+            or provider_mandate_id != attempt.mandate_id
+            or type(provider_authority_epoch) is not int or provider_authority_epoch <= 0):
+            return GatewayResult(
+                status="BLOCKED", reason_code="PROVIDER_AUTHORITY_BINDING_INVALID",
+                authority_receipt_id=receipt.id,
+                expected_action_binding_hash=receipt.action_binding_hash,
+                attempted_action_binding_hash=attempted_hash,
+            )
+
     permit = issue_execution_permit(
         authority_receipt_id=receipt.id,
         action_binding_hash=attempted_hash,
         authority_state_version=current_authority_state_version,
         valid_until=_aware(receipt.valid_until).isoformat(),
         mint_capability=_GATEWAY_MINT_CAPABILITY,
+        payment_intent_id=payment_intent_id,
+        provider_authority_epoch=provider_authority_epoch,
+        provider_mandate_id=provider_mandate_id,
     )
     return GatewayResult(
         status="PERMITTED",
