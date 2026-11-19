@@ -1,0 +1,37 @@
+name: FS-SZ-PAY-001 integrated concurrent race
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-integrated-race]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Execute integrated concurrent and baseline tests
+        shell: bash
+        run: |
+          mkdir -p qualification-evidence
+          git rev-parse HEAD > qualification-evidence/commit.txt
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_integrated_concurrent_race.py tests/test_fs_sz_pay_001_integrated_commitment.py tests/test_fs_sz_pay_001_t24_provider_fence.py) > qualification-evidence/pytest.txt 2>&1
+          code=$?
+          echo "$code" > qualification-evidence/exit.txt
+          cat qualification-evidence/pytest.txt
+          exit "$code"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-integrated-race
+          path: qualification-evidence/
