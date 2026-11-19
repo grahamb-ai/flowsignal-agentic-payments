@@ -1,0 +1,44 @@
+name: FS-SZ-PAY-001 pgsodium version compatibility matrix
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/**'
+      - '.github/workflows/fs-sz-pay-001-pgsodium-version-matrix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  version-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pgsodium_version: ['3.1.8', '3.1.9', '3.1.10', '3.1.11']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build candidate version against PostgreSQL 16 and Bookworm libsodium
+        shell: bash
+        env:
+          VERSION: ${{ matrix.pgsodium_version }}
+        run: |
+          set -euo pipefail
+          mkdir -p version-matrix-evidence
+          git rev-parse HEAD > version-matrix-evidence/commit.txt
+          echo "$VERSION" > version-matrix-evidence/version.txt
+          set +e
+          docker build --progress=plain --build-arg PGSODIUM_VERSION="$VERSION" -f qualification/pgsodium/Dockerfile -t "fs-pgsodium-matrix:$VERSION" . > version-matrix-evidence/build.txt 2>&1
+          result=$?
+          set -e
+          echo "$result" > version-matrix-evidence/build-exit.txt
+          if [ "$result" -ne 0 ]; then
+            echo "BUILD RED: pgsodium $VERSION not qualified on current dependencies" > version-matrix-evidence/disposition.txt
+            exit "$result"
+          fi
+          echo "BUILD GREEN ONLY: pgsodium $VERSION source not reviewed, digest not pinned, Ed25519 not qualified" > version-matrix-evidence/disposition.txt
+      - name: Preserve per-version raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-pgsodium-matrix-${{ matrix.pgsodium_version }}
+          path: version-matrix-evidence/
