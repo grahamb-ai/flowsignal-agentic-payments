@@ -1,4 +1,4 @@
-from provider_signed_fixture import issuer, signed_payment, write_public_key
+from tests.provider_signed_fixture import issuer, signed_payment, write_public_key
 """Frozen challenge: a configured fence must not silently supply missing authority."""
 from app.engines.t24_provider_commit_fence_reference import ProviderCommitFence
 from external_targets.cbp002_consequence_service import ExternalLedger
