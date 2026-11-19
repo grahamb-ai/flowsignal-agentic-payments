@@ -1,0 +1,50 @@
+name: FS-SZ-PAY-001 direct-function hostile negative control
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  direct-function-negative-control:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve raw direct-function bypass observation
+        shell: bash
+        run: |
+          mkdir -p direct-function-evidence
+          git rev-parse HEAD > direct-function-evidence/commit.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_isolation.sql > direct-function-evidence/setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_direct_function_negative_control.sql > direct-function-evidence/raw.txt 2>&1
+          cat direct-function-evidence/raw.txt
+          # Deliberately fail if an unsigned direct function call committed.
+          if grep -q 'COMMITTED' direct-function-evidence/raw.txt; then
+            echo 'RED: executor database credential bypassed HTTP signature verifier' | tee direct-function-evidence/disposition.txt
+            exit 1
+          fi
+          echo 'No direct function commitment observed; inspect raw evidence' | tee direct-function-evidence/disposition.txt
+      - name: Archive RED or GREEN evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-direct-function-negative-control
+          path: direct-function-evidence/
