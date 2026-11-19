@@ -151,9 +151,19 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--legacy-test-mode", action="store_true", help="UNQUALIFIED historical sandbox only")
+    parser.add_argument("--fence-db", default=None)
+    parser.add_argument("--mandate-id", default=None)
+    parser.add_argument("--authority-epoch", type=int, default=None)
     args = parser.parse_args()
     global LEDGER
-    LEDGER = ExternalLedger(legacy_test_mode=args.legacy_test_mode)
+    if args.legacy_test_mode and args.fence_db:
+        parser.error('legacy test mode and fenced provider mode are mutually exclusive')
+    if args.fence_db:
+        from app.engines.t24_provider_commit_fence_reference import ProviderCommitFence
+        fence = ProviderCommitFence(args.fence_db)
+        LEDGER = ExternalLedger(fence=fence, mandate_id=args.mandate_id, authority_epoch=args.authority_epoch)
+    else:
+        LEDGER = ExternalLedger(legacy_test_mode=args.legacy_test_mode)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.serve_forever()
 
