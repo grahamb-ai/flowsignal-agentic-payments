@@ -1,0 +1,36 @@
+name: FS-SZ-PAY-001 T19 failure-first capability test
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-t19]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run full suite and preserve RED
+        shell: bash
+        run: |
+          mkdir -p t19-evidence
+          git rev-parse HEAD > t19-evidence/commit.txt
+          (cd harness && python -m pytest -q) > t19-evidence/pytest.txt 2>&1
+          code=$?
+          echo "$code" > t19-evidence/exit.txt
+          tail -n 60 t19-evidence/pytest.txt
+          exit "$code"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-T19-first-run
+          path: t19-evidence/
