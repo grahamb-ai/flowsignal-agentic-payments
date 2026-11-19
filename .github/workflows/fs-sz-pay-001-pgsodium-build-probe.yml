@@ -48,7 +48,10 @@ jobs:
           python qualification/pgsodium/generate_unbound_fields_negative_sql.py > pgsodium-evidence/unbound-fields-negative.sql
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/unbound-fields-negative.sql > pgsodium-evidence/unbound-fields-negative.txt 2>&1
           cat pgsodium-evidence/unbound-fields-negative.txt
-          echo 'RED CHARACTERIZATION: valid signature does not authenticate separately supplied SQL fields; no final-commit enforcement' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/generate_bound_fields_sql.py > pgsodium-evidence/bound-fields.sql
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/bound-fields.sql > pgsodium-evidence/bound-fields.txt 2>&1
+          cat pgsodium-evidence/bound-fields.txt
+          echo 'SIGNED-FIELD EQUALITY EXPERIMENT ONLY: no atomic commit, trusted issuer lookup, expiry enforcement or credential-bypass closure' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
