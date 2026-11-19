@@ -36,8 +36,7 @@ def test_gateway_to_restricted_postgres_provider(tmp_path, monkeypatch):
         receipt, attempt, payment_intent_id="GATEWAY-PG-INTEGRATED-001",
         provider_authority_epoch=1, provider_mandate_id=attempt.mandate_id)
     assert permit_result.status == "PERMITTED"
-    key = issuer()
-    ledger = PostgreSQLProtectedLedger(
+    # Provision the exact gateway scenario mandate through the distinct writer login.\n    with psycopg.connect(os.environ["FS_QUAL_WRITER_DSN"]) as writer_db:\n        with writer_db.cursor() as cur:\n            assert cur.execute("SELECT current_user").fetchone()[0] == "fs_authority_writer"\n            cur.execute("INSERT INTO fs_provider.mandates(id,epoch,revoked) VALUES (%s,1,false)", (attempt.mandate_id,))\n    key = issuer()\n    ledger = PostgreSQLProtectedLedger(
         connect=lambda: psycopg.connect(os.environ["FS_QUAL_EXECUTOR_DSN"]),
         verification_key=key.public_key(), mandate_id=attempt.mandate_id)
     signed = signed_payment(key, _external_payload(attempt, permit_result.execution_permit))
