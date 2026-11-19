@@ -12,11 +12,11 @@ from app.engines.protected_consequence import (
 from app.engines.permit_authority import ExecutionPermit
 
 
-def _external_payload(attempt: ExecutionAttempt, permit: ExecutionPermit) -> dict:
+def _external_payload(attempt: ExecutionAttempt, permit: ExecutionPermit, institutional_authorization: dict | None = None) -> dict:
     if not (permit.payment_intent_id and permit.provider_mandate_id == attempt.mandate_id
             and type(permit.provider_authority_epoch) is int and permit.provider_authority_epoch > 0):
         raise ValueError("signed provider authority and business payment intent required")
-    return {
+    payload = {
         "transaction_id": permit.payment_intent_id,
         "payment_intent_id": permit.payment_intent_id,
         "mandate_id": permit.provider_mandate_id,
@@ -26,7 +26,12 @@ def _external_payload(attempt: ExecutionAttempt, permit: ExecutionPermit) -> dic
         "amount": attempt.amount,
         "currency": attempt.currency,
         "purpose": attempt.purpose,
+        "action": attempt.action,
+        "target": attempt.target,
     }
+    if institutional_authorization is not None:
+        payload["institutional_authorization"] = institutional_authorization
+    return payload
 
 
 def _post_json(url: str, payload: dict, timeout_seconds: float) -> dict:
@@ -50,6 +55,7 @@ def execute_external_payment(
     attempt: ExecutionAttempt,
     payments_url: str,
     timeout_seconds: float = 2.0,
+    institutional_authorization: dict | None = None,
 ):
     """Attempt one external payment only inside the protected formation interval.
 
@@ -72,7 +78,7 @@ def execute_external_payment(
         try:
             provider_result = _post_json(
                 payments_url,
-                _external_payload(attempt, permit),
+                _external_payload(attempt, permit, institutional_authorization),
                 timeout_seconds=timeout_seconds,
             )
             if not isinstance(provider_result, dict):
