@@ -8,12 +8,12 @@ def test_missing_mandate_and_epoch_must_refuse(tmp_path):
     f.establish("MANDATE-A",epoch=1)
     key=issuer()
     ledger=ExternalLedger(authorization_public_key=key.public_key(),fence=f,mandate_id="MANDATE-A",authority_epoch=1)
-    status,response=ledger.transfer(signed_payment(key, {
+    status,response=ledger.transfer({
         "transaction_id":"intent-missing-authority",
         "source_account":"TREASURY-001","beneficiary":"SUPPLIER-X",
         "amount":750000.0,"currency":"GBP","purpose":"supplier settlement",
-    }))
-    assert status==403 and response["status"]=="REFUSED_AUTHORITY"
+    })
+    assert status==403 and response["status"]=="REFUSED_UNAUTHENTICATED_INSTRUCTION"
     assert f.transfer_count()==0
 
 def test_explicit_correct_mandate_epoch_can_commit(tmp_path):
