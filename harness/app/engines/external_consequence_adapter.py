@@ -6,6 +6,7 @@ from urllib import request
 from app.engines.execution_gateway import ExecutionAttempt, action_binding_hash
 from app.engines.protected_consequence import (
     ExternalOutcomeUnknown,
+    ProviderCommitRefused,
     execute_protected_consequence_with_receipt,
 )
 from app.engines.permit_authority import ExecutionPermit
@@ -63,11 +64,23 @@ def execute_external_payment(
         if permit is None:
             raise RuntimeError("external consequence hook reached without permit")
         try:
-            _post_json(
+            provider_result = _post_json(
                 payments_url,
                 _external_payload(attempt, permit),
                 timeout_seconds=timeout_seconds,
             )
+            if not isinstance(provider_result, dict):
+                raise ExternalOutcomeUnknown("provider response is not a structured outcome")
+            status = provider_result.get("status")
+            if status in ("REFUSED_AUTHORITY", "REFUSED_DUPLICATE_INTENT"):
+                # BOUNDED: configured cooperating provider status, not signed evidence.
+                raise ProviderCommitRefused(status)
+            if status not in ("COMMITTED",) and not (
+                status is None and provider_result == {}
+            ):
+                raise ExternalOutcomeUnknown("provider outcome is unrecognised")
+        except (ProviderCommitRefused, ExternalOutcomeUnknown):
+            raise
         except Exception as exc:
             # A transport/HTTP failure cannot establish provider non-commitment.
             raise ExternalOutcomeUnknown("external payment outcome requires reconciliation") from exc
