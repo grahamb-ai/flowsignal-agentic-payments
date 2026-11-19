@@ -40,7 +40,7 @@ def test_gateway_to_separate_postgres_http_provider(tmp_path, monkeypatch):
     assert permit_result.status == "PERMITTED"
     with psycopg.connect(os.environ["FS_QUAL_WRITER_DSN"]) as db:
         with db.cursor() as cur:
-            cur.execute("INSERT INTO fs_provider.mandates(id,epoch,revoked) VALUES (%s,1,false)", (attempt.mandate_id,))
+            cur.execute("INSERT INTO fs_provider.mandates(id,epoch,revoked) VALUES (%s,1,false) ON CONFLICT (id) DO NOTHING", (attempt.mandate_id,))\n            cur.execute("SELECT epoch, revoked FROM fs_provider.mandates WHERE id=%s", (attempt.mandate_id,))\n            assert cur.fetchone() == (1, False), "HTTP qualification requires active matching institutional mandate"
     key = issuer()
     key_file = write_public_key(key, tmp_path / "issuer.pem")
     with socket.socket() as sock:
