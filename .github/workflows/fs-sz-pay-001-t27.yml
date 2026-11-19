@@ -1,0 +1,37 @@
+name: FS-SZ-PAY-001 T27 unsigned commitment evidence challenge
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-t27-receipt-authenticity]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  challenge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run T27 first RED
+        shell: bash
+        run: |
+          mkdir -p t27-evidence
+          git rev-parse HEAD > t27-evidence/commit.txt
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_t27_receipt_authenticity.py) > t27-evidence/targeted.txt 2>&1
+          code=$?
+          echo "$code" > t27-evidence/targeted.exit
+          cat t27-evidence/targeted.txt
+          exit "$code"
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-T27-first-red
+          path: t27-evidence/
