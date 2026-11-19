@@ -27,7 +27,20 @@ jobs:
             echo 'BUILD RED: extension compatibility NOT qualified' > pgsodium-evidence/disposition.txt
             exit "$result"
           fi
-          echo 'BUILD ONLY: extension not yet signature-tested or source-reviewed' > pgsodium-evidence/disposition.txt
+          docker run -d --name fs-pgsodium-qualification -e POSTGRES_PASSWORD=qualification-only -p 55432:5432 fs-pgsodium-evaluation:local > pgsodium-evidence/container-id.txt
+          ready=0
+          for attempt in $(seq 1 30); do
+            if docker exec fs-pgsodium-qualification pg_isready -U postgres >/dev/null 2>&1; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker logs fs-pgsodium-qualification > pgsodium-evidence/container-logs.txt 2>&1 || true
+            echo 'RED: extension container did not become ready' > pgsodium-evidence/disposition.txt
+            exit 1
+          fi
+          docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION pgsodium" > pgsodium-evidence/install.txt 2>&1
+          docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_pgsodium_capability_gate.sql > pgsodium-evidence/capability.txt 2>&1
+          echo 'BUILD AND FUNCTION INVENTORY ONLY: signature semantics, provenance and final-commit enforcement NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
