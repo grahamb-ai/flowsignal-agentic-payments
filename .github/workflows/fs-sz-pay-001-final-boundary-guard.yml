@@ -1,0 +1,55 @@
+name: FS-SZ-PAY-001 final-boundary deployment refusal
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  refuse-unqualified-final-boundary:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify unsafe and fail-closed configurations cannot pass deployment guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final-boundary-guard-evidence
+          git rev-parse HEAD > final-boundary-guard-evidence/commit.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_isolation.sql > final-boundary-guard-evidence/setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_commit_service_identity_candidate.sql >> final-boundary-guard-evidence/setup.txt 2>&1
+          if psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_final_boundary_deployment_guard.sql > final-boundary-guard-evidence/unsafe-refusal.txt 2>&1; then
+            echo 'RED: unsafe unsigned-function topology passed guard'
+            exit 1
+          fi
+          grep -q 'unsigned legacy commitment route remains executable' final-boundary-guard-evidence/unsafe-refusal.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_replacement_fail_closed_gate.sql > final-boundary-guard-evidence/shutdown.txt 2>&1
+          if psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_final_boundary_deployment_guard.sql > final-boundary-guard-evidence/unqualified-refusal.txt 2>&1; then
+            echo 'RED: unqualified final-boundary implementation passed guard'
+            exit 1
+          fi
+          grep -q 'no qualified DB-enforced institutional Ed25519 final commit' final-boundary-guard-evidence/unqualified-refusal.txt
+          echo 'GUARD PASS: unsafe and unqualified final-boundary deployment refused' | tee final-boundary-guard-evidence/disposition.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-final-boundary-deployment-refusal
+          path: final-boundary-guard-evidence/
