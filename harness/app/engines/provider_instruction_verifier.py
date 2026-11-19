@@ -14,7 +14,9 @@ def canonical_instruction(payload):
         minor = amount * 100
         if not amount.is_finite() or amount <= 0 or minor != minor.to_integral_value():
             return None
-        if payload.get("transaction_id") != payload.get("payment_intent_id"):\n            return None\n        required = ("payment_intent_id", "mandate_id", "authority_epoch",
+        if payload.get("transaction_id") != payload.get("payment_intent_id"):
+            return None
+        required = ("payment_intent_id", "mandate_id", "authority_epoch",
                     "source_account", "beneficiary", "currency", "action", "target")
         if any(not payload.get(k) for k in required):
             return None
