@@ -1,5 +1,10 @@
 name: FS-SZ-PAY-001 pgsodium PG16 compatibility experiment
 on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/**'
+      - '.github/workflows/fs-sz-pay-001-pgsodium-build-probe.yml'
   workflow_dispatch:
 permissions:
   contents: read
