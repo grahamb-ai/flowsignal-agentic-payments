@@ -76,7 +76,10 @@ jobs:
           python qualification/pgsodium/generate_revocation_final_sql.py stale > pgsodium-evidence/stale-epoch.sql
           docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/stale-epoch.sql > pgsodium-evidence/stale-epoch.txt 2>&1
           cat pgsodium-evidence/revoked.txt pgsodium-evidence/stale-epoch.txt
-          echo 'SIGNED PRECOMMIT REVOCATION AND STALE EPOCH CHECKS ADDED: concurrency, crash and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
+          python -m pip install psycopg2-binary > pgsodium-evidence/pg-driver.txt 2>&1
+          python qualification/pgsodium/signed_commit_revocation_race.py > pgsodium-evidence/signed-race.txt 2>&1
+          cat pgsodium-evidence/signed-race.txt
+          echo 'SIGNED REVOCATION RACE EXPERIMENT: crash/recovery and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
