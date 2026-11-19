@@ -4,7 +4,7 @@ FROM postgres:16-bookworm
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl build-essential libsodium-dev postgresql-server-dev-16 \
  && rm -rf /var/lib/apt/lists/*
-ARG PGSODIUM_VERSION=3.1.11
+ARG PGSODIUM_VERSION=3.1.8
 RUN curl --fail --location --retry 3 "https://api.pgxn.org/dist/pgsodium/${PGSODIUM_VERSION}/pgsodium-${PGSODIUM_VERSION}.zip" -o /tmp/pgsodium.zip \
  && apt-get update && apt-get install -y --no-install-recommends unzip \
  && mkdir /tmp/pgsodium-src && cd /tmp/pgsodium-src \
