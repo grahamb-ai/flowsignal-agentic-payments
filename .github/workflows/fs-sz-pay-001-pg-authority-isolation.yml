@@ -45,7 +45,12 @@ jobs:
           race=$?
           cat auth-db-evidence/revocation-race.txt
           echo "$race" > auth-db-evidence/race-exit.txt
-          exit "$race"
+          if [ "$race" -ne 0 ]; then exit "$race"; fi
+          bash qualification/sql/fs_sz_pay_001_pg_commit_first_race.sh > auth-db-evidence/commit-first-race.txt 2>&1
+          reverse=$?
+          cat auth-db-evidence/commit-first-race.txt
+          echo "$reverse" > auth-db-evidence/reverse-exit.txt
+          exit "$reverse"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
