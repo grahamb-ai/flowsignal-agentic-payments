@@ -63,7 +63,7 @@ def test_gateway_to_separate_postgres_http_provider(tmp_path, monkeypatch):
             if process.poll() is not None:
                 raise AssertionError(f"provider exited: {process.stderr.read().decode()}")
             try:
-                request.urlopen(base + "/state", timeout=0.2)
+                request.urlopen(request.Request(base + "/state", data=b"{}", method="POST"), timeout=0.2)
             except error.HTTPError as exc:
                 if exc.code == 404:
                     break
