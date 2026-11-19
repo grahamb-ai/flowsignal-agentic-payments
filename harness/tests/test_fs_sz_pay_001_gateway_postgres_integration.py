@@ -42,7 +42,7 @@ def test_gateway_to_restricted_postgres_provider(tmp_path, monkeypatch):
         verification_key=key.public_key(), mandate_id=attempt.mandate_id)
     signed = signed_payment(key, _external_payload(attempt, permit_result.execution_permit))
     observed = []
-    def post(_url, payload, _timeout_seconds):
+    def post(_url, payload, timeout_seconds):
         observed.append(payload)
         status, result = ledger.transfer(payload)
         if status != 201:
