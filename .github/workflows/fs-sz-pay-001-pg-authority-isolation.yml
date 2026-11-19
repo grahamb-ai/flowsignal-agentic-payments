@@ -80,7 +80,13 @@ jobs:
           integrated=$?
           cat auth-db-evidence/integrated-provider.txt
           echo "$integrated" > auth-db-evidence/integrated-exit.txt
-          exit "$integrated"
+          if [ "$integrated" -ne 0 ]; then exit "$integrated"; fi
+          psql -v ON_ERROR_STOP=1 -c "SET ROLE fs_authority_writer; INSERT INTO fs_provider.mandates(id,epoch,revoked) VALUES ('MANDATE-AP-001',1,false);" >> auth-db-evidence/integration-roles.txt 2>&1
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_gateway_postgres_integration.py) > auth-db-evidence/gateway-postgres.txt 2>&1
+          gateway=$?
+          cat auth-db-evidence/gateway-postgres.txt
+          echo "$gateway" > auth-db-evidence/gateway-exit.txt
+          exit "$gateway"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
