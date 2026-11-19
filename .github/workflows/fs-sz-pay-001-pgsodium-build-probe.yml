@@ -51,7 +51,13 @@ jobs:
           python qualification/pgsodium/generate_bound_fields_sql.py > pgsodium-evidence/bound-fields.sql
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/bound-fields.sql > pgsodium-evidence/bound-fields.txt 2>&1
           cat pgsodium-evidence/bound-fields.txt
-          echo 'SIGNED-FIELD EQUALITY EXPERIMENT ONLY: no atomic commit, trusted issuer lookup, expiry enforcement or credential-bypass closure' > pgsodium-evidence/disposition.txt
+          for sql in qualification/sql/fs_sz_pay_001_pg_role_isolation.sql qualification/sql/fs_sz_pay_001_disable_unsigned_commit_candidate.sql qualification/sql/fs_sz_pay_001_commit_service_identity_candidate.sql qualification/sql/fs_sz_pay_001_institutional_trust_store_candidate.sql qualification/sql/fs_sz_pay_001_authenticated_final_commit_candidate.sql; do
+            docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < "$sql" >> pgsodium-evidence/atomic-setup.txt 2>&1
+          done
+          python qualification/pgsodium/generate_atomic_commit_sql.py > pgsodium-evidence/atomic-commit.sql
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/atomic-commit.sql > pgsodium-evidence/atomic-commit.txt 2>&1
+          cat pgsodium-evidence/atomic-commit.txt
+          echo 'EXPERIMENTAL SIGNED ATOMIC COMMIT: NOT YET INDEPENDENTLY REVIEWED OR BOUNDARY-02 CLOSED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
