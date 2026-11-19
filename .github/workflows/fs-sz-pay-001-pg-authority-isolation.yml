@@ -50,7 +50,12 @@ jobs:
           reverse=$?
           cat auth-db-evidence/commit-first-race.txt
           echo "$reverse" > auth-db-evidence/reverse-exit.txt
-          exit "$reverse"
+          if [ "$reverse" -ne 0 ]; then exit "$reverse"; fi
+          bash qualification/sql/fs_sz_pay_001_pg_session_restart_retry.sh > auth-db-evidence/session-restart-retry.txt 2>&1
+          restart=$?
+          cat auth-db-evidence/session-restart-retry.txt
+          echo "$restart" > auth-db-evidence/restart-exit.txt
+          exit "$restart"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
