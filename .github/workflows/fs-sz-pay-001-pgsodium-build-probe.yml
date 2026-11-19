@@ -65,7 +65,10 @@ jobs:
           grep -q 'REFUSED_INVALID_BINDING' pgsodium-evidence/stolen-login.txt
           grep -A 3 'unsigned_durable_commit_count' pgsodium-evidence/stolen-login.txt | grep -q '0'
           grep -A 3 'old_unsigned_function_executable' pgsodium-evidence/stolen-login.txt | grep -q 'f'
-          echo 'REAL-LOGIN UNSIGNED ATTACK REFUSED IN CANDIDATE: broader BOUNDARY-02 review remains open' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/generate_real_login_hostile_sql.py > pgsodium-evidence/real-login-hostile.sql
+          docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/real-login-hostile.sql > pgsodium-evidence/real-login-hostile.txt 2>&1
+          cat pgsodium-evidence/real-login-hostile.txt
+          echo 'REAL-LOGIN UNSIGNED AND SIGNATURE/FIELD SUBSTITUTION CHALLENGES EXECUTED: broader BOUNDARY-02 review remains open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
