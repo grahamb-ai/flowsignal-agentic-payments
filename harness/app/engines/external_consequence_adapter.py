@@ -13,8 +13,14 @@ from app.engines.permit_authority import ExecutionPermit
 
 
 def _external_payload(attempt: ExecutionAttempt, permit: ExecutionPermit) -> dict:
+    if not (permit.payment_intent_id and permit.provider_mandate_id == attempt.mandate_id
+            and type(permit.provider_authority_epoch) is int and permit.provider_authority_epoch > 0):
+        raise ValueError("signed provider authority and business payment intent required")
     return {
-        "transaction_id": permit.signature,
+        "transaction_id": permit.payment_intent_id,
+        "payment_intent_id": permit.payment_intent_id,
+        "mandate_id": permit.provider_mandate_id,
+        "authority_epoch": permit.provider_authority_epoch,
         "source_account": attempt.source_account,
         "beneficiary": attempt.beneficiary,
         "amount": attempt.amount,
