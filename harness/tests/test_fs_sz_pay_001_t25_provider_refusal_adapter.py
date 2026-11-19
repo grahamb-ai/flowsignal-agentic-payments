@@ -17,7 +17,7 @@ def test_t25_adapter_must_not_report_formed_on_provider_refusal(tmp_path,monkeyp
         action=req.action,target=req.target,amount=req.amount,currency=req.currency,
         source_account=req.source_account,beneficiary=req.beneficiary,
         purpose=req.purpose,mandate_id=req.mandate_id,attempted_at=req.requested_execution_time)
-    gateway=validate_execution(receipt,attempt)
+    gateway=validate_execution(receipt, attempt, payment_intent_id='institution-payment-intent-001', provider_authority_epoch=1, provider_mandate_id=attempt.mandate_id)
     assert gateway.status=="PERMITTED"
     assert gateway.execution_permit is not None
     provider=ProviderCommitFence(tmp_path/"provider.sqlite3")
