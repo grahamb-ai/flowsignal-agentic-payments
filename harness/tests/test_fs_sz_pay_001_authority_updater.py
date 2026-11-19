@@ -35,3 +35,17 @@ def test_direct_versioned_updater_cannot_bypass_institutional_signature(tmp_path
         "UNAUTHENTICATED_VERSIONED_UPDATER_RED: direct revoke_if_epoch "
         f"accepted unauthenticated mutation: {result}"
     )
+
+
+def test_unauthenticated_caller_cannot_establish_new_mandate(tmp_path):
+    fence = ProviderCommitFence(tmp_path / "provider-establish.sqlite3")
+    # This is a distinct authority creation path, not just a revocation bypass.
+    try:
+        result = fence.establish("FORGED-MANDATE", epoch=1)
+    except PermissionError:
+        return
+    status = fence.commit("FORGED-MANDATE", 1, "forged-mandate-payment")
+    assert status == "REFUSED_AUTHORITY", (
+        "UNAUTHENTICATED_MANDATE_ESTABLISH_RED: direct caller created "
+        f"active mandate; establish={result}, commit={status}"
+    )
