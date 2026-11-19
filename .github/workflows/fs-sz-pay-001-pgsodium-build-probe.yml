@@ -68,7 +68,14 @@ jobs:
           python qualification/pgsodium/generate_real_login_hostile_sql.py > pgsodium-evidence/real-login-hostile.sql
           docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/real-login-hostile.sql > pgsodium-evidence/real-login-hostile.txt 2>&1
           cat pgsodium-evidence/real-login-hostile.txt
-          echo 'REAL-LOGIN UNSIGNED AND SIGNATURE/FIELD SUBSTITUTION CHALLENGES EXECUTED: broader BOUNDARY-02 review remains open' > pgsodium-evidence/disposition.txt
+          docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -c "UPDATE fs_provider.mandates SET revoked=true WHERE id='MANDATE-VECTOR'" > pgsodium-evidence/revocation-state.txt 2>&1
+          python qualification/pgsodium/generate_revocation_final_sql.py revoked > pgsodium-evidence/revoked.sql
+          docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/revoked.sql > pgsodium-evidence/revoked.txt 2>&1
+          docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -c "UPDATE fs_provider.mandates SET revoked=false,epoch=8 WHERE id='MANDATE-VECTOR'" > pgsodium-evidence/epoch-state.txt 2>&1
+          python qualification/pgsodium/generate_revocation_final_sql.py stale > pgsodium-evidence/stale-epoch.sql
+          docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/stale-epoch.sql > pgsodium-evidence/stale-epoch.txt 2>&1
+          cat pgsodium-evidence/revoked.txt pgsodium-evidence/stale-epoch.txt
+          echo 'SIGNED PRECOMMIT REVOCATION AND STALE EPOCH CHECKS ADDED: concurrency, crash and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
