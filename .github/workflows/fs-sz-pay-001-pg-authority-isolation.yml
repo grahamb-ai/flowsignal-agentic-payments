@@ -91,7 +91,13 @@ jobs:
           http=$?
           cat auth-db-evidence/gateway-postgres-http.txt
           echo "$http" > auth-db-evidence/http-exit.txt
-          exit "$http"
+          if [ "$http" -ne 0 ]; then exit "$http"; fi
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_caller_role_separation.sql > auth-db-evidence/caller-role-setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_caller_role_challenge.sql > auth-db-evidence/caller-role-challenge.txt 2>&1
+          caller=$?
+          cat auth-db-evidence/caller-role-challenge.txt
+          echo "$caller" > auth-db-evidence/caller-role-exit.txt
+          exit "$caller"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
