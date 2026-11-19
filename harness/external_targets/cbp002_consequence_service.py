@@ -9,11 +9,12 @@ from threading import Lock
 class ExternalLedger:
     """State owned by the external test service, not FlowSignal."""
 
-    def __init__(self, *, fence=None, mandate_id=None, authority_epoch=None, legacy_test_mode=False) -> None:
+    def __init__(self, *, fence=None, mandate_id=None, authority_epoch=None, legacy_test_mode=False, authorization_public_key=None) -> None:
         # Fenced mode uses the provider's single authoritative commit store.
         # Legacy sandbox mode remains explicitly unqualified for route closure.
         if fence is None and not legacy_test_mode:
             raise RuntimeError('REFUSED_UNQUALIFIED_PROVIDER_ROUTE: authoritative fence required')
+        self._authorization_public_key = authorization_public_key
         self._fence = fence
         self._mandate_id = mandate_id
         self._authority_epoch = authority_epoch
@@ -64,6 +65,9 @@ class ExternalLedger:
             return 400, {"error": "INVALID_AMOUNT"}
 
         if self._fence is not None:
+            from app.engines.provider_instruction_verifier import verify_instruction
+            if not verify_instruction(payload, self._authorization_public_key):
+                return 403, {"status": "REFUSED_UNAUTHENTICATED_INSTRUCTION"}
             # Do not allow caller-supplied mandate/epoch to be silently
             # evaluated under a different configured authority.
             if (payload.get("mandate_id") != self._mandate_id
@@ -157,6 +161,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--legacy-test-mode", action="store_true", help="UNQUALIFIED historical sandbox only")
     parser.add_argument("--fence-db", default=None)
+    parser.add_argument("--authorization-public-key-file", default=None)
     parser.add_argument("--mandate-id", default=None)
     parser.add_argument("--authority-epoch", type=int, default=None)
     args = parser.parse_args()
@@ -173,7 +178,15 @@ def main() -> None:
             sys.path.insert(0, harness_root)
         from app.engines.t24_provider_commit_fence_reference import ProviderCommitFence
         fence = ProviderCommitFence(args.fence_db)
-        LEDGER = ExternalLedger(fence=fence, mandate_id=args.mandate_id, authority_epoch=args.authority_epoch)
+        if not args.authorization_public_key_file:
+            parser.error('fenced provider requires issuer public verification key')
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        with open(args.authorization_public_key_file, 'rb') as key_file:
+            verifier_key = serialization.load_pem_public_key(key_file.read())
+        if not isinstance(verifier_key, Ed25519PublicKey):
+            parser.error('fenced provider requires Ed25519 public key')
+        LEDGER = ExternalLedger(fence=fence, mandate_id=args.mandate_id, authority_epoch=args.authority_epoch, authorization_public_key=verifier_key)
     else:
         LEDGER = ExternalLedger(legacy_test_mode=args.legacy_test_mode)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
