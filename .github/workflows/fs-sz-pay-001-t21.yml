@@ -18,6 +18,15 @@ jobs:
       - name: Install
         working-directory: harness
         run: python -m pip install -r requirements.txt
+      - name: Qualify bounded claim component independently
+        shell: bash
+        run: |
+          mkdir -p t21-evidence
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_t21_intent_claim.py) > t21-evidence/claim-component.txt 2>&1
+          code=$?
+          echo "$code" > t21-evidence/claim-component.exit
+          cat t21-evidence/claim-component.txt
+          exit "$code"
       - name: Run and preserve results
         shell: bash
         run: |
