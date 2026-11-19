@@ -102,6 +102,7 @@ def test_cbp002_external_consequence_boundary(tmp_path, monkeypatch):
             "external_targets/cbp002_consequence_service.py",
             "--port",
             str(port),
+            "--legacy-test-mode",
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
