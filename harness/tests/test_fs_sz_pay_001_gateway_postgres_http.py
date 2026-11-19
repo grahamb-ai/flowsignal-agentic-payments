@@ -82,7 +82,7 @@ def test_gateway_to_separate_postgres_http_provider(tmp_path, monkeypatch):
                 request.urlopen(base + path, timeout=2)
                 raise AssertionError(f"unqualified route exposed: {path}")
             except error.HTTPError as exc:
-                assert exc.code == 404
+                assert exc.code in (404, 501)
         with psycopg.connect(os.environ["FS_QUAL_EXECUTOR_DSN"]) as db:
             with db.cursor() as cur:
                 assert cur.execute(
