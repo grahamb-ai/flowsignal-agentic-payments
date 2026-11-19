@@ -97,7 +97,14 @@ jobs:
           caller=$?
           cat auth-db-evidence/caller-role-challenge.txt
           echo "$caller" > auth-db-evidence/caller-role-exit.txt
-          exit "$caller"
+          if [ "$caller" -ne 0 ]; then exit "$caller"; fi
+          psql -v ON_ERROR_STOP=1 -c "ALTER ROLE fs_payment_caller LOGIN PASSWORD 'ci-caller-only';" > auth-db-evidence/caller-login-setup.txt 2>&1
+          export FS_QUAL_CALLER_DSN="host=localhost port=5432 dbname=qualification user=fs_payment_caller password=ci-caller-only"
+          (cd harness && python -m tests.fs_sz_pay_001_pg_caller_login_challenge) > auth-db-evidence/caller-login-challenge.txt 2>&1
+          login=$?
+          cat auth-db-evidence/caller-login-challenge.txt
+          echo "$login" > auth-db-evidence/caller-login-exit.txt
+          exit "$login"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
