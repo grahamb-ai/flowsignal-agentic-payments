@@ -86,7 +86,12 @@ jobs:
           gateway=$?
           cat auth-db-evidence/gateway-postgres.txt
           echo "$gateway" > auth-db-evidence/gateway-exit.txt
-          exit "$gateway"
+          if [ "$gateway" -ne 0 ]; then exit "$gateway"; fi
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_gateway_postgres_http.py) > auth-db-evidence/gateway-postgres-http.txt 2>&1
+          http=$?
+          cat auth-db-evidence/gateway-postgres-http.txt
+          echo "$http" > auth-db-evidence/http-exit.txt
+          exit "$http"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
