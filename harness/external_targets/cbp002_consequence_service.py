@@ -64,6 +64,11 @@ class ExternalLedger:
             return 400, {"error": "INVALID_AMOUNT"}
 
         if self._fence is not None:
+            # Do not allow caller-supplied mandate/epoch to be silently
+            # evaluated under a different configured authority.
+            if (payload.get("mandate_id", self._mandate_id) != self._mandate_id
+                    or payload.get("authority_epoch", self._authority_epoch) != self._authority_epoch):
+                return 403, {"status": "REFUSED_AUTHORITY"}
             result = self._fence.commit_transfer(
                 self._mandate_id, self._authority_epoch,
                 str(payload["transaction_id"]), payload,
