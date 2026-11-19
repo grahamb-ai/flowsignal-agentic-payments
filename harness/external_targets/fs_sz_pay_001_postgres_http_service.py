@@ -52,6 +52,10 @@ def main():
     parser.add_argument("--mandate-id", required=True)
     parser.add_argument("--issuer-public-key-file", required=True)
     args = parser.parse_args()
+    if args.host not in ("127.0.0.1", "::1"):
+        parser.error("qualification provider refuses non-loopback bind without deployment security qualification")
+    if os.environ.get("FS_QUAL_WRITER_DSN"):
+        parser.error("provider process must not receive institutional authority-writer credentials")
     dsn = os.environ["FS_QUAL_EXECUTOR_DSN"]
     with Path(args.issuer_public_key_file).open("rb") as handle:
         key = serialization.load_pem_public_key(handle.read())
