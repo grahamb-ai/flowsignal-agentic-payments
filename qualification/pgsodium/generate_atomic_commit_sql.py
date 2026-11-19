@@ -4,6 +4,12 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[2]
 v=json.loads(subprocess.check_output([sys.executable,str(root/"harness/tests/fs_sz_pay_001_final_boundary_interop_vectors.py")],text=True))
 c=v["canonical_instruction"]
+from datetime import datetime,timedelta,timezone
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+expiry=(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat()
+signed=json.dumps({"instruction":c,"expires_at":expiry},sort_keys=True,separators=(",",":")).encode()
+v["signed_bytes_utf8_hex"]=signed.hex()
+v["signature_hex"]=Ed25519PrivateKey.from_private_bytes(bytes(range(32))).sign(signed).hex()
 def lit(x):return "'"+str(x).replace("'","''")+"'"
 def call(intent,beneficiary,signature=True):
     return ("fs_provider.commit_signed_if_current("
