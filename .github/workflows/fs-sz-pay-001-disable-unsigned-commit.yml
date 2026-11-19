@@ -36,6 +36,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_disable_unsigned_commit_candidate.sql > boundary-evidence/migration.txt 2>&1
           psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_disable_unsigned_commit_challenge.sql > boundary-evidence/challenge.txt 2>&1
           cat boundary-evidence/challenge.txt
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_caller_role_separation.sql > boundary-evidence/caller-setup.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_unsigned_function_catalog_audit.sql > boundary-evidence/catalog-audit.txt 2>&1
+          cat boundary-evidence/catalog-audit.txt
           python -m pip install "psycopg[binary]>=3.2" "pytest>=8" > boundary-evidence/deps.txt 2>&1
           psql -v ON_ERROR_STOP=1 -c "ALTER ROLE fs_payment_executor LOGIN PASSWORD 'qualification-executor-only';" > boundary-evidence/login-setup.txt 2>&1
           export FS_QUAL_EXECUTOR_DSN="host=localhost port=5432 dbname=qualification user=fs_payment_executor password=qualification-executor-only"
