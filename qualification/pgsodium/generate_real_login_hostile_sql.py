@@ -1,33 +1,50 @@
-"""Hostile signed-function probes from a real commitment-service database login.
+"""Isolated real-login hostile probes with fresh valid Ed25519 proof.
 
-Runs after the positive signed-commit integration. Uses the same deterministic
-test issuer and canonical payment bytes, but no private key. Distinguishes
-unsigned, forged signature, and substituted beneficiary attacks.
+Every hostile case is independently checked against a baseline that would
+commit with the same unexpired signed instruction. Test-only seed only.
 """
-import json, subprocess, sys
+import json
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-root=Path(__file__).resolve().parents[2]
-v=json.loads(subprocess.check_output([sys.executable,str(root/"harness/tests/fs_sz_pay_001_final_boundary_interop_vectors.py")],text=True))
-c=v["canonical_instruction"]
-def q(s): return "'"+str(s).replace("'","''")+"'"
-def call(intent,beneficiary,signature,message):
-    return "fs_provider.commit_signed_if_current("+",".join([
-        q("TEST-ISSUER"),"decode("+q(message)+",'hex')",
-        "decode("+q(signature)+",'hex')",q(intent),q(c["mandate_id"]),
-        str(c["authority_epoch"]),q(c["source_account"]),q(beneficiary),
-        str(c["amount_minor"]),q(c["currency"]),q(c["action"]),q(c["target"])
-    ])+")"
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+root = Path(__file__).resolve().parents[2]
+v = json.loads(subprocess.check_output(
+    [sys.executable, str(root / "harness/tests/fs_sz_pay_001_final_boundary_interop_vectors.py")],
+    text=True))
+c = {**v["canonical_instruction"], "payment_intent_id": "HOSTILE-FRESH-001"}
+expiry = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+message = json.dumps(
+    {"instruction": c, "expires_at": expiry},
+    sort_keys=True, separators=(",", ":")).encode("utf-8")
+signature = Ed25519PrivateKey.from_private_bytes(bytes(range(32))).sign(message).hex()
+def q(s):
+    return "'" + str(s).replace("'", "''") + "'"
+def call(*, intent=None, beneficiary=None, sig=None, raw=None):
+    return "fs_provider.commit_signed_if_current(" + ",".join([
+        q("TEST-ISSUER"),
+        "decode(" + q((raw if raw is not None else message.hex())) + ",'hex')",
+        "decode(" + q((sig if sig is not None else signature)) + ",'hex')",
+        q(intent if intent is not None else c["payment_intent_id"]),
+        q(c["mandate_id"]), str(c["authority_epoch"]),
+        q(c["source_account"]), q(beneficiary if beneficiary is not None else c["beneficiary"]),
+        str(c["amount_minor"]), q(c["currency"]), q(c["action"]), q(c["target"])
+    ]) + ")"
+
 print("\\set ON_ERROR_STOP on")
 print("SELECT current_user AS hostile_login;")
-# Existing test-only signature has far-future expiry; SQL candidate limits expiry
-# to one day, so use a fresh valid signature only in the positive integration.
-# Here invalid signatures must fail without any commit.
-for name, intent, beneficiary, signature, message, expected in [
- ("unsigned", "HOSTILE-UNSIGNED", c["beneficiary"], "00"*64, v["signed_bytes_utf8_hex"], "REFUSED_INVALID_BINDING"),
- ("forged", c["payment_intent_id"], c["beneficiary"], "00"*64, v["signed_bytes_utf8_hex"], "REFUSED_UNAUTHENTICATED_INSTRUCTION"),
- ("beneficiary_substitution", c["payment_intent_id"], "ATTACKER", v["signature_hex"], v["signed_bytes_utf8_hex"], "REFUSED_INVALID_BINDING"),
-]:
-    # Exact refusal reasons may differ by ordering; all are required to not commit.
-    expr=call(intent,beneficiary,signature,message)
-    print("SELECT 1 / CASE WHEN "+expr+" <> 'COMMITTED' THEN 1 ELSE 0 END AS "+name+"_no_commit;")
-print("SELECT 1 / CASE WHEN NOT EXISTS (SELECT 1 FROM fs_provider.commits WHERE intent_id='HOSTILE-UNSIGNED') THEN 1 ELSE 0 END AS no_unsigned_record;")
+# Test baseline signature separately, without creating a commitment.
+print("SELECT 1 / CASE WHEN pgsodium.crypto_sign_verify_detached(" +
+      "decode(" + q(signature) + ",'hex'),decode(" + q(message.hex()) +
+      ",'hex'),(SELECT public_key FROM fs_provider.institutional_issuer_keys WHERE issuer_id='TEST-ISSUER'))" +
+      " THEN 1 ELSE 0 END AS fresh_signature_cryptographically_valid;")
+for name, expression in (
+    ("unsigned_refused", call(sig="00"*64)),
+    ("beneficiary_substitution_refused", call(beneficiary="ATTACKER")),
+    ("intent_substitution_refused", call(intent="HOSTILE-DIFFERENT-INTENT")),
+    ("signed_message_mutation_refused", call(raw=("00" if message.hex()[:2] != "00" else "01") + message.hex()[2:])),
+):
+    print("SELECT " + expression + " AS " + name + ";")
+print("SELECT 1 / CASE WHEN NOT EXISTS (SELECT 1 FROM fs_provider.commits WHERE intent_id LIKE 'HOSTILE-%') THEN 1 ELSE 0 END AS zero_hostile_commitments;")
