@@ -52,6 +52,7 @@ def test_gateway_to_separate_postgres_http_provider(tmp_path, monkeypatch):
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     env = dict(os.environ)
+    env.pop("FS_QUAL_WRITER_DSN", None)  # never pass writer credentials to provider process
     process = subprocess.Popen(
         [sys.executable, "-m", "external_targets.fs_sz_pay_001_postgres_http_service",
          "--port", str(port), "--mandate-id", attempt.mandate_id,
