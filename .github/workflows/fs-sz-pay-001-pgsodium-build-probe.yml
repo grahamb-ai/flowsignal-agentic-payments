@@ -39,7 +39,8 @@ jobs:
             exit 1
           fi
           docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION pgsodium" > pgsodium-evidence/install.txt 2>&1
-          docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_pgsodium_capability_gate.sql > pgsodium-evidence/capability.txt 2>&1
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_pgsodium_capability_gate.sql > pgsodium-evidence/capability.txt 2>&1
+          grep -q 'PGSODIUM FUNCTION FOUND' pgsodium-evidence/capability.txt
           echo 'BUILD AND FUNCTION INVENTORY ONLY: signature semantics, provenance and final-commit enforcement NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
