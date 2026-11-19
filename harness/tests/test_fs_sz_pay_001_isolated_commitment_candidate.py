@@ -111,3 +111,55 @@ def test_replacement_refuses_expired_wrong_epoch_and_replayed_signature():
     assert verifier.assess({**valid, "payment_intent_id": "REPLAY-OTHER-INTENT",
                             "transaction_id": "REPLAY-OTHER-INTENT"})[0] == 403
     assert verifier.commit(valid) == (503, {"status": "REFUSED_FINAL_BOUNDARY_NOT_QUALIFIED"})
+
+
+def test_replacement_refuses_caller_key_substitution_and_invalid_amounts():
+    """Caller-provided verification keys and invalid money values cannot qualify."""
+    from datetime import datetime, timedelta, timezone
+    import json
+    from app.engines.provider_instruction_verifier import canonical_instruction
+
+    institution = Ed25519PrivateKey.generate()
+    attacker = Ed25519PrivateKey.generate()
+    boundary = IsolatedCommitmentBoundaryCandidate(
+        verification_key=institution.public_key(),
+        mandate_id="MANDATE-CANDIDATE",
+        expected_source_account="SOURCE",
+    )
+    baseline = {
+        "payment_intent_id": "KEY-001", "transaction_id": "KEY-001",
+        "mandate_id": "MANDATE-CANDIDATE", "authority_epoch": 1,
+        "source_account": "SOURCE", "beneficiary": "BENEFICIARY",
+        "amount": "750000.00", "currency": "GBP",
+        "action": "transfer", "target": "protected-provider",
+    }
+
+    def sign(payload, signer):
+        instruction = canonical_instruction(payload)
+        assert instruction is not None
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        signed = json.dumps(
+            {"instruction": instruction, "expires_at": expiry},
+            sort_keys=True, separators=(",", ":"),
+        ).encode()
+        return {**payload, "institutional_authorization": {
+            "expires_at": expiry, "signature": signer.sign(signed).hex(),
+        }}
+
+    valid = sign(baseline, institution)
+    assert boundary.assess(valid)[0] == 202
+    assert boundary.commit(valid)[0] == 503
+
+    forged = sign(baseline, attacker)
+    forged["verification_key"] = attacker.public_key()
+    assert boundary.assess(forged)[0] == 403
+    assert boundary.commit(forged)[0] == 403
+
+    for amount in ("0", "-1.00", "0.001", "NaN", "Infinity"):
+        altered = {**valid, "amount": amount}
+        assert boundary.assess(altered)[0] == 403, amount
+        assert boundary.commit(altered)[0] == 403, amount
+
+    for epoch in (0, -1, "1", True):
+        altered = {**valid, "authority_epoch": epoch}
+        assert boundary.assess(altered)[0] == 403, epoch
