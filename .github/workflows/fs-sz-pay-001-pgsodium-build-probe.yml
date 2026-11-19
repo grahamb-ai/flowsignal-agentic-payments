@@ -79,7 +79,9 @@ jobs:
           python -m pip install psycopg2-binary > pgsodium-evidence/pg-driver.txt 2>&1
           python qualification/pgsodium/signed_commit_revocation_race.py > pgsodium-evidence/signed-race.txt 2>&1
           cat pgsodium-evidence/signed-race.txt
-          echo 'SIGNED REVOCATION RACE EXPERIMENT: crash/recovery and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/signed_commit_lost_ack_retry.py > pgsodium-evidence/signed-lost-ack-retry.txt 2>&1
+          cat pgsodium-evidence/signed-lost-ack-retry.txt
+          echo 'SIGNED RACE AND SIMULATED LOST-ACK RETRY EXPERIMENTS: real crash/recovery and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
