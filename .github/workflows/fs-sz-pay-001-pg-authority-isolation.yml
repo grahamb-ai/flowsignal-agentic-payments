@@ -71,7 +71,7 @@ jobs:
           cat auth-db-evidence/forced-crash-postcommit.txt
           echo "$postcommit" > auth-db-evidence/postcommit-exit.txt
           if [ "$postcommit" -ne 0 ]; then exit "$postcommit"; fi
-          python -m pip install "psycopg[binary]>=3.2" "cryptography>=43" > auth-db-evidence/integration-deps.txt 2>&1
+          python -m pip install "psycopg[binary]>=3.2" "cryptography>=43" "pytest>=8" > auth-db-evidence/integration-deps.txt 2>&1
           psql -v ON_ERROR_STOP=1 -c "ALTER ROLE fs_payment_executor LOGIN PASSWORD 'ci-executor-only'; ALTER ROLE fs_authority_writer LOGIN PASSWORD 'ci-writer-only';" > auth-db-evidence/integration-roles.txt 2>&1
           psql -v ON_ERROR_STOP=1 -c "SET ROLE fs_authority_writer; INSERT INTO fs_provider.mandates(id,epoch,revoked) VALUES ('MANDATE-INTEGRATED',1,false);" >> auth-db-evidence/integration-roles.txt 2>&1
           export FS_QUAL_EXECUTOR_DSN="host=localhost port=5432 dbname=qualification user=fs_payment_executor password=ci-executor-only"
