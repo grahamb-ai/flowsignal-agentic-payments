@@ -9,9 +9,11 @@ from threading import Lock
 class ExternalLedger:
     """State owned by the external test service, not FlowSignal."""
 
-    def __init__(self, *, fence=None, mandate_id=None, authority_epoch=None) -> None:
+    def __init__(self, *, fence=None, mandate_id=None, authority_epoch=None, legacy_test_mode=False) -> None:
         # Fenced mode uses the provider's single authoritative commit store.
         # Legacy sandbox mode remains explicitly unqualified for route closure.
+        if fence is None and not legacy_test_mode:
+            raise RuntimeError('REFUSED_UNQUALIFIED_PROVIDER_ROUTE: authoritative fence required')
         self._fence = fence
         self._mandate_id = mandate_id
         self._authority_epoch = authority_epoch
@@ -93,7 +95,7 @@ class ExternalLedger:
             return 201, {"status": "TRANSFER_RECORDED", "transfer": transfer}
 
 
-LEDGER = ExternalLedger()
+LEDGER = None  # Set explicitly by main(); never silently enable an unfenced route.
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -148,7 +150,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--legacy-test-mode", action="store_true", help="UNQUALIFIED historical sandbox only")
     args = parser.parse_args()
+    global LEDGER
+    LEDGER = ExternalLedger(legacy_test_mode=args.legacy_test_mode)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.serve_forever()
 
