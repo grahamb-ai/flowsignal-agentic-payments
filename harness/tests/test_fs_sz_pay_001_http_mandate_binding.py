@@ -1,3 +1,4 @@
+from provider_signed_fixture import issuer, signed_payment, write_public_key
 """Failure-first: configured provider mandate cannot silently authorise another mandate.
 
 Current HTTP provider uses a single startup mandate/epoch rather than a
@@ -12,8 +13,9 @@ def test_provider_rejects_wrong_mandate_even_if_configured_mandate_is_active(tmp
     fence.establish("MANDATE-ALLOWED",epoch=1)
     fence.establish("MANDATE-REVOKED",epoch=1)
     fence.revoke("MANDATE-REVOKED")
-    ledger=ExternalLedger(fence=fence,mandate_id="MANDATE-ALLOWED",authority_epoch=1)
-    status,response=ledger.transfer({
+    key=issuer()
+    ledger=ExternalLedger(authorization_public_key=key.public_key(),fence=fence,mandate_id="MANDATE-ALLOWED",authority_epoch=1)
+    status,response=ledger.transfer(signed_payment(key, {
         "transaction_id":"intent-under-revoked-mandate",
         "mandate_id":"MANDATE-REVOKED",
         "authority_epoch":1,
@@ -22,6 +24,6 @@ def test_provider_rejects_wrong_mandate_even_if_configured_mandate_is_active(tmp
         "amount":750000.0,
         "currency":"GBP",
         "purpose":"supplier settlement",
-    })
+    }))
     assert status==403 and response["status"]=="REFUSED_AUTHORITY"
     assert fence.transfer_count()==0
