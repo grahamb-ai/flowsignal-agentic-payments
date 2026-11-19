@@ -57,8 +57,14 @@ BEGIN
      AND valid_from <= clock_timestamp()
      AND (valid_until IS NULL OR valid_until > clock_timestamp());
   IF trusted_key IS NULL THEN RETURN 'REFUSED_UNTRUSTED_ISSUER'; END IF;
-  IF NOT pgsodium.crypto_sign_verify_detached(p_signature,p_signed_bytes,trusted_key)
-  THEN RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION'; END IF;
+  BEGIN
+    IF pgsodium.crypto_sign_verify_detached(p_signature,p_signed_bytes,trusted_key) IS DISTINCT FROM TRUE
+    THEN RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION'; END IF;
+  EXCEPTION WHEN others THEN
+    -- Invalid signatures may raise rather than return false. Never let
+    -- a cryptographic exception become an authority grant.
+    RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION';
+  END;
 
   SELECT epoch,revoked INTO current_epoch,is_revoked
     FROM fs_provider.mandates WHERE id=p_mandate FOR UPDATE;
