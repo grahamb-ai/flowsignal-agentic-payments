@@ -65,7 +65,12 @@ jobs:
           crash=$?
           cat auth-db-evidence/forced-crash-uncommitted.txt
           echo "$crash" > auth-db-evidence/forced-crash-exit.txt
-          exit "$crash"
+          if [ "$crash" -ne 0 ]; then exit "$crash"; fi
+          bash qualification/sql/fs_sz_pay_001_pg_forced_crash_postcommit.sh > auth-db-evidence/forced-crash-postcommit.txt 2>&1
+          postcommit=$?
+          cat auth-db-evidence/forced-crash-postcommit.txt
+          echo "$postcommit" > auth-db-evidence/postcommit-exit.txt
+          exit "$postcommit"
       - name: Preserve authority isolation evidence
         if: always()
         uses: actions/upload-artifact@v4
