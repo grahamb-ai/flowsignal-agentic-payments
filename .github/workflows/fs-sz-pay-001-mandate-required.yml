@@ -1,0 +1,36 @@
+name: FS-SZ-PAY-001 mandatory mandate binding
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-mandate-required]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run frozen binding tests
+        shell: bash
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_mandate_required.py) > evidence/pytest.txt 2>&1
+          code=$?
+          echo "$code" > evidence/exit.txt
+          cat evidence/pytest.txt
+          exit "$code"
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-mandate-required
+          path: evidence/
