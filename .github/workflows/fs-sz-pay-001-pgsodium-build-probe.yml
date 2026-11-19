@@ -4,6 +4,7 @@ on:
     branches: [qualification/fs-sz-pay-001-consolidation-candidate]
     paths:
       - 'qualification/pgsodium/**'
+      - 'qualification/sql/fs_sz_pay_001_authenticated_final_commit_candidate.sql'
       - '.github/workflows/fs-sz-pay-001-pgsodium-build-probe.yml'
   workflow_dispatch:
 permissions:
