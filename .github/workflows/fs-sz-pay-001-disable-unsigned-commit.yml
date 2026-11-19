@@ -36,6 +36,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_disable_unsigned_commit_candidate.sql > boundary-evidence/migration.txt 2>&1
           psql -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_disable_unsigned_commit_challenge.sql > boundary-evidence/challenge.txt 2>&1
           cat boundary-evidence/challenge.txt
+          python -m pip install "psycopg[binary]>=3.2" "pytest>=8" > boundary-evidence/deps.txt 2>&1
+          psql -v ON_ERROR_STOP=1 -c "ALTER ROLE fs_payment_executor LOGIN PASSWORD 'qualification-executor-only';" > boundary-evidence/login-setup.txt 2>&1
+          export FS_QUAL_EXECUTOR_DSN="host=localhost port=5432 dbname=qualification user=fs_payment_executor password=qualification-executor-only"
+          (cd harness && python -m pytest -q tests/test_fs_sz_pay_001_unsigned_shutdown_login.py) > boundary-evidence/login-challenge.txt 2>&1
+          result=$?
+          cat boundary-evidence/login-challenge.txt
+          echo "$result" > boundary-evidence/login-exit.txt
+          exit "$result"
       - name: Preserve boundary evidence
         if: always()
         uses: actions/upload-artifact@v4
