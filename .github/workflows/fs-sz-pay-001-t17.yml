@@ -1,0 +1,76 @@
+name: FS-SZ-PAY-001 T17 isolated qualification
+
+on:
+  push:
+    branches:
+      - qualification/fs-sz-pay-001-t17-ci
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install harness dependencies
+        working-directory: harness
+        run: python -m pip install -r requirements.txt
+      - name: Run frozen baseline
+        shell: bash
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          (cd harness && python -m pytest -q) > evidence/baseline.txt 2>&1
+          echo $? > evidence/baseline.exit
+      - name: Apply T16 candidate only in CI worktree
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("harness/app/engines/protected_consequence.py")
+          s=p.read_text()
+          old='''            except Exception:
+                  record_consequence_outcome(
+                      permit_signature=permit.signature,
+                      action_binding_hash=attempted_action_binding_hash,
+                      outcome="CONSEQUENCE_NOT_FORMED",
+                  )
+                  raise'''
+          # Preserve exact original indentation, do not guess if it has changed.
+          old='''            except Exception:
+                  record_consequence_outcome(
+                      permit_signature=permit.signature,
+                      action_binding_hash=attempted_action_binding_hash,
+                      outcome="CONSEQUENCE_NOT_FORMED",
+                  )
+                  raise'''.replace("                  ","    "*5)
+          if old not in s:
+              raise SystemExit("STOP: expected source block not found; no candidate applied")
+          p.write_text(s.replace(old,'''            except Exception:
+                  # External dispatch may have committed before acknowledgement failed.
+                  # Preserve pre-existing durable UNRESOLVED outcome.
+                  raise'''.replace("                  ","    "*5),1))
+          PY
+          git diff -- harness/app/engines/protected_consequence.py > evidence/candidate.patch
+          sha256sum harness/app/engines/protected_consequence.py > evidence/candidate.sha256
+      - name: Run candidate regression
+        if: success()
+        shell: bash
+        run: |
+          (cd harness && python -m pytest -q) > evidence/candidate.txt 2>&1
+          echo $? > evidence/candidate.exit
+      - name: Upload comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-T17-evidence
+          path: evidence/
+          if-no-files-found: warn
