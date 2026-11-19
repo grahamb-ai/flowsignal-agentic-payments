@@ -64,3 +64,8 @@ Do not merge to main or assert production Structural Zero.
 - Additional direct-INSERT alternate-executor challenge committed after this checkpoint; CI pending.
 - **Not closed:** identities with database-owner or superuser rights, role membership escalation, compromised issuer key, external rail routes, production network/IAM and independently authenticated mandate writer service. PostgreSQL reference grants are not a proof of deployed route inventory completeness.
 - The full historical regression remains RED from preserved SQLite authority-state bypasses and T23; these are not silently excluded from the archive.
+
+## Direct guarded-function credential route — hostile negative control
+A restricted PostgreSQL executor role has EXECUTE on `fs_provider.commit_if_current`. This function checks mandate standing and duplicate intent, but does **not** authenticate an institutional payment instruction. The HTTP provider verifies the signature before calling the function. A holder of the executor database credential may therefore bypass HTTP signature verification by calling the SQL function directly while the mandate is active. The direct-INSERT permission test does not address this route.
+
+Failure-first evidence workflow: `.github/workflows/fs-sz-pay-001-direct-function-negative-control.yml`. The raw probe intentionally attempts an unsigned £750,000 direct function commitment; its failure must be preserved. Until independently restricted service credential possession and direct-function invocation are established, **protected route closure is OPEN**. Do not claim bounded Structural Zero merely because the HTTP and PostgreSQL workflows pass.
