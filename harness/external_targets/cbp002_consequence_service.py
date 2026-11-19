@@ -40,6 +40,20 @@ class ExternalLedger:
                 "transfers": list(self.transfers),
             }
 
+    def reconcile(self, payload: dict) -> tuple[int, dict]:
+        """Authenticated, read-only status check for a specific signed instruction."""
+        if self._fence is None:
+            return 403, {"status": "REFUSED_UNQUALIFIED_PROVIDER_ROUTE"}
+        from app.engines.provider_instruction_verifier import verify_instruction
+        if not verify_instruction(payload, self._authorization_public_key):
+            return 403, {"status": "REFUSED_UNAUTHENTICATED_INSTRUCTION"}
+        if (payload.get("transaction_id") != payload.get("payment_intent_id")
+                or payload.get("mandate_id") != self._mandate_id):
+            return 403, {"status": "REFUSED_BINDING"}
+        result = self._fence.reconcile_transfer(payload["payment_intent_id"], payload)
+        return (200 if result["status"] in ("TRANSFER_RECORDED", "NOT_FOUND_IN_REFERENCE_LEDGER")
+                else 403), result
+
     def transfer(self, payload: dict) -> tuple[int, dict]:
         required = {
             "transaction_id",
@@ -137,6 +151,11 @@ class Handler(BaseHTTPRequestHandler):
             payload = self._json_body()
         except (json.JSONDecodeError, UnicodeDecodeError):
             self._respond(400, {"error": "INVALID_JSON"})
+            return
+
+        if self.path == "/payments/reconcile":
+            status, result = LEDGER.reconcile(payload)
+            self._respond(status, result)
             return
 
         if self.path == "/payments":
