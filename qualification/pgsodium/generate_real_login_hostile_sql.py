@@ -38,7 +38,7 @@ print("SELECT current_user AS hostile_login;")
 # Test baseline signature separately, without creating a commitment.
 print("SELECT 1 / CASE WHEN pgsodium.crypto_sign_verify_detached(" +
       "decode(" + q(signature) + ",'hex'),decode(" + q(message.hex()) +
-      ",'hex'),(SELECT public_key FROM fs_provider.institutional_issuer_keys WHERE issuer_id='TEST-ISSUER'))" +
+      ",'hex'),decode(" + q(v["public_key_hex"]) + ",'hex'))" +
       " THEN 1 ELSE 0 END AS fresh_signature_cryptographically_valid;")
 for name, expression in (
     ("unsigned_refused", call(sig="00"*64)),
@@ -46,5 +46,5 @@ for name, expression in (
     ("intent_substitution_refused", call(intent="HOSTILE-DIFFERENT-INTENT")),
     ("signed_message_mutation_refused", call(raw=("00" if message.hex()[:2] != "00" else "01") + message.hex()[2:])),
 ):
-    print("SELECT " + expression + " AS " + name + ";")
+    print("SELECT 1 / CASE WHEN " + expression + " <> 'COMMITTED' THEN 1 ELSE 0 END AS " + name + ";")
 print("SELECT 1 / CASE WHEN NOT EXISTS (SELECT 1 FROM fs_provider.commits WHERE intent_id LIKE 'HOSTILE-%') THEN 1 ELSE 0 END AS zero_hostile_commitments;")
