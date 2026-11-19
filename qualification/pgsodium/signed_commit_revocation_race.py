@@ -5,6 +5,7 @@ Uses qualification-only test issuer seed. Never deploy to production.
 """
 import json
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
@@ -53,6 +54,8 @@ def run_ordering(label, revocation_first):
     done=threading.Event()
     outcomes=[]
     errors=[]
+    worker_pid=[]
+    worker_connected=threading.Event()
     def locker():
         try:
             with psycopg2.connect(**ADMIN) as conn:
@@ -67,7 +70,13 @@ def run_ordering(label, revocation_first):
             errors.append(repr(exc))
     def worker():
         try:
-            commit(intent,mandate,outcomes)
+            with psycopg2.connect(**SERVICE) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT pg_backend_pid()")
+                    worker_pid.append(cur.fetchone()[0])
+                    worker_connected.set()
+                    cur.execute(SQL,signed_call(intent,mandate))
+                    outcomes.append(cur.fetchone()[0])
         except Exception as exc:
             errors.append(repr(exc))
         finally:
@@ -78,8 +87,22 @@ def run_ordering(label, revocation_first):
     t2=threading.Thread(target=worker)
     t2.start()
     try:
-        # The commit must not finish while the mandate lock is held.
-        assert not done.wait(0.5), "commit bypassed mandate row lock"
+        assert worker_connected.wait(10), "service login did not connect"
+        # Observe the actual PostgreSQL backend waiting on the row-lock
+        # dependency. A timeout or a merely unfinished thread is insufficient.
+        observed_lock_wait=False
+        deadline=time.monotonic()+10
+        while time.monotonic()<deadline:
+            if admin_exec("SELECT wait_event_type = 'Lock' FROM pg_stat_activity WHERE pid=%s",
+                          (worker_pid[0],)) is True:
+                observed_lock_wait=True
+                break
+            if done.is_set():
+                break
+            time.sleep(0.05)
+        assert observed_lock_wait, ("service backend not observed waiting on a PostgreSQL lock",
+                                    worker_pid,errors,outcomes)
+        assert not done.is_set(), "commit completed while mandate lock held"
     finally:
         release_lock.set()
         t1.join(20)
@@ -92,7 +115,7 @@ def run_ordering(label, revocation_first):
     if not revocation_first:
         admin_exec("UPDATE fs_provider.mandates SET revoked=true WHERE id=%s",(mandate,))
         assert admin_exec("SELECT count(*) FROM fs_provider.commits WHERE intent_id=%s",(intent,)) == 1
-    print(f"{label}: {expected}; durable_commit_count={count}; row_lock_ordering=PASS",flush=True)
+    print(f"{label}: {expected}; durable_commit_count={count}; observed_pg_lock_wait=PASS",flush=True)
 
 run_ordering("REVOKE-FIRST",True)
 run_ordering("COMMIT-FIRST",False)
