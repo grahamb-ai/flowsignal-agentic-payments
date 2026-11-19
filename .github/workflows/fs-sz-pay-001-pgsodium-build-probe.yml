@@ -41,7 +41,11 @@ jobs:
           docker exec fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -c "CREATE EXTENSION pgsodium" > pgsodium-evidence/install.txt 2>&1
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_pgsodium_capability_gate.sql > pgsodium-evidence/capability.txt 2>&1
           grep -q 'PGSODIUM FUNCTION FOUND' pgsodium-evidence/capability.txt
-          echo 'BUILD AND FUNCTION INVENTORY ONLY: signature semantics, provenance and final-commit enforcement NOT QUALIFIED' > pgsodium-evidence/disposition.txt
+          python -m pip install cryptography > pgsodium-evidence/python-deps.txt 2>&1
+          python qualification/pgsodium/generate_interop_sql.py > pgsodium-evidence/interop.sql
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < pgsodium-evidence/interop.sql > pgsodium-evidence/interop.txt 2>&1
+          cat pgsodium-evidence/interop.txt
+          echo 'CRYPTOGRAPHIC BYTE INTEROPERABILITY ONLY: provenance, canonical SQL derivation and final-commit enforcement NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
