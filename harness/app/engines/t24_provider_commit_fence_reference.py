@@ -24,6 +24,20 @@ class ProviderCommitFence:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("UPDATE mandates SET revoked=1,epoch=epoch+1 WHERE id=?",(mandate_id,))
+    def revoke_if_epoch(self, mandate_id, expected_epoch):
+        """Version-checked mutation; caller authentication belongs to updater facade.
+
+        Direct access to this method is an explicitly unqualified internal route.
+        """
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            updated = db.execute(
+                "UPDATE mandates SET revoked=1, epoch=epoch+1 "
+                "WHERE id=? AND epoch=? AND revoked=0",
+                (mandate_id, expected_epoch),
+            )
+            return "REVOKED" if updated.rowcount == 1 else "REFUSED_STALE_UPDATE"
+
     def commit(self,mandate_id,authority_epoch,intent_id):
         if not intent_id:
             raise ValueError("stable payment intent required")
