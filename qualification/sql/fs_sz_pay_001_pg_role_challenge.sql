@@ -28,13 +28,10 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 END $$;
-DO $ BEGIN
- IF NOT EXISTS (SELECT 1 FROM fs_provider.mandates WHERE id='MANDATE-A' AND epoch=1 AND NOT revoked) THEN
-  RAISE EXCEPTION 'AUTH-01..04: mandate state changed';
- END IF;
- IF EXISTS (SELECT 1 FROM fs_provider.mandates WHERE id='FORGED') THEN
-  RAISE EXCEPTION 'AUTH-01: forged mandate exists';
- END IF;
- RAISE NOTICE 'AUTH-01..04 PASS: database permissions denied mutations';
-END $;
+-- Assert unchanged state using SQL arithmetic to make unexpected state fatal.
+SELECT 1 / CASE WHEN EXISTS (
+ SELECT 1 FROM fs_provider.mandates WHERE id='MANDATE-A' AND epoch=1 AND NOT revoked
+) AND NOT EXISTS (
+ SELECT 1 FROM fs_provider.mandates WHERE id='FORGED'
+) THEN 1 ELSE 0 END AS authority_state_unchanged;
 RESET ROLE;
