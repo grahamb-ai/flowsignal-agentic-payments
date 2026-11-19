@@ -48,3 +48,10 @@ for name, expression in (
 ):
     print("SELECT 1 / CASE WHEN " + expression + " <> 'COMMITTED' THEN 1 ELSE 0 END AS " + name + ";")
 print("SELECT 1 / CASE WHEN NOT EXISTS (SELECT 1 FROM fs_provider.commits WHERE intent_id LIKE 'HOSTILE-%') THEN 1 ELSE 0 END AS zero_hostile_commitments;")
+
+# Positive control: prove that these exact signed bytes and service-login
+# privileges can commit when the fields are not altered.
+print("SELECT 1 / CASE WHEN " + call() +
+      " = 'COMMITTED' THEN 1 ELSE 0 END AS real_login_valid_positive_control;")
+print("SELECT 1 / CASE WHEN (SELECT count(*) FROM fs_provider.commits " +
+      "WHERE intent_id = 'HOSTILE-FRESH-001') = 1 THEN 1 ELSE 0 END AS positive_control_durable_once;")
