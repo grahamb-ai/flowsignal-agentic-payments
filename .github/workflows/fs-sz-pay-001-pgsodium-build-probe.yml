@@ -110,7 +110,9 @@ jobs:
           cat pgsodium-evidence/inflight-backend-kill.txt
           python qualification/pgsodium/signed_commit_noncanonical_wire_probe.py > pgsodium-evidence/noncanonical-wire.txt 2>&1
           cat pgsodium-evidence/noncanonical-wire.txt
-          echo 'RECOVERY AND CANONICAL-WIRE CHARACTERISATION: preserve REDs; full BOUNDARY-02 review remains open' > pgsodium-evidence/disposition.txt
+          docker exec -i -e PGPASSWORD=qualification-only-service fs-pgsodium-qualification psql -h 127.0.0.1 -U fs_commit_service -d postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_real_login_privilege_gate.sql > pgsodium-evidence/real-login-privileges.txt 2>&1
+          cat pgsodium-evidence/real-login-privileges.txt
+          echo 'SIGNED BOUNDARY PRIVILEGE INVENTORY AND CANONICALISATION: privileged owners, other routes and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
