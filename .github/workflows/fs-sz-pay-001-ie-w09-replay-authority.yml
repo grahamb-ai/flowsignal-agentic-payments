@@ -1,0 +1,33 @@
+name: FS-SZ-PAY-001 IE-W09 isolated replay authority reference
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/witness_rail_independent_api_reference.py'
+      - '.github/workflows/fs-sz-pay-001-ie-w09-replay-authority.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ie-w09-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run isolated API replay authority negative controls
+        shell: bash
+        run: |
+          mkdir -p ie-w09-evidence
+          git rev-parse HEAD > ie-w09-evidence/commit.txt
+          python -u qualification/pgsodium/witness_rail_independent_api_reference.py 2>&1 | tee ie-w09-evidence/results.txt
+          grep -q 'IE-W09 PRESERVED RED: administrator deleting local store reopens replay' ie-w09-evidence/results.txt
+          echo 'LOCAL REFERENCE ONLY; ADMINISTRATIVE SEPARATION AND ACTUAL RAIL OUTCOMES NOT QUALIFIED; DELETION RED PRESERVED' > ie-w09-evidence/disposition.txt
+      - name: Preserve raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-IE-W09-reference
+          path: ie-w09-evidence/
