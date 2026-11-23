@@ -123,7 +123,10 @@ jobs:
           grep -qx '0' pgsodium-evidence/direct-insert-durable-count.txt
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_privileged_route_inventory.sql > pgsodium-evidence/privileged-route-inventory.txt 2>&1
           cat pgsodium-evidence/privileged-route-inventory.txt
-          echo 'REAL-LOGIN DIRECT INSERT DENIED; OWNER/ROLE/FUNCTION INVENTORY RECORDED: privileged and alternative routes not qualified closed' > pgsodium-evidence/disposition.txt
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_privileged_owner_bypass_characterisation.sql > pgsodium-evidence/privileged-owner-bypass.txt 2>&1
+          cat pgsodium-evidence/privileged-owner-bypass.txt
+          grep -A 3 'privileged_bypass_durable_count' pgsodium-evidence/privileged-owner-bypass.txt | grep -q '1'
+          echo 'PRESERVED PRIVILEGED-OWNER RED: administrator can directly form commitment; ordinary service route protected; structural zero NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
