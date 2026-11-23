@@ -139,7 +139,9 @@ jobs:
           cat pgsodium-evidence/independent-audit-chain-reference.txt
           python qualification/pgsodium/independent_signed_checkpoint_reference.py > pgsodium-evidence/signed-checkpoint-reference.txt 2>&1
           cat pgsodium-evidence/signed-checkpoint-reference.txt
-          echo 'PRESERVED PRIVILEGED-OWNER RED; SIGNED ANCHOR LOCAL REFERENCE ONLY; independent execution/storage/keys NOT QUALIFIED' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/signed_checkpoint_rollback_reference.py > pgsodium-evidence/signed-checkpoint-rollback.txt 2>&1
+          cat pgsodium-evidence/signed-checkpoint-rollback.txt
+          echo 'PRESERVED PRIVILEGED-OWNER AND AUTHENTIC-ANCHOR ROLLBACK REDS; witness local simulation only; independent execution/storage/keys NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
