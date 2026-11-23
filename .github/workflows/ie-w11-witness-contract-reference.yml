@@ -1,0 +1,28 @@
+name: IE-W11 local witness contract reference
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/ie_w11_witness_contract_reference.py'
+      - '.github/workflows/ie-w11-witness-contract-reference.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run local witness hostile self-test
+        run: |
+          mkdir -p ie-w11-evidence
+          git rev-parse HEAD > ie-w11-evidence/commit.txt
+          python qualification/pgsodium/ie_w11_witness_contract_reference.py | tee ie-w11-evidence/raw.txt
+          grep -q 'IE-W11 LOCAL GREEN' ie-w11-evidence/raw.txt
+          grep -q 'IE-W11 PRESERVED RED' ie-w11-evidence/raw.txt
+      - name: Archive evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IE-W11-local-witness-reference
+          path: ie-w11-evidence/
