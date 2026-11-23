@@ -26,7 +26,9 @@ def recover(w,h,proof,expected,public,now):
     # The proof binds exact ledger event and expected high-water state.
     if h.current(expected["stream"])!=expected["prior_checkpoint"]:
         return "UNRESOLVED_STALE_RECOVERY_APPROVAL"
-    if expected["event"]["stream"]!=expected["stream"] or w.read(expected["stream"])!=expected["proposed_checkpoint"]:\n        return "UNRESOLVED_PROPOSED_CHECKPOINT_MISMATCH"\n    return reconcile(w,h,expected["event"],authorized=True)
+    if expected["event"]["stream"]!=expected["stream"] or w.read(expected["stream"])!=expected["proposed_checkpoint"]:
+        return "UNRESOLVED_PROPOSED_CHECKPOINT_MISMATCH"
+    return reconcile(w,h,expected["event"],authorized=True)
 
 def main():
     with tempfile.TemporaryDirectory() as d:
