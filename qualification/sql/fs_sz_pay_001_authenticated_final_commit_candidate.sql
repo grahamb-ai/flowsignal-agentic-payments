@@ -15,7 +15,6 @@ DECLARE
   proof jsonb;
   ins jsonb;
   expiry timestamptz;
-  reconstructed bytea;
   trusted_key bytea;
   current_epoch bigint;
   is_revoked boolean;
@@ -52,8 +51,8 @@ BEGIN
     RETURN 'REFUSED_INVALID_BINDING';
   END;
 
-  -- Exact supported canonical JSON byte protocol, not merely parsed equivalence.
-  -- Fail closed for unexpected keys and unsupported textual characters.
+  -- Restrict this qualification protocol to unescaped ASCII identifiers.
+  -- Compare exact UTF-8 bytes, not jsonb equivalence; no extra keys allowed.
   IF (SELECT count(*) FROM jsonb_object_keys(proof)) <> 2
      OR (SELECT count(*) FROM jsonb_object_keys(ins)) <> 9
      OR (proof->>'expires_at') !~ '^[0-9T:+.Z-]+
@@ -223,16 +222,12 @@ COMMIT;
 
   THEN RETURN 'REFUSED_NONCANONICAL_WIRE'; END IF;
   reconstructed := convert_to(
-    '{"expires_at":' || to_json(proof->>'expires_at')::text ||
-    ',"instruction":{"action":' || to_json(p_action)::text ||
-    ',"amount_minor":' || p_amount_minor::text ||
-    ',"authority_epoch":' || p_epoch::text ||
-    ',"beneficiary":' || to_json(p_beneficiary)::text ||
-    ',"currency":' || to_json(p_currency)::text ||
-    ',"mandate_id":' || to_json(p_mandate)::text ||
-    ',"payment_intent_id":' || to_json(p_intent)::text ||
-    ',"source_account":' || to_json(p_source)::text ||
-    ',"target":' || to_json(p_target)::text || '}}', 'UTF8');
+    format('{"expires_at":%s,"instruction":{"action":%s,"amount_minor":%s,"authority_epoch":%s,"beneficiary":%s,"currency":%s,"mandate_id":%s,"payment_intent_id":%s,"source_account":%s,"target":%s}}',
+      to_json(proof->>'expires_at')::text, to_json(p_action)::text,
+      p_amount_minor, p_epoch, to_json(p_beneficiary)::text,
+      to_json(p_currency)::text, to_json(p_mandate)::text,
+      to_json(p_intent)::text, to_json(p_source)::text,
+      to_json(p_target)::text), 'UTF8');
   IF reconstructed IS DISTINCT FROM p_signed_bytes
   THEN RETURN 'REFUSED_NONCANONICAL_WIRE'; END IF;
 
