@@ -126,7 +126,14 @@ jobs:
           docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_privileged_owner_bypass_characterisation.sql > pgsodium-evidence/privileged-owner-bypass.txt 2>&1
           cat pgsodium-evidence/privileged-owner-bypass.txt
           grep -A 3 'privileged_bypass_durable_count' pgsodium-evidence/privileged-owner-bypass.txt | grep -q '1'
-          echo 'PRESERVED PRIVILEGED-OWNER RED: administrator can directly form commitment; ordinary service route protected; structural zero NOT QUALIFIED' > pgsodium-evidence/disposition.txt
+          set +e
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_privileged_deployment_negative_guard.sql > pgsodium-evidence/privileged-deployment-guard.txt 2>&1
+          guard_exit=$?
+          set -e
+          echo "$guard_exit" > pgsodium-evidence/privileged-deployment-guard-exit.txt
+          test "$guard_exit" -ne 0
+          grep -q 'PRIVILEGED_ROUTE_REFUSE' pgsodium-evidence/privileged-deployment-guard.txt
+          echo 'PRESERVED PRIVILEGED-OWNER RED AND EXPECTED DEPLOYMENT REFUSAL: structural zero NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
