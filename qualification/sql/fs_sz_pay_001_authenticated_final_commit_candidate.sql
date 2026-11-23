@@ -14,6 +14,7 @@ SET search_path = pg_catalog, fs_provider, pgsodium AS $fn$
 DECLARE
   proof jsonb;
   ins jsonb;
+  reconstructed bytea;
   expiry timestamptz;
   trusted_key bytea;
   current_epoch bigint;
