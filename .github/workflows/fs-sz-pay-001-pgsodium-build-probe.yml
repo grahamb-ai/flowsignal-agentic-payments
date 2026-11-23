@@ -155,7 +155,9 @@ jobs:
           cat pgsodium-evidence/witness-rail-attestation.txt
           python qualification/pgsodium/witness_rail_freshness_revocation_reference.py > pgsodium-evidence/witness-rail-freshness-revocation.txt 2>&1
           cat pgsodium-evidence/witness-rail-freshness-revocation.txt
-          echo 'PRESERVED PRIVILEGED-OWNER, AUTHENTIC-ANCHOR ROLLBACK AND WITNESS-STORE COMPROMISE REDS; IE-W08 FRESHNESS/REVOCATION LOCAL REFERENCE ONLY; independent execution/storage/keys/rail NOT QUALIFIED' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/witness_rail_durable_replay_reference.py > pgsodium-evidence/witness-rail-durable-replay.txt 2>&1
+          cat pgsodium-evidence/witness-rail-durable-replay.txt
+          echo 'PRESERVED PRIVILEGED-OWNER, AUTHENTIC-ANCHOR ROLLBACK, WITNESS-STORE AND RAIL-REPLAY-STORE COMPROMISE REDS; LOCAL REFERENCE ONLY; independent execution/storage/keys/rail NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
