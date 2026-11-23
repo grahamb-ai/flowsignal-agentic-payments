@@ -1,0 +1,30 @@
+name: IE-W17 signed recovery approval reference
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/ie_w17_signed_recovery_approval_reference.py'
+      - '.github/workflows/ie-w17-signed-recovery-approval.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install 'cryptography>=43'
+      - name: Run signed recovery hostile reference
+        run: |
+          set -euo pipefail
+          mkdir -p ie-w17-evidence
+          git rev-parse HEAD > ie-w17-evidence/commit.txt
+          python qualification/pgsodium/ie_w17_signed_recovery_approval_reference.py | tee ie-w17-evidence/raw.txt
+          grep -q 'IE-W17 LOCAL GREEN' ie-w17-evidence/raw.txt
+          grep -q 'IE-W17 PRESERVED RED' ie-w17-evidence/raw.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IE-W17-signed-recovery-approval
+          path: ie-w17-evidence/
