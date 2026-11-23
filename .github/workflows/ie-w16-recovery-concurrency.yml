@@ -1,0 +1,30 @@
+name: IE-W16 witness recovery concurrency reference
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/ie_w16_recovery_concurrency_reference.py'
+      - '.github/workflows/ie-w16-recovery-concurrency.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run concurrent recovery reference
+        run: |
+          set -euo pipefail
+          mkdir -p ie-w16-evidence
+          git rev-parse HEAD > ie-w16-evidence/commit.txt
+          python qualification/pgsodium/ie_w16_recovery_concurrency_reference.py | tee ie-w16-evidence/raw.txt
+          grep -q 'IE-W16 OUTAGE GREEN' ie-w16-evidence/raw.txt
+          grep -q 'IE-W16 CONCURRENT GREEN' ie-w16-evidence/raw.txt
+          grep -q 'IE-W16 PRESERVED RED' ie-w16-evidence/raw.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IE-W16-recovery-concurrency
+          path: ie-w16-evidence/
