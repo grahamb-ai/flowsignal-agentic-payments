@@ -1,0 +1,50 @@
+name: FS-SZ-PAY-001 IE-W10 direct-function containment candidate
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/sql/fs_sz_pay_001_direct_function_containment_candidate.sql'
+      - '.github/workflows/fs-sz-pay-001-ie-w10-direct-function-containment.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-containment:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qualification-only
+          POSTGRES_DB: qualification
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qualification"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: qualification-only
+      PGDATABASE: qualification
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test isolated function containment
+        shell: bash
+        run: |
+          mkdir -p ie-w10-containment-evidence
+          git rev-parse HEAD > ie-w10-containment-evidence/commit.txt
+          psql -X -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_pg_role_isolation.sql > ie-w10-containment-evidence/setup.txt 2>&1
+          psql -X -v ON_ERROR_STOP=1 -f qualification/sql/fs_sz_pay_001_direct_function_containment_candidate.sql > ie-w10-containment-evidence/raw.txt 2>&1
+          cat ie-w10-containment-evidence/raw.txt
+          grep -q 'GREEN: direct function call denied by PostgreSQL' ie-w10-containment-evidence/raw.txt
+          grep -Eq '^[[:space:]]*0[[:space:]]*$' ie-w10-containment-evidence/raw.txt
+          echo 'CANDIDATE ONLY: direct function EXECUTE denied; signed provider commit and rail NOT QUALIFIED' > ie-w10-containment-evidence/disposition.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS-SZ-PAY-001-IE-W10-direct-function-containment
+          path: ie-w10-containment-evidence/
