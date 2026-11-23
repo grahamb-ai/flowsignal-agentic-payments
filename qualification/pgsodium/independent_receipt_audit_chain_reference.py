@@ -34,6 +34,12 @@ def main():
     print("IE-04 DELETE: truncated audit ledger mismatches retained checkpoint")
     assert not verify(list(reversed(original)),checkpoint)
     print("IE-04 REORDER: reordered events mismatch retained checkpoint")
+    # Preserved RED: compromise of both ledger and its unprotected checkpoint
+    # allows coherent rewrite; this local hash chain cannot detect the forgery.
+    forged_checkpoint="00"*32
+    for event in rewritten: forged_checkpoint=digest(forged_checkpoint,event)
+    assert verify(rewritten,forged_checkpoint)
+    print("IE-04 DUAL-COMPROMISE RED: rewritten ledger plus rewritten checkpoint accepted; external trust anchor REQUIRED")
     print("LIMITATION: checkpoint is only simulated as independent; no separate principal, append-only service, external settlement or anti-rollback anchor")
 
 if __name__=="__main__":main()
