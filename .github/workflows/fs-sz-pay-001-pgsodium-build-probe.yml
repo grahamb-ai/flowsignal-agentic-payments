@@ -108,7 +108,9 @@ jobs:
           cat pgsodium-evidence/post-sigkill-reconciliation.txt
           python qualification/pgsodium/signed_commit_inflight_backend_kill.py > pgsodium-evidence/inflight-backend-kill.txt 2>&1
           cat pgsodium-evidence/inflight-backend-kill.txt
-          echo 'POST-COMMIT SIGKILL AND IN-FLIGHT BACKEND TERMINATION: full-server in-flight crash, external settlement and BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
+          python qualification/pgsodium/signed_commit_noncanonical_wire_probe.py > pgsodium-evidence/noncanonical-wire.txt 2>&1
+          cat pgsodium-evidence/noncanonical-wire.txt
+          echo 'RECOVERY AND CANONICAL-WIRE CHARACTERISATION: preserve REDs; full BOUNDARY-02 review remains open' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
