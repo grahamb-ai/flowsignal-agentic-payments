@@ -52,12 +52,11 @@ BEGIN
     RETURN 'REFUSED_INVALID_BINDING';
   END;
 
-  -- Candidate strict wire gate: reconstruct the Python sort_keys/separators
-  -- encoding for the supported ASCII-only payment protocol subset.
-  -- Non-ASCII and unexpected keys fail closed pending cross-language review.
+  -- Exact supported canonical JSON byte protocol, not merely parsed equivalence.
+  -- Fail closed for unexpected keys and unsupported textual characters.
   IF (SELECT count(*) FROM jsonb_object_keys(proof)) <> 2
      OR (SELECT count(*) FROM jsonb_object_keys(ins)) <> 9
-     OR (proof->>'expires_at') !~ '^[0-9T:+.\\-Z]+
+     OR (proof->>'expires_at') !~ '^[0-9T:+.Z-]+
     FROM fs_provider.institutional_issuer_keys
    WHERE issuer_id = p_issuer AND enabled
      AND valid_from <= clock_timestamp()
@@ -90,7 +89,7 @@ REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
  text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
 COMMIT;
 
-     OR p_intent !~ '^[[:ascii:]]+
+     OR p_intent !~ '^[A-Za-z0-9_-]+
     FROM fs_provider.institutional_issuer_keys
    WHERE issuer_id = p_issuer AND enabled
      AND valid_from <= clock_timestamp()
@@ -123,7 +122,7 @@ REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
  text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
 COMMIT;
 
-     OR p_mandate !~ '^[[:ascii:]]+
+     OR p_mandate !~ '^[A-Za-z0-9_-]+
     FROM fs_provider.institutional_issuer_keys
    WHERE issuer_id = p_issuer AND enabled
      AND valid_from <= clock_timestamp()
@@ -156,7 +155,7 @@ REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
  text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
 COMMIT;
 
-     OR p_source !~ '^[[:ascii:]]+
+     OR p_source !~ '^[A-Za-z0-9_-]+
     FROM fs_provider.institutional_issuer_keys
    WHERE issuer_id = p_issuer AND enabled
      AND valid_from <= clock_timestamp()
@@ -189,106 +188,7 @@ REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
  text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
 COMMIT;
 
-     OR p_beneficiary !~ '^[[:ascii:]]+
-    FROM fs_provider.institutional_issuer_keys
-   WHERE issuer_id = p_issuer AND enabled
-     AND valid_from <= clock_timestamp()
-     AND (valid_until IS NULL OR valid_until > clock_timestamp());
-  IF trusted_key IS NULL THEN RETURN 'REFUSED_UNTRUSTED_ISSUER'; END IF;
-  BEGIN
-    IF pgsodium.crypto_sign_verify_detached(p_signature,p_signed_bytes,trusted_key) IS DISTINCT FROM TRUE
-    THEN RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION'; END IF;
-  EXCEPTION WHEN others THEN
-    -- Invalid signatures may raise rather than return false. Never let
-    -- a cryptographic exception become an authority grant.
-    RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION';
-  END;
-
-  SELECT epoch,revoked INTO current_epoch,is_revoked
-    FROM fs_provider.mandates WHERE id=p_mandate FOR UPDATE;
-  IF NOT FOUND OR is_revoked OR current_epoch <> p_epoch
-  THEN RETURN 'REFUSED_AUTHORITY'; END IF;
-  INSERT INTO fs_provider.commits(intent_id,mandate_id,epoch,amount_minor,beneficiary)
-  VALUES (p_intent,p_mandate,p_epoch,p_amount_minor,p_beneficiary)
-  ON CONFLICT (intent_id) DO NOTHING;
-  IF NOT FOUND THEN RETURN 'REFUSED_DUPLICATE_INTENT'; END IF;
-  RETURN 'COMMITTED';
-END $fn$;
-REVOKE ALL ON FUNCTION fs_provider.commit_signed_if_current(
- text,bytea,bytea,text,text,bigint,text,text,bigint,text,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION fs_provider.commit_signed_if_current(
- text,bytea,bytea,text,text,bigint,text,text,bigint,text,text,text) TO fs_commit_service;
-REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
- text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
-COMMIT;
-
-     OR p_currency !~ '^[[:ascii:]]+
-    FROM fs_provider.institutional_issuer_keys
-   WHERE issuer_id = p_issuer AND enabled
-     AND valid_from <= clock_timestamp()
-     AND (valid_until IS NULL OR valid_until > clock_timestamp());
-  IF trusted_key IS NULL THEN RETURN 'REFUSED_UNTRUSTED_ISSUER'; END IF;
-  BEGIN
-    IF pgsodium.crypto_sign_verify_detached(p_signature,p_signed_bytes,trusted_key) IS DISTINCT FROM TRUE
-    THEN RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION'; END IF;
-  EXCEPTION WHEN others THEN
-    -- Invalid signatures may raise rather than return false. Never let
-    -- a cryptographic exception become an authority grant.
-    RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION';
-  END;
-
-  SELECT epoch,revoked INTO current_epoch,is_revoked
-    FROM fs_provider.mandates WHERE id=p_mandate FOR UPDATE;
-  IF NOT FOUND OR is_revoked OR current_epoch <> p_epoch
-  THEN RETURN 'REFUSED_AUTHORITY'; END IF;
-  INSERT INTO fs_provider.commits(intent_id,mandate_id,epoch,amount_minor,beneficiary)
-  VALUES (p_intent,p_mandate,p_epoch,p_amount_minor,p_beneficiary)
-  ON CONFLICT (intent_id) DO NOTHING;
-  IF NOT FOUND THEN RETURN 'REFUSED_DUPLICATE_INTENT'; END IF;
-  RETURN 'COMMITTED';
-END $fn$;
-REVOKE ALL ON FUNCTION fs_provider.commit_signed_if_current(
- text,bytea,bytea,text,text,bigint,text,text,bigint,text,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION fs_provider.commit_signed_if_current(
- text,bytea,bytea,text,text,bigint,text,text,bigint,text,text,text) TO fs_commit_service;
-REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
- text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
-COMMIT;
-
-     OR p_action !~ '^[[:ascii:]]+
-    FROM fs_provider.institutional_issuer_keys
-   WHERE issuer_id = p_issuer AND enabled
-     AND valid_from <= clock_timestamp()
-     AND (valid_until IS NULL OR valid_until > clock_timestamp());
-  IF trusted_key IS NULL THEN RETURN 'REFUSED_UNTRUSTED_ISSUER'; END IF;
-  BEGIN
-    IF pgsodium.crypto_sign_verify_detached(p_signature,p_signed_bytes,trusted_key) IS DISTINCT FROM TRUE
-    THEN RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION'; END IF;
-  EXCEPTION WHEN others THEN
-    -- Invalid signatures may raise rather than return false. Never let
-    -- a cryptographic exception become an authority grant.
-    RETURN 'REFUSED_UNAUTHENTICATED_INSTRUCTION';
-  END;
-
-  SELECT epoch,revoked INTO current_epoch,is_revoked
-    FROM fs_provider.mandates WHERE id=p_mandate FOR UPDATE;
-  IF NOT FOUND OR is_revoked OR current_epoch <> p_epoch
-  THEN RETURN 'REFUSED_AUTHORITY'; END IF;
-  INSERT INTO fs_provider.commits(intent_id,mandate_id,epoch,amount_minor,beneficiary)
-  VALUES (p_intent,p_mandate,p_epoch,p_amount_minor,p_beneficiary)
-  ON CONFLICT (intent_id) DO NOTHING;
-  IF NOT FOUND THEN RETURN 'REFUSED_DUPLICATE_INTENT'; END IF;
-  RETURN 'COMMITTED';
-END $fn$;
-REVOKE ALL ON FUNCTION fs_provider.commit_signed_if_current(
- text,bytea,bytea,text,text,bigint,text,text,bigint,text,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION fs_provider.commit_signed_if_current(
- text,bytea,bytea,text,text,bigint,text,text,bigint,text,text,text) TO fs_commit_service;
-REVOKE EXECUTE ON FUNCTION fs_provider.commit_if_current(
- text,text,bigint,bigint,text) FROM fs_commit_service,fs_payment_executor,PUBLIC;
-COMMIT;
-
-     OR p_target !~ '^[[:ascii:]]+
+     OR p_beneficiary !~ '^[A-Za-z0-9_-]+
     FROM fs_provider.institutional_issuer_keys
    WHERE issuer_id = p_issuer AND enabled
      AND valid_from <= clock_timestamp()
