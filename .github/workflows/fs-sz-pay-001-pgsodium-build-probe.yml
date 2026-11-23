@@ -121,7 +121,9 @@ jobs:
           grep -q 'permission denied' pgsodium-evidence/direct-insert-attack.txt
           docker exec fs-pgsodium-qualification psql -U postgres -At -c "SELECT count(*) FROM fs_provider.commits WHERE intent_id='PRIVILEGE-DIRECT-BYPASS-001'" > pgsodium-evidence/direct-insert-durable-count.txt
           grep -qx '0' pgsodium-evidence/direct-insert-durable-count.txt
-          echo 'REAL-LOGIN DIRECT INSERT DENIED: privileged owners, other routes and full BOUNDARY-02 review remain open' > pgsodium-evidence/disposition.txt
+          docker exec -i fs-pgsodium-qualification psql -U postgres -v ON_ERROR_STOP=1 -f /dev/stdin < qualification/sql/fs_sz_pay_001_privileged_route_inventory.sql > pgsodium-evidence/privileged-route-inventory.txt 2>&1
+          cat pgsodium-evidence/privileged-route-inventory.txt
+          echo 'REAL-LOGIN DIRECT INSERT DENIED; OWNER/ROLE/FUNCTION INVENTORY RECORDED: privileged and alternative routes not qualified closed' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
         uses: actions/upload-artifact@v4
