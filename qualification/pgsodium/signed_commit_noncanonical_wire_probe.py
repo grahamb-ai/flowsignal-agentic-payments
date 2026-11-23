@@ -39,9 +39,6 @@ with psycopg2.connect(**ADMIN) as db:
     with db.cursor() as cur:
         cur.execute("SELECT count(*) FROM fs_provider.commits WHERE intent_id=%s",(intent,))
         count=cur.fetchone()[0]
-assert (outcome=="COMMITTED")== (count==1),(outcome,count)
+assert outcome=="REFUSED_NONCANONICAL_WIRE" and count==0,(outcome,count)
 print(f"NONCANONICAL_SIGNED_WIRE: outcome={outcome}; durable={count}; canonical_bytes_equal=false")
-if outcome=="COMMITTED":
-    print("PRESERVED RED CHARACTERISATION: SQL gate accepts signed noncanonical JSON bytes; strict wire canonicalisation NOT ENFORCED")
-else:
-    print("NONCANONICAL REFUSED: investigate exact reason before claiming canonicalisation enforcement")
+print("CANDIDATE REMEDIATION: signed noncanonical wire explicitly refused; historical RED preserved in earlier CI artifact")
