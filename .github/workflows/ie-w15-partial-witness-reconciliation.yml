@@ -1,0 +1,29 @@
+name: IE-W15 partial witness reconciliation reference
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/ie_w15_partial_advance_reconciliation_reference.py'
+      - '.github/workflows/ie-w15-partial-witness-reconciliation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise partial advance reconciliation
+        run: |
+          set -euo pipefail
+          mkdir -p ie-w15-evidence
+          git rev-parse HEAD > ie-w15-evidence/commit.txt
+          python qualification/pgsodium/ie_w15_partial_advance_reconciliation_reference.py | tee ie-w15-evidence/raw.txt
+          grep -q 'IE-W15 LOCAL GREEN' ie-w15-evidence/raw.txt
+          grep -q 'IE-W15 PRESERVED RED' ie-w15-evidence/raw.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IE-W15-partial-reconciliation
+          path: ie-w15-evidence/
