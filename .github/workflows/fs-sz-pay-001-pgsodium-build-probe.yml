@@ -135,6 +135,8 @@ jobs:
           grep -q 'PRIVILEGED_ROUTE_REFUSE' pgsodium-evidence/privileged-deployment-guard.txt
           python qualification/pgsodium/independent_receipt_crypto_reference.py > pgsodium-evidence/independent-receipt-reference.txt 2>&1
           cat pgsodium-evidence/independent-receipt-reference.txt
+          python qualification/pgsodium/independent_receipt_audit_chain_reference.py > pgsodium-evidence/independent-audit-chain-reference.txt 2>&1
+          cat pgsodium-evidence/independent-audit-chain-reference.txt
           echo 'PRESERVED PRIVILEGED-OWNER RED; RECEIPT CRYPTO REFERENCE ONLY; independent execution/storage/keys NOT QUALIFIED' > pgsodium-evidence/disposition.txt
       - name: Preserve raw experiment
         if: always()
