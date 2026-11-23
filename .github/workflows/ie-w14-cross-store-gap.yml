@@ -1,0 +1,29 @@
+name: IE-W14 cross-store crash-gap characterisation
+on:
+  push:
+    branches: [qualification/fs-sz-pay-001-consolidation-candidate]
+    paths:
+      - 'qualification/pgsodium/ie_w14_cross_store_gap_reference.py'
+      - '.github/workflows/ie-w14-cross-store-gap.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Characterise non-atomic cross-store gap
+        run: |
+          set -euo pipefail
+          mkdir -p ie-w14-evidence
+          git rev-parse HEAD > ie-w14-evidence/commit.txt
+          python qualification/pgsodium/ie_w14_cross_store_gap_reference.py | tee ie-w14-evidence/raw.txt
+          grep -q 'IE-W14 PRESERVED RED' ie-w14-evidence/raw.txt
+          grep -q 'IE-W14 RECOVERY BLOCKER' ie-w14-evidence/raw.txt
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IE-W14-cross-store-gap
+          path: ie-w14-evidence/
